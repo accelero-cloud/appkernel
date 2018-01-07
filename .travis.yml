@@ -1,0 +1,24 @@
+language: python
+python:
+  - "2.7"
+
+services:
+  - mongodb
+  - redis-server
+
+before_script:
+  - "pip install -U pip setuptools pytest pylint"
+
+script:
+  - "pip install --editable ."
+  - "pytest tests/ -s -v --capture=no"
+  - "pylint appkernel"
+
+before_deploy:
+  - "python setup.py build -vf"
+
+#  deploy:
+#  - provider: pypi
+#    user: $REPO_USER
+#    password: $REPO_PASS
+#    distributions: "bdist_wheel sdist"

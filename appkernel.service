@@ -1,0 +1,19 @@
+
+[Unit]
+Description=AppKernel Microservice Chassis
+After=syslog.target network.target
+# Conflicts=sendmail.service exim.service
+
+[Service]
+Type=forking
+PIDFile=/var/run/appkernel.pid
+#EnvironmentFile=-/opt/sysconfig/network
+#ExecStartPre=-/usr/libexec/postfix/aliasesdb
+#ExecStartPre=-/usr/libexec/postfix/chroot-update
+ExecStart=/opt/appkernel/service.sh start
+ExecReload=/opt/appkernel/service.sh restart
+ExecStop=/opt/appkernel/service.sh stop
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
