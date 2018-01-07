@@ -48,10 +48,8 @@ def assure_folder(folder_path):
         os.makedirs(folder_path)
 
 
-def merge_two_dicts(x, y):
-    z = x.copy()  # start with x's keys and values
-    z.update(y)  # modifies z with y's keys and values & returns None
-    return z
+def merge_two_dicts(x_dict, y_dict):
+    return x_dict.copy().update(y_dict)
 
 class Configurator(object):
     """

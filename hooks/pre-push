@@ -71,7 +71,7 @@ check_result $? ">> Error: could not switch to virtualenv"
 pytest ${PROJECT_DIR}/tests -s -v --capture=no
 check_result $? "some tests are failed, please fix it first."
 
-modules=("appkernel" "opsmaster" "plugins")
+modules=("appkernel")
 for module in "${modules[@]}"
     do
         echo ">> analysing module: ${1}/${module}"
