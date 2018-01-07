@@ -1,0 +1,119 @@
+from pymongo import MongoClient
+from datetime import datetime
+from model import Model, Expression
+
+database = MongoClient()['opsmaster']
+
+
+def xtract(cls):
+    """
+    :param cls: the class object
+    :return: the name of the desired collection
+    """
+    return '{}s'.format(cls.__name__)
+
+
+class Query(object):
+    """a class representin the query"""
+
+    def __init__(self):
+        pass
+
+
+class Repository(object):
+
+    def __init__(self):
+        self.__class__.cname = xtract(self.__class__)
+
+    @classmethod
+    def get_collection(cls):
+        return database[xtract(cls)]
+
+    @classmethod
+    def find_by_id(cls, object_id):
+        assert object_id, 'the id of the lookup object must be defined'
+        document_dict = cls.get_collection().find_one({'_id': object_id})
+        return Model.from_dict(document_dict, cls, convert_ids=True) if document_dict else None
+
+    @classmethod
+    def find(cls, *expressions):
+        cls.get_collection().find()
+
+    @classmethod
+    def _parse_expressions(cls, expressions):
+        raise NotImplemented
+        # assert isinstance(expressions, list), 'The converter lists only'
+        # if len(expressions) < 2:
+        # for expr in expressions:
+        #     assert isinstance(expr, Expression), 'Queries can only be built using {}.'.format(Expression.__class__.__name__)
+
+
+
+    @classmethod
+    def find_by_query(cls, query_dict={}):
+        """
+        query using mongo's built-in query language
+        :param query_dict: the query expression as a dictionary
+        :return: a generator with the query results
+        """
+        return (Model.from_dict(result, cls, convert_ids=True) for result in cls.get_collection().find(query_dict))
+
+    @classmethod
+    def update_many(cls, match_query_dict, update_expression_dict):
+        """
+        updates multiple documents in the database
+        :param match_query_dict: the query expression to match the documents to be updated
+        :param update_expression_dict:
+        :return: the number of modified documents
+        """
+        update_result = cls.get_collection().update_many(match_query_dict, update_expression_dict)
+        return update_result.modified_count
+
+    @classmethod
+    def delete_many(cls, match_query_dict):
+        return cls.get_collection().delete_many(match_query_dict).deleted_count
+
+    @classmethod
+    def delete_all(cls):
+        """
+        deletes all documents from the collection
+        :return: the count of deleted documents
+        """
+        return cls.get_collection().delete_many({}).deleted_count
+
+    @classmethod
+    def count(cls, query_filter={}):
+        return cls.get_collection().count(query_filter)
+
+    @classmethod
+    def aggregate(cls, pipeline_dict, allow_disk_use=False, batch_size=100):
+        return cls.get_collection().aggregate(pipeline_dict, allowDiskUse=allow_disk_use, batchSize=batch_size)
+
+    def save(self):
+        document = Model.to_dict(self, convert_id=True)
+        update_result = database[self.__class__.cname].update_one({'_id': self.id}, document, upsert=True)
+        return update_result.upserted_id
+
+    def delete(self):
+        return database[self.__class__.cname].delete_one({'_id': self.id}).deleted_count
+
+
+class AuditableRepository(Repository):
+
+    def __init__(self):
+        super(AuditableRepository, self).__init__()
+
+    def save(self):
+        now = datetime.now()
+        document = Model.to_dict(self, convert_id=True)
+        if 'version' in document:
+            del document['version']
+        document.update(updated=now)
+        upsert_expression = {
+            '$set': document,
+            '$setOnInsert': {'created': now},
+            '$inc': {'version': 1}
+        }
+        assert self.id, 'the unique id of the object most be provided'
+        update_result = database[self.__class__.cname].update_one({'_id': self.id}, upsert_expression, upsert=True)
+        return update_result.upserted_id or self.id
