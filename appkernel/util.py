@@ -1,14 +1,44 @@
-
 import datetime, sys, os, tarfile, yaml
-import json
 
-def default_serializer(obj):
+import base64
+from bson import ObjectId
+
+from compat import PY3
+
+OBJ_PREFIX = 'OBJ_'
+
+
+def default_json_serializer(obj):
     if isinstance(obj, (datetime.datetime, datetime.date)):
         return obj.isoformat()
-    if isinstance(obj, basestring):
-            return obj.decode('utf-8')
-
+    elif isinstance(obj, datetime.timedelta):
+        return (datetime.datetime.min + obj).time().isoformat()
+    elif isinstance(obj, (str, basestring)):
+        return obj.decode('utf-8')
+    elif isinstance(obj, ObjectId):
+        return '{}{}'.format(OBJ_PREFIX, str(obj))
+    else:
+        str(obj)
     # raise TypeError("%r is not JSON serializable" % obj)
+
+
+def default_json_hook(dict):
+    # return lambda d: namedtuple('X', d.keys())(*d.values())
+    pass
+
+
+def b64encode(data):
+    payload = base64.b64encode(data)
+    if PY3 and type(payload) is bytes:
+        payload = payload.decode('ascii')
+    return payload
+
+
+def b64decode(payload):
+    if PY3 and type(payload) is not bytes:
+        payload = bytes(payload, 'ascii')
+    return base64.b64decode(payload)
+
 
 def sanitize(content):
     if content or content == 0:
@@ -21,6 +51,7 @@ def sanitize(content):
             return u''
     else:
         return u''
+
 
 def make_tar_file(source_file, output_name):
     """
@@ -48,8 +79,9 @@ def assure_folder(folder_path):
         os.makedirs(folder_path)
 
 
-def merge_two_dicts(x_dict, y_dict):
+def merge_dicts(x_dict, y_dict):
     return x_dict.copy().update(y_dict)
+
 
 class Configurator(object):
     """

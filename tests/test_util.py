@@ -37,10 +37,18 @@ class Task(Model, AuditableRepository):
 class Project(Model, AuditableRepository):
     name = Parameter(str, required=True, validators=[NotEmpty()])
     tasks = Parameter(list, sub_type=Task)
+    created = Parameter(datetime, required=True, generator=date_now_generator)
 
     def __init__(self, **kwargs):
         Model.init_model(self, **kwargs)
 
 
-def create_project():
+def create_simple_project():
     p = Project(name='some_project_name').append_to(tasks=Task(name='some task'))
+    return p
+
+def create_rich_project():
+    p = Project().update(name='some project'). \
+        append_to(tasks=[Task(name='some_task', description='some description'), Task(name='some_other_task', description='some other description')])
+    p.undefined_parameter = 'some undefined parameter'
+    return p

@@ -1,4 +1,3 @@
-from opsmaster.models.core import *
 from test_util import *
 from appkernel.model import *
 
@@ -43,7 +42,7 @@ def test_basic_model():
     p2 = Project.find_by_id(obj_id)
     print '> dict of p2: {}'.format(Model.to_dict(p2, convert_id=False))
     p2.describe()
-    print '>str reloaded object :: %s' % p2
+    print '> str reloaded object :: %s' % p2
     assert p2.undefined_parameter == 'something else'
     assert p2.id is not None
     assert p2.name == 'somename'

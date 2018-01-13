@@ -1,5 +1,13 @@
-## Configuring a Model Object
 
+
+An
+
+-[ ] automatically generate prefixed database ID
+-[ ]
+
+-[ ] parsing of json elements
+
+## Configuring a Model Object
 ```python
 from appkernel.model import *
 from appkernel.repository import *

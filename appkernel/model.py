@@ -1,7 +1,12 @@
+from bson import ObjectId
 from enum import Enum
-import re, json, uuid
+import re, uuid
 from datetime import datetime, date
-from appkernel.util import default_serializer
+try:
+    import simplejson as json
+except ImportError:
+    import json
+from util import default_json_serializer, OBJ_PREFIX
 
 
 def create_uui_generator(prefix=None):
@@ -183,7 +188,19 @@ class Parameter(object):
     #     return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
 
 
+def convert_date_time(string):
+    return datetime.strptime(string, '%Y-%m-%dT%H:%M:%S.%f')
+
+
+def default_convert(string):
+    return string
+
+
 class Model(object):
+    type_converters = {
+        date: convert_date_time,
+        datetime: convert_date_time
+    }
 
     def update(self, **kwargs):
         for name in kwargs:
@@ -289,7 +306,14 @@ class Model(object):
                             setattr(instance, key, Model.from_list(val, parameter.sub_type))
                         elif issubclass(parameter.python_type, Enum):
                             setattr(instance, key, parameter.python_type[val])
+                        elif (key == '_id' or key == 'id') and isinstance(val, (str, basestring)) and val.startswith(OBJ_PREFIX):
+                            # check if the object id is a mongo object id
+                            setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[0]))
+                        elif isinstance(val, (basestring, str)):
+                            # convert json string elements into target types based on the Parameter class
+                            setattr(instance, key, Model.type_converters.get(parameter.python_type, default_convert)(val))
                         else:
+                            # set object elements on the target instance
                             setattr(instance, key, val)
                 elif set_unmanaged_parameters:
                     setattr(instance, key, val)
@@ -307,13 +331,15 @@ class Model(object):
                 return_list.append(Model.from_dict(item, item_cls))
         return return_list
 
-    def dumps(self, validate=True):
-        return json.dumps(Model.to_dict(self, validate=validate), default=default_serializer, sort_keys=True)
+    def dumps(self, validate=True, pretty_print=False):
+        model_as_dict = Model.to_dict(self, validate=validate)
+        return json.dumps(model_as_dict, default=default_json_serializer, indent=4 if pretty_print else None, sort_keys=True)
 
-    @staticmethod
-    def loads(json_string, cls):
+
+    @classmethod
+    def loads(cls, json_string):
         # type: (basestring, cls) -> Model
-        return Model.from_dict(json.loads(json_string), cls) #use object_hook
+        return Model.from_dict(json.loads(json_string), cls)
 
     def validate_and_finalise(self):
         obj_items = self.__dict__
