@@ -80,5 +80,4 @@ for module in "${modules[@]}"
         pylint --rcfile=${PROJECT_DIR}/pylintrc ${MODULE_DIR}
         check_result $? ">> Error: pylint did not accepted the style of ${module}. Please fix it before pushing."
     done
-
 exit 0

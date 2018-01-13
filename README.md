@@ -11,6 +11,18 @@ source venv/bin/activate
 pip install -e .
 ```
 
+### Run the tests on demand
+```bash
+pip install pytest
+pytest tests/ -s -v --capture=no
+```
+
+### Run pylint on demand
+```bash
+pip install pylint
+pylint appkernel
+```
+
 ### Setup git hooks
 
 ```bash
@@ -41,7 +53,7 @@ Check the setup and load:
 python setup.py register -r pypitest
 ```
 
-
+Than upload the package in both of the repositories
 ```bash
 source ./venv/bin/activate
 python setup.py build bdist_wheel upload -r pypitest

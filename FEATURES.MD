@@ -1,22 +1,8 @@
+## Configuring a Model Object
+
+```python
 from appkernel.model import *
-from datetime import datetime
-
-from appkernel.repository import AuditableRepository, Repository
-
-
-def uui_generator(prefix=None):
-    def generate_id():
-        return '{}{}'.format(prefix, str(uuid.uuid4()))
-    return generate_id
-
-
-def date_now_generator():
-    return datetime.now()
-
-
-class TestClass(Model):
-    just_numbers = Parameter(str, required=True, validators=[Regexp('^[0-9]+$')])
-
+from appkernel.repository import *
 
 class Task(Model, AuditableRepository):
     id = Parameter(str, required=True, generator=uui_generator('U'))
@@ -40,7 +26,4 @@ class Project(Model, AuditableRepository):
 
     def __init__(self, **kwargs):
         Model.init_model(self, **kwargs)
-
-
-def create_project():
-    p = Project(name='some_project_name').append_to(tasks=Task(name='some task'))
+```

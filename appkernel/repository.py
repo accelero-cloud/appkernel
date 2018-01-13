@@ -22,8 +22,8 @@ class Query(object):
 
 class Repository(object):
 
-    def __init__(self):
-        self.__class__.cname = xtract(self.__class__)
+    def collection(self):
+        return database[xtract(self.__class__)]
 
     @classmethod
     def get_collection(cls):
@@ -31,7 +31,7 @@ class Repository(object):
 
     @classmethod
     def find_by_id(cls, object_id):
-        assert object_id, 'the id of the lookup object must be defined'
+        assert object_id, 'the id of the lookup object must be provided'
         document_dict = cls.get_collection().find_one({'_id': object_id})
         return Model.from_dict(document_dict, cls, convert_ids=True) if document_dict else None
 
@@ -46,8 +46,6 @@ class Repository(object):
         # if len(expressions) < 2:
         # for expr in expressions:
         #     assert isinstance(expr, Expression), 'Queries can only be built using {}.'.format(Expression.__class__.__name__)
-
-
 
     @classmethod
     def find_by_query(cls, query_dict={}):
@@ -90,30 +88,45 @@ class Repository(object):
         return cls.get_collection().aggregate(pipeline_dict, allowDiskUse=allow_disk_use, batchSize=batch_size)
 
     def save(self):
+        """
+        Saves or updates a document in the database
+        :return: the id of the inserted or upserted document
+        """
         document = Model.to_dict(self, convert_id=True)
-        update_result = database[self.__class__.cname].update_one({'_id': self.id}, document, upsert=True)
-        return update_result.upserted_id
+        if hasattr(self, 'id'):
+            update_result = self.collection().update_one({'_id': self.id}, {'$set': document}, upsert=True)
+            return update_result.upserted_id or self.id
+        else:
+            insert_result = self.collection().insert_one(document)
+            return insert_result.inserted_id
 
     def delete(self):
-        return database[self.__class__.cname].delete_one({'_id': self.id}).deleted_count
+        return self.collection().delete_one({'_id': self.id}).deleted_count
 
 
 class AuditableRepository(Repository):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(AuditableRepository, self).__init__()
 
     def save(self):
         now = datetime.now()
         document = Model.to_dict(self, convert_id=True)
-        if 'version' in document:
-            del document['version']
         document.update(updated=now)
-        upsert_expression = {
-            '$set': document,
-            '$setOnInsert': {'created': now},
-            '$inc': {'version': 1}
-        }
-        assert self.id, 'the unique id of the object most be provided'
-        update_result = database[self.__class__.cname].update_one({'_id': self.id}, upsert_expression, upsert=True)
-        return update_result.upserted_id or self.id
+
+        if hasattr(self, 'id'):
+            # it is an update or a first insert with generated ID
+            if 'version' in document:
+                del document['version']
+            upsert_expression = {
+                '$set': document,
+                '$setOnInsert': {'inserted': now},
+                '$inc': {'version': 1}
+            }
+            update_result = self.collection().update_one({'_id': self.id}, upsert_expression, upsert=True)
+            return update_result.upserted_id or self.id
+        else:
+            # it is an insert for sure, we initialise the audit fields
+            document.update(inserted=now, version=1)
+            insert_result = self.collection().insert_one(document)
+            return insert_result.inserted_id

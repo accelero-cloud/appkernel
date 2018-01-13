@@ -184,6 +184,7 @@ class Parameter(object):
 
 
 class Model(object):
+
     def update(self, **kwargs):
         for name in kwargs:
             setattr(self, name, kwargs[name])
@@ -225,17 +226,25 @@ class Model(object):
                 raise AttributeError('The attribute {} is missing from the {} class.'.format(name, self.__class__.__name__))
 
     def __str__(self):
-        return "<%s> %r" % (self.__class__.__name__, Model.dumps(self))
+        return "<{}> {}".format(self.__class__.__name__, Model.dumps(self, validate=False))
 
     @staticmethod
-    def to_dict(instance, convert_id=False):
+    def init_model(instance, **kwargs):
+        if isinstance(instance, Model):
+            instance.update(**kwargs)
+        else:
+            raise TypeError('The Model initialisation works only with instances which inherit from Model.')
+
+    @staticmethod
+    def to_dict(instance, convert_id=False, validate=True):
         """
         Turns the python instance object into a dictionary
+        :param validate: if false, the validation of the object will be skipped
         :param convert_id: it will convert id fields to _id for mongodb
         :param instance: the pythin instance object
         :return: a dictionary representing the python object
         """
-        if isinstance(instance, Model):
+        if validate and isinstance(instance, Model):
             instance.validate_and_finalise()
         if not hasattr(instance, '__dict__') and not isinstance(instance, dict):
             return instance
@@ -260,7 +269,7 @@ class Model(object):
         # type: (dict, cls) -> Model
         """
         :param set_unmanaged_parameters: if False, key-value pairs from the dict object which are not class variables on the Model (there is no Parameter object for them) will not be set
-        :param convert_ids: strip the underscore prefix from objec id parameter is exists ( _id -> id )
+        :param convert_ids: strip the underscore prefix from object id parameter is exists ( _id -> id )
         :param dict_obj: the dictionary to be converted to object
         :param cls: the type of the object needs to be returned
         :return: returns an instantiated object from the dict
@@ -268,22 +277,22 @@ class Model(object):
         instance = cls()
         class_variables = [f for f in set(dir(instance)) if Model._include_param(f, cls)]
         if dict_obj and isinstance(dict_obj, dict):
-            for k, v in dict_obj.items():
-                if convert_ids and k == '_id':
-                    k = 'id'
-                if k in class_variables:
-                    parameter = getattr(cls, k)
+            for key, val in dict_obj.items():
+                if convert_ids and key == '_id':
+                    key = 'id'
+                if key in class_variables:
+                    parameter = getattr(cls, key)
                     if isinstance(parameter, Parameter):
                         if issubclass(parameter.python_type, Model):
-                            setattr(instance, k, Model.from_dict(v, parameter.python_type))
+                            setattr(instance, key, Model.from_dict(val, parameter.python_type))
                         elif issubclass(parameter.python_type, list):
-                            setattr(instance, k, Model.from_list(v, parameter.sub_type))
+                            setattr(instance, key, Model.from_list(val, parameter.sub_type))
                         elif issubclass(parameter.python_type, Enum):
-                            setattr(instance, k, parameter.python_type[v])
+                            setattr(instance, key, parameter.python_type[val])
                         else:
-                            setattr(instance, k, v)
+                            setattr(instance, key, val)
                 elif set_unmanaged_parameters:
-                    setattr(instance, k, v)
+                    setattr(instance, key, val)
         return instance
 
     @staticmethod
@@ -298,9 +307,8 @@ class Model(object):
                 return_list.append(Model.from_dict(item, item_cls))
         return return_list
 
-    def dumps(self):
-        print '==> {}'.format(Model.to_dict(self))
-        return json.dumps(Model.to_dict(self), default=default_serializer, sort_keys=True)
+    def dumps(self, validate=True):
+        return json.dumps(Model.to_dict(self, validate=validate), default=default_serializer, sort_keys=True)
 
     @staticmethod
     def loads(json_string, cls):
@@ -332,7 +340,7 @@ class Model(object):
     def describe(self):
         props = set(dir(self))
         # print '(P): %s' % dir(self)
-        obj_dict = {k: v for k, v in self.__dict__.items()}
+        # obj_dict = {k: v for k, v in self.__dict__.items()}
         print "params: %s" % [f for f in props if self._include_param(f, self.__class__)]
         # print "vars :: %s" % vars(list).keys()
 
