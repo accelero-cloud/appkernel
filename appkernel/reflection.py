@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 from compat import PY3
 import types
 import inspect

@@ -5,7 +5,7 @@ from bson import ObjectId
 
 from compat import PY3
 
-OBJ_PREFIX = 'OBJ_'
+OBJ_PREFIX = 'OBJ_' # pylint: disable-msg=C0103
 
 
 def default_json_serializer(obj):
@@ -20,11 +20,6 @@ def default_json_serializer(obj):
     else:
         str(obj)
     # raise TypeError("%r is not JSON serializable" % obj)
-
-
-def default_json_hook(dict):
-    # return lambda d: namedtuple('X', d.keys())(*d.values())
-    pass
 
 
 def b64encode(data):
