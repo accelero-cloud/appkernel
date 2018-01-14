@@ -104,9 +104,13 @@ class AppKernelEngine(object):
             handler.setLevel(level)
             self._enable_werkzeug_logger(handler)
         else:
+            # self.cfg_engine.get_value_for_section()
             # log_format = ' in %(module)s [%(pathname)s:%(lineno)d]:\n%(message)s'
             formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(message)s")
-            handler = RotatingFileHandler('{}/{}.log'.format(log_folder, self.app_id), maxBytes=10485760, backupCount=3)
+            max_bytes = self.cfg_engine.get('appkernel.logging.max_size') or 10485760
+            backup_count = self.cfg_engine.get('appkernel.logging.backup_count') or 3
+            file_name = self.cfg_engine.get('appkernel.logging.file_name') or '{}.log'.format(self.app_id)
+            handler = RotatingFileHandler('{}/{}.log'.format(log_folder, file_name), maxBytes=max_bytes, backupCount=backup_count)
             # handler = TimedRotatingFileHandler('logs/foo.log', when='midnight', interval=1)
             handler.setLevel(level)
         handler.setFormatter(formatter)
@@ -125,8 +129,15 @@ class AppKernelEngine(object):
     def generic_error_handler(self):
         return {'code': 404, 'message': 'Generic error.'}
 
-    def teardown(self):
-        self.app.logger.info('=== Shutting down {} ==='.format(self.app_id))
+    def teardown(self, exception):
+        """
+        context teardown based deallocation
+        :param exception:
+        :type exception: Exception
+        :return:
+        """
+        if exception is not None:
+            self.app.logger.info(exception.message)
 
     def register(self, service):
         service.set_app(self.app, self.root_url)
@@ -166,18 +177,29 @@ class CfgEngine(object):
             except yaml.scanner.ScannerError as se:
                 raise AppInitialisationError('cannot read configuration file due to: {}'.format(config_file))
 
-    def get_section(self, section_name):
+    def get(self, path_expression):
         """
-        :param section_name: the name of the configuration section, one needs to parse
-        :return: a section identified by section name or None
+        :param path_expression: a . (dot) separated path to the configuration value: 'appkernel.backup_count'
+        :type path_expression: str
+        :return:
         """
-        return self.cfg.get(section_name)
+        assert path_expression is not None, 'Path expression should be provided.'
 
-    def get_value_for_section(self, section_name, config_key):
+        nodes = path_expression.split('.')
+        return self.get_value_for_path_list(nodes)
+
+    def get_value_for_path_list(self, config_nodes, section_dict=None):
         """
-        :param section_name: the name of the configuration section
-        :param config_key: a key from the configuration section
-        :return: the value identified by the section_name and config_key
+        :return: a section (or value) under the given array keys
         """
-        section = self.get_section(section_name)
-        return section.get(config_key) if section else None
+        assert isinstance(config_nodes, list), 'config_nodes should be a string list'
+        if section_dict is None:
+            section_dict = self.cfg
+        if len(config_nodes) == 0:
+            return None
+        elif len(config_nodes) == 1:
+            # final element
+            return section_dict.get(config_nodes[0])
+        else:
+            key = config_nodes.pop(0)
+            return self.get_value_for_path_list(config_nodes, section_dict.get(key))

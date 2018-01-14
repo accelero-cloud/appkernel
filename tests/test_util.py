@@ -1,6 +1,5 @@
 from appkernel.model import *
 from datetime import datetime
-
 from appkernel.repository import AuditableRepository, Repository
 
 

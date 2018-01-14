@@ -8,16 +8,16 @@ class Service(object):
     with self.app_context():
         some_varibale = some_context_aware_function()
     """
-
-    def set_app(self, app, url_base):
+    @classmethod
+    def set_app(cls, app, url_base):
         """
         :param url_base: the url where the service is exposed
         :param app: flask app
         :type app: Flask
         :return:
         """
-        self.app = app
-        ep = '{}/{}'.format(url_base, xtract(self.__class__).lower())
-        if issubclass(self, Repository) and has_method(self, 'find_by_id'):
+        cls.app = app
+        ep = '{}/{}'.format(url_base, xtract(cls).lower())
+        if issubclass(cls, Repository) and 'find_by_id' in dir(cls):
             # generate get by id
-            self.app.add_url_rule('{}/<id>'.format(ep), ep, self.__class__.find_by_id, methods=['GET'])
+            cls.app.add_url_rule('{}/<id>'.format(ep), ep, cls.find_by_id, methods=['GET'])
