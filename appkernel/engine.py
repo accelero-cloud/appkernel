@@ -1,14 +1,30 @@
 #!/usr/bin/python
-from flask import Flask
+from flask import Flask, jsonify
 import logging
 from pymongo import MongoClient
 import sys, os, yaml, re
 import getopt
 from logging.handlers import RotatingFileHandler
+from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import default_exceptions
+from util import default_json_serializer
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
+class AppKernelJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        try:
+            return default_json_serializer(obj)
+        except TypeError:
+            pass
+        else:
+            return list(iterable)
+        return json.JSONEncoder.default(self, obj)
 
 
 class AppKernelEngine(object):
-
     database = None
 
     def __init__(self,
@@ -34,6 +50,7 @@ class AppKernelEngine(object):
             self.app_id = app_id
             self.root_url = root_url
             self.init_flask_app()
+            self.init_web_layer()
             self.cmd_line_options = self.get_cmdline_options()
             self.cfg_engine = CfgEngine(self.cmd_line_options.get('cfg_dir'))
             self.development = self.cmd_line_options.get('development')
@@ -99,9 +116,11 @@ class AppKernelEngine(object):
             self.app.teardown_request(self.teardown)
 
     def init_web_layer(self):
-        # app.error_handler_spec[None][404] = self.resource_not_found()
-        self.app.register_error_handler(404, self.resource_not_found)
+        self.app.json_encoder = AppKernelJSONEncoder
         self.app.register_error_handler(Exception, self.generic_error_handler)
+        for code in default_exceptions.iterkeys():
+            # add a default error handler for everything is unhandled
+            self.app.register_error_handler(code, self.generic_error_handler)
 
     def init_logger(self, log_folder, level=logging.DEBUG):
         assert log_folder is not None, 'The log folder must be provided.'
@@ -117,24 +136,27 @@ class AppKernelEngine(object):
             max_bytes = self.cfg_engine.get('appkernel.logging.max_size') or 10485760
             backup_count = self.cfg_engine.get('appkernel.logging.backup_count') or 3
             file_name = self.cfg_engine.get('appkernel.logging.file_name') or '{}.log'.format(self.app_id)
-            handler = RotatingFileHandler('{}/{}.log'.format(log_folder, file_name), maxBytes=max_bytes, backupCount=backup_count)
+            handler = RotatingFileHandler('{}/{}.log'.format(log_folder, file_name), maxBytes=max_bytes,
+                                          backupCount=backup_count)
             # handler = TimedRotatingFileHandler('logs/foo.log', when='midnight', interval=1)
             handler.setLevel(level)
         handler.setFormatter(formatter)
         self.app.logger.setLevel(level)
         self.app.logger.addHandler(handler)
 
-
     def _enable_werkzeug_logger(self, handler):
         logger = logging.getLogger('werkzeug')
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-    def resource_not_found(self):
-        return self.app.make_response({'code': 404, 'message': 'Resource not found.'})
-
-    def generic_error_handler(self):
-        return {'code': 404, 'message': 'Generic error.'}
+    def generic_error_handler(self, ex=None):
+        code = (ex.code if isinstance(ex, HTTPException) else 500)
+        if ex:
+            msg = (ex.description if isinstance(ex, HTTPException) else str(ex))
+        else:
+            msg = 'Generic server error.'
+        self.app.logger.error('{}/{}'.format(type(ex), str(ex)))
+        return jsonify({'code': 500, 'message': msg}), code
 
     def teardown(self, exception):
         """
@@ -146,8 +168,8 @@ class AppKernelEngine(object):
         if exception is not None:
             self.app.logger.info(exception.message)
 
-    def register(self, service):
-        service.set_app(self.app, self.root_url)
+    def register(self, service_class, url_base=None):
+        service_class.set_app_engine(self, url_base or self.root_url)
 
 
 class AppKernelException(Exception):

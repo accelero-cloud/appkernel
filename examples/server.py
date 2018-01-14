@@ -4,10 +4,12 @@ from flask import Flask
 from appkernel import AppKernelEngine, Model, Repository, Service, Parameter, NotEmpty, Regexp, Past
 from datetime import datetime
 
+from appkernel.repository import MongoRepository
+
 print('Initialising under {}'.format(__name__))
 
 application_id = 'test_app'
-app = Flask(application_id)
+app = Flask(__name__)
 app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
 kernel = AppKernelEngine(application_id, app=app)
 
@@ -27,7 +29,7 @@ def date_now_generator():
     return datetime.now()
 
 
-class User(Model, Repository, Service):
+class User(Model, MongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')])
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
@@ -40,6 +42,8 @@ def extract_config():
 
 def init_app():
     kernel.register(User)
+    u = User().update(name='some_user')
+    u.save()
     kernel.run()
 
 

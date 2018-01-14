@@ -4,6 +4,7 @@ from datetime import datetime
 from appkernel import AppKernelEngine
 from model import Model, Expression
 
+
 def xtract(cls):
     """
     :param cls: the class object
@@ -20,6 +21,51 @@ class Query(object):
 
 
 class Repository(object):
+
+    @classmethod
+    def find_by_id(cls, object_id):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def find_by_id(cls, object_id):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def find(cls, *expressions):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def find_by_query(cls, query_dict={}, page=1, page_size=50):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def create_cursor_by_query(cls, query_dict):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def update_many(cls, match_query_dict, update_expression_dict):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def delete_many(cls, match_query_dict):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def delete_all(cls):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def count(cls, query_filter={}):
+        raise NotImplemented('abstract method')
+
+    def save(self):
+        raise NotImplemented('abstract method')
+
+    def delete(self):
+        raise NotImplemented('abstract method')
+
+
+class MongoRepository(Repository):
 
     def collection(self):
         return AppKernelEngine.database[xtract(self.__class__)]
@@ -47,13 +93,21 @@ class Repository(object):
         #     assert isinstance(expr, Expression), 'Queries can only be built using {}.'.format(Expression.__class__.__name__)
 
     @classmethod
-    def find_by_query(cls, query_dict={}, page=0, page_size=50):
+    def find_by_query(cls, query_dict={}, page=1, page_size=50):
         """
         query using mongo's built-in query language
+        :param page_size:
+        :param page:
         :param query_dict: the query expression as a dictionary
         :return: a generator with the query results
         """
-        return (Model.from_dict(result, cls, convert_ids=True) for result in cls.get_collection().find(query_dict))
+        cursor = cls.get_collection().find(query_dict).skip((page - 1) * page_size).limit(page_size)
+        return [Model.from_dict(result, cls, convert_ids=True) for result in cursor]
+
+    @classmethod
+    def create_cursor_by_query(cls, query_dict):
+        cursor = cls.get_collection().find(query_dict)
+        return (Model.from_dict(result, cls, convert_ids=True) for result in cursor)
 
     @classmethod
     def update_many(cls, match_query_dict, update_expression_dict):
@@ -97,13 +151,14 @@ class Repository(object):
             return update_result.upserted_id or self.id
         else:
             insert_result = self.collection().insert_one(document)
-            return insert_result.inserted_id
+            self.id = insert_result.inserted_id
+            return self.id
 
     def delete(self):
         return self.collection().delete_one({'_id': self.id}).deleted_count
 
 
-class AuditableRepository(Repository):
+class AuditableRepository(MongoRepository):
 
     def __init__(self, **kwargs):
         super(AuditableRepository, self).__init__()
@@ -129,3 +184,6 @@ class AuditableRepository(Repository):
             document.update(inserted=now, version=1)
             insert_result = self.collection().insert_one(document)
             return insert_result.inserted_id
+
+# todo:
+# build unique index (eg. for username)
