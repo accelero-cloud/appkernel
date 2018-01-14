@@ -1,6 +1,7 @@
 from datetime import datetime
 from appkernel import AppKernelEngine
 from model import Model, Expression
+from pymongo.collection import Collection
 
 
 def xtract(cls):
@@ -22,6 +23,18 @@ class Repository(object):
 
     @classmethod
     def find_by_id(cls, object_id):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def delete_by_id(cls, object_id):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def create_object(cls, document):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def replace_object(cls, document):
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -70,6 +83,10 @@ class MongoRepository(Repository):
 
     @classmethod
     def get_collection(cls):
+        """
+        :return: the collection for this model object
+        :rtype: Collection
+        """
         return AppKernelEngine.database[xtract(cls)]
 
     @classmethod
@@ -77,6 +94,23 @@ class MongoRepository(Repository):
         assert object_id, 'the id of the lookup object must be provided'
         document_dict = cls.get_collection().find_one({'_id': object_id})
         return Model.from_dict(document_dict, cls, convert_ids=True) if document_dict else None
+
+    @classmethod
+    def delete_by_id(cls, object_id):
+        """
+        Deletes a document idenfitified by the object id
+        :param object_id:
+        :return: true if the object was deleted
+        """
+        cls.get_collection().delete_one({'_id': object_id}).acknowledged
+
+    @classmethod
+    def create_object(cls, document):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def replace_object(cls, document):
+        raise NotImplemented('abstract method')
 
     @classmethod
     def find(cls, *expressions):

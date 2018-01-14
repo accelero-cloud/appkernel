@@ -70,6 +70,7 @@ class AppKernelEngine(object):
         self.app.run(debug=self.development)
 
     def get_cmdline_options(self):
+        # working dir is also available on: self.app.root_path
         argv = sys.argv[1:]
         opts, args = getopt.getopt(argv, 'c:dw:', ['config-dir=', 'development', 'working-dir='])
         # -- config directory
