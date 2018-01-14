@@ -1,6 +1,8 @@
 from test_util import *
-from appkernel.model import *
+from appkernel import *
+from pymongo import  MongoClient
 
+AppKernelEngine.database = MongoClient(host='localhots')['appkernel']
 
 def setup_function(function):
     """ executed before each method call
