@@ -1,9 +1,8 @@
 from pymongo import MongoClient
 from datetime import datetime
+
+from appkernel import AppKernelEngine
 from model import Model, Expression
-
-database = MongoClient()['opsmaster']
-
 
 def xtract(cls):
     """
@@ -23,11 +22,11 @@ class Query(object):
 class Repository(object):
 
     def collection(self):
-        return database[xtract(self.__class__)]
+        return AppKernelEngine.database[xtract(self.__class__)]
 
     @classmethod
     def get_collection(cls):
-        return database[xtract(cls)]
+        return AppKernelEngine.database[xtract(cls)]
 
     @classmethod
     def find_by_id(cls, object_id):
@@ -48,7 +47,7 @@ class Repository(object):
         #     assert isinstance(expr, Expression), 'Queries can only be built using {}.'.format(Expression.__class__.__name__)
 
     @classmethod
-    def find_by_query(cls, query_dict={}):
+    def find_by_query(cls, query_dict={}, page=0, page_size=50):
         """
         query using mongo's built-in query language
         :param query_dict: the query expression as a dictionary

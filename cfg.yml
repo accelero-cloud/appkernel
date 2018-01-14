@@ -3,3 +3,6 @@ appkernel:
     file_name: appkernel.log
     max_size: 5048
     backup_count: 5
+  mongo:
+    host: localhost
+    db: appkernel

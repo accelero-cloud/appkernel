@@ -1,12 +1,15 @@
 #!/usr/bin/python
 from flask import Flask
 import logging
+from pymongo import MongoClient
 import sys, os, yaml, re
 import getopt
 from logging.handlers import RotatingFileHandler
 
 
 class AppKernelEngine(object):
+
+    database = None
 
     def __init__(self,
                  app_id,
@@ -36,6 +39,10 @@ class AppKernelEngine(object):
             self.development = self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
             self.init_logger(log_folder=cwd, level=log_level)
+            # -- database host
+            db_host = self.cfg_engine.get('appkernel.mongo.host') or 'localhost'
+            db_name = self.cfg_engine.get('appkernel.mongo.db') or 'app'
+            AppKernelEngine.database = MongoClient(host=db_host)[db_name]
         except (AppInitialisationError, AssertionError) as init_err:
             # print >> sys.stderr,
             self.app.logger.error(init_err.message)

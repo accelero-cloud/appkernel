@@ -6,14 +6,16 @@ from datetime import datetime
 
 print('Initialising under {}'.format(__name__))
 
-app = Flask(__name__)
+application_id = 'test_app'
+app = Flask(application_id)
 app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
-kernel = AppKernelEngine('test_app', app=app)
+kernel = AppKernelEngine(application_id, app=app)
 
 
 def uuid_generator(prefix=None):
     def generate_id():
         return '{}{}'.format(prefix, str(uuid.uuid4()))
+
     return generate_id
 
 
@@ -30,9 +32,11 @@ class User(Model, Repository, Service):
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')])
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
 
+
 @kernel.app.route('/cfg')
 def extract_config():
     return '{}'.format(kernel.cfg_engine.cfg)
+
 
 def init_app():
     kernel.register(User)
