@@ -1,4 +1,4 @@
-import datetime, sys, os, tarfile, yaml
+import datetime, os, tarfile
 
 import base64
 from bson import ObjectId
@@ -76,52 +76,3 @@ def assure_folder(folder_path):
 
 def merge_dicts(x_dict, y_dict):
     return x_dict.copy().update(y_dict)
-
-
-class Configurator(object):
-    """
-    Encapsulates application configuration. One can use it for retrieving various section form the configuration.
-    Attributes:
-        cwd     current working directory.
-        cfg     the parsed configuration dictionary.
-        config_file_name  global variable defining the config file.
-    """
-    config_file_name = 'cfg.yml'
-
-    def __init__(self, logger, current_working_directory):
-        """
-        :param logger:
-        :type logger: logging.Logger
-        :param current_working_directory:
-        """
-        cwd = current_working_directory.rstrip('/')
-        config_file = '%s/%s' % (cwd, Configurator.config_file_name)
-        if not os.access(config_file, os.R_OK):
-            logger.error('the config file [%s] is missing or not readable. Exiting...' % config_file)
-            sys.exit(1)
-
-        self.logger = logger
-
-        # reading configuration
-        with open(config_file, 'r') as ymlfile:
-            try:
-                self.cfg = yaml.load(ymlfile)
-            except yaml.scanner.ScannerError as se:
-                logger.exception('cannot read configuration file due to: %s' % str(se), se)
-                sys.exit(1)
-
-    def get_section(self, section_name):
-        """
-        :param section_name: the name of the configuration section, one needs to parse
-        :return: a section identified by section name or None
-        """
-        return self.cfg.get(section_name)
-
-    def get_value_for_section(self, section_name, config_key):
-        """
-        :param section_name: the name of the configuration section
-        :param config_key: a key from the configuration section
-        :return: the value identified by the section_name and config_key
-        """
-        section = self.get_section(section_name)
-        return section.get(config_key) if section else None

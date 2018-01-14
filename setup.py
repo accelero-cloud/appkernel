@@ -20,9 +20,10 @@ setup(
     version='0.1.0',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=[
-        'pyaml', 'enum34', 'pymongo', 'simplejson', 'jsonstruct'
+        'pyyaml', 'enum34', 'pymongo', 'simplejson',
+        'Flask==0.12.2'
         # 'requests', 'pymongo', 'Werkzeug==0.12.2',
-        # 'Flask==0.12.2', 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
+        #, 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',
         # 'python-engineio==1.7.0', 'python-socketio==1.8.1',
         # 'flasgger', 'eventlet', 'six==1.10.0',

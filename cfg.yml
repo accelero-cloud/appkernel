@@ -1,0 +1,4 @@
+appkernel:
+  log_file: appkernel.log
+  max_size: 10485760
+  backup_count: 3
