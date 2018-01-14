@@ -1,5 +1,4 @@
 from flask import Flask, jsonify, current_app
-import traceback
 from model import Model
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract
@@ -46,10 +45,9 @@ class Service(object):
                 result = provisioner_method(**named_args)
                 print current_app.name
                 return jsonify(Service.xvert(result) if result else {}), 200
-            except Exception as e:
-                traceback.print_exc()
-                app_engine.app.logger.error('exception caught while executing service call: {}'.format(str(e)))
-                return app_engine.generic_error_handler(e)
+            except Exception as exc:
+                app_engine.app.logger.error('exception caught while executing service call: {}'.format(str(exc)), exc)
+                return app_engine.generic_error_handler(exc)
 
         return create_executor
 

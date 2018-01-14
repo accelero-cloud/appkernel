@@ -1,6 +1,4 @@
-from pymongo import MongoClient
 from datetime import datetime
-
 from appkernel import AppKernelEngine
 from model import Model, Expression
 
@@ -151,7 +149,7 @@ class MongoRepository(Repository):
             return update_result.upserted_id or self.id
         else:
             insert_result = self.collection().insert_one(document)
-            self.id = insert_result.inserted_id
+            self.id = insert_result.inserted_id # pylint: disable=C0103
             return self.id
 
     def delete(self):
