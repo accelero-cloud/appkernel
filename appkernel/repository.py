@@ -1,6 +1,6 @@
 from datetime import datetime
 from appkernel import AppKernelEngine
-from model import Model, Expression
+from model import Model, Expression, AppKernelException
 from pymongo.collection import Collection
 
 
@@ -18,6 +18,10 @@ class Query(object):
     def __init__(self):
         pass
 
+
+class RepositoryException(AppKernelException):
+    def __init__(self, value):
+        super(AppKernelException, self).__init__('The parameter {} is required.'.format(value))
 
 class Repository(object):
 
@@ -70,6 +74,10 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     def save(self):
+        """
+        Saves or updates a document in the database
+        :return: the id of the inserted or updated document
+        """
         raise NotImplemented('abstract method')
 
     def delete(self):
@@ -87,7 +95,10 @@ class MongoRepository(Repository):
         :return: the collection for this model object
         :rtype: Collection
         """
-        return AppKernelEngine.database[xtract(cls)]
+        if AppKernelEngine.database is not None:
+            return AppKernelEngine.database[xtract(cls)]
+        else:
+            raise AppKernelException('The database engine is not set')
 
     @classmethod
     def find_by_id(cls, object_id):
@@ -104,12 +115,31 @@ class MongoRepository(Repository):
         """
         cls.get_collection().delete_one({'_id': object_id}).acknowledged
 
-    @classmethod
-    def create_object(cls, document):
-        raise NotImplemented('abstract method')
+    @staticmethod
+    def prepare_document(document):
+        if isinstance(document, Model):
+            document_id = document.id
+            has_id = document_id is not None
+            document = Model.to_dict(document, convert_id=True)
+        elif not isinstance(document, dict):
+            raise RepositoryException('Only dictionary or Model is accepted.')
+        else:
+            has_id = 'id' in document or '_id' in document
+            document_id = document.get('id') or document.get('_id')
+        return has_id, document_id, document
 
     @classmethod
-    def replace_object(cls, document):
+    def save_object(cls, document):
+        has_id, document_id, document = MongoRepository.prepare_document(document)
+        if has_id:
+            update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document}, upsert=True)
+            return update_result.upserted_id or document_id
+        else:
+            insert_result = cls.get_collection().insert_one(document)
+            return insert_result.inserted_id  # pylint: disable=C0103
+
+    @classmethod
+    def update_object(cls, document_id, document):
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -178,13 +208,8 @@ class MongoRepository(Repository):
         :return: the id of the inserted or upserted document
         """
         document = Model.to_dict(self, convert_id=True)
-        if hasattr(self, 'id'):
-            update_result = self.collection().update_one({'_id': self.id}, {'$set': document}, upsert=True)
-            return update_result.upserted_id or self.id
-        else:
-            insert_result = self.collection().insert_one(document)
-            self.id = insert_result.inserted_id # pylint: disable=C0103
-            return self.id
+        self.id = self.__class__.save_object(document)
+        return self.id
 
     def delete(self):
         return self.collection().delete_one({'_id': self.id}).deleted_count
@@ -195,27 +220,36 @@ class AuditableRepository(MongoRepository):
     def __init__(self, **kwargs):
         super(AuditableRepository, self).__init__()
 
-    def save(self):
+    @classmethod
+    def save_object(cls, document):
+
+        has_id, doc_id, document = MongoRepository.prepare_document(document)
         now = datetime.now()
-        document = Model.to_dict(self, convert_id=True)
         document.update(updated=now)
 
-        if hasattr(self, 'id'):
+        if has_id:
             # it is an update or a first insert with generated ID
             if 'version' in document:
                 del document['version']
+            if 'inserted' in document:
+                del document['inserted']
             upsert_expression = {
                 '$set': document,
                 '$setOnInsert': {'inserted': now},
                 '$inc': {'version': 1}
             }
-            update_result = self.collection().update_one({'_id': self.id}, upsert_expression, upsert=True)
-            return update_result.upserted_id or self.id
+            update_result = cls.get_collection().update_one({'_id': doc_id}, upsert_expression, upsert=True)
+            return update_result.upserted_id or doc_id
         else:
             # it is an insert for sure, we initialise the audit fields
             document.update(inserted=now, version=1)
-            insert_result = self.collection().insert_one(document)
+            insert_result = cls.get_collection().insert_one(document)
             return insert_result.inserted_id
+
+    def save(self):
+        self.id = self.__class__.save_object(Model.to_dict(self, convert_id=True))
+        return self.id
+
 
 # todo:
 # build unique index (eg. for username)

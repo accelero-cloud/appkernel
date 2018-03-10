@@ -19,7 +19,7 @@ def test_regexp_validation():
         test_model_correct_format.validate_and_finalise()
 
 
-def test_required():
+def test_required_field():
     project = Project()
     with pytest.raises(ParameterRequiredException):
         project.validate_and_finalise()
@@ -47,6 +47,18 @@ def test_past_validation():
         project.tasks[0].update(closed_date=(datetime.now() + timedelta(days=1)))
         print('\n\n> one day in the in the future \n{}'.format(project))
         project.validate_and_finalise()
+
+
+def test_future_validation():
+    test_model = TestClass()
+    test_model.just_numbers = 123
+    test_model.validate_and_finalise()
+    test_model.future_field = (datetime.now() + timedelta(days=1))
+    test_model.validate_and_finalise()
+    with pytest.raises(ValidationException):
+        test_model.future_field = (datetime.now() - timedelta(days=1))
+        print('\n\n> one day in the in the future \n{}'.format(test_model))
+        test_model.validate_and_finalise()
 
 
 def test_append_to_non_existing_non_defined_element():
@@ -98,3 +110,15 @@ def test_remove_existing_defined_element():
     project.remove_from(tasks=task1)
     assert len(project.tasks) == 2
     print('{}'.format(project))
+
+def test_generator():
+    task = Task()
+    task.name = 'some task name'
+    task.description = 'some task description'
+    task.validate_and_finalise()
+    print('\nTask:\n {}'.format(task))
+    assert task.id is not None and task.id.startswith('U')
+
+
+    #todo: test mappers
+    #to_value_converter=to_unix_time, from_value_converter=to_time_unit

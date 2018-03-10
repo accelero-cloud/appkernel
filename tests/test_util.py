@@ -15,6 +15,7 @@ def date_now_generator():
 
 class TestClass(Model):
     just_numbers = Parameter(str, required=True, validators=[Regexp('^[0-9]+$')])
+    future_field = Parameter(datetime, validators=[Future])
 
 
 class Task(Model, AuditableRepository):

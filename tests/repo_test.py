@@ -1,8 +1,11 @@
 from test_util import *
 from appkernel import *
-from pymongo import  MongoClient
+from pymongo import MongoClient
 
-AppKernelEngine.database = MongoClient(host='localhost')['appkernel']
+
+def setup_module(module):
+    AppKernelEngine.database = MongoClient(host='localhost')['appkernel']
+
 
 def setup_function(function):
     """ executed before each method call
@@ -10,11 +13,14 @@ def setup_function(function):
     print ('\n\nSETUP ==> ')
     Project.delete_all()
 
+
+
 def teardown_function(function):
     """ teardown any state that was previously setup with a setup_method
     call.
     """
     print("\nTEAR DOWN <==")
+
 
 def test_empty_collection():
     Project.delete_all()

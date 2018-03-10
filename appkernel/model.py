@@ -2,6 +2,7 @@ from bson import ObjectId
 from enum import Enum
 import re, uuid
 from datetime import datetime, date
+
 try:
     import simplejson as json
 except ImportError:
@@ -12,23 +13,25 @@ from util import default_json_serializer, OBJ_PREFIX
 def create_uui_generator(prefix=None):
     def generate_id():
         return '{}{}'.format(prefix, str(uuid.uuid4()))
+
     return generate_id
 
 
-class OpsmasterException(Exception):
+class AppKernelException(Exception):
     def __init__(self, message):
-        super(OpsmasterException, self).__init__(message)
+        super(AppKernelException, self).__init__(message)
 
 
-class ParameterRequiredException(OpsmasterException):
+class ParameterRequiredException(AppKernelException):
     def __init__(self, value):
-        super(OpsmasterException, self).__init__('The parameter {} is required.'.format(value))
+        super(AppKernelException, self).__init__('The parameter {} is required.'.format(value))
 
 
-class ValidationException(OpsmasterException):
+class ValidationException(AppKernelException):
     def __init__(self, validator_type, validable_object, message):
         self.validable_object_name = validable_object.__class__.__name__
-        super(OpsmasterException, self).__init__('{} on type {} - {}'.format(validator_type.name, self.validable_object_name, message))
+        super(AppKernelException, self).__init__(
+            '{} on type {} - {}'.format(validator_type.name, self.validable_object_name, message))
 
 
 class ValidatorType(Enum):
@@ -42,6 +45,7 @@ class Validator(object):
     """
     a root object for different type of validators
     """
+
     def __init__(self, validator_type, value=None):
         # type: (str, ValidatorType) -> ()
         self.value = value
@@ -56,6 +60,9 @@ class Validator(object):
         """
         pass
 
+    def _is_date(self, validable_object):
+        return isinstance(validable_object, (datetime, date))
+
 
 class Regexp(Validator):
     def __init__(self, value):
@@ -64,7 +71,9 @@ class Regexp(Validator):
     def validate(self, parameter_name, validable_object):
         if isinstance(validable_object, basestring):
             if not re.match(self.value, validable_object):
-                raise ValidationException(self.type, validable_object, 'The parameter {} cannot be validated against {}'.format(parameter_name, self.value))
+                raise ValidationException(self.type, validable_object,
+                                          'The parameter {} cannot be validated against {}'.format(parameter_name,
+                                                                                                   self.value))
 
 
 class NotEmpty(Validator):
@@ -73,21 +82,34 @@ class NotEmpty(Validator):
 
     def validate(self, parameter_name, validable_object):
         if validable_object is None or not isinstance(validable_object, basestring) or not validable_object:
-            raise ValidationException(self.type, validable_object, 'The parameter {} is None or empty.'.format(parameter_name))
+            raise ValidationException(self.type, validable_object,
+                                      'The parameter {} is None or empty.'.format(parameter_name))
 
 
 class Past(Validator):
     def __init__(self):
         super(Past, self).__init__(ValidatorType.PAST)
 
-    def _is_date(self, validable_object):
-        return isinstance(validable_object, (datetime, date))
+    def validate(self, parameter_name, validable_object):
+        if validable_object is None or not self._is_date(validable_object):
+            raise ValidationException(self.type, validable_object,
+                                      'The parameter {} is none or not date type.'.format(parameter_name))
+        elif validable_object >= datetime.now():
+            raise ValidationException(self.type, validable_object,
+                                      'The parameter {} must define the past.'.format(parameter_name))
+
+
+class Future(Validator):
+    def __init__(self):
+        super(Future, self).__init__(ValidatorType.FUTURE)
 
     def validate(self, parameter_name, validable_object):
         if validable_object is None or not self._is_date(validable_object):
-            raise ValidationException(self.type, validable_object, 'The parameter {} is none or not date type.'.format(parameter_name))
-        elif validable_object >= datetime.now():
-            raise ValidationException(self.type, validable_object, 'The parameter {} must define the past.'.format(parameter_name))
+            raise ValidationException(self.type, validable_object,
+                                      'The parameter {} is none or not date type.'.format(parameter_name))
+        elif validable_object <= datetime.now():
+            raise ValidationException(self.type, validable_object,
+                                      'The parameter {} must define the future.'.format(parameter_name))
 
 
 class AttrDict(dict):
@@ -125,6 +147,17 @@ class Parameter(object):
                  default_value=None,
                  generator=None):
         # type: (type, bool, ParameterType, list, function, function, function) -> ()
+        """
+
+        :param python_type: the python type object (str, datetime or anything else)
+        :param required: if True, the field must be specified before validation
+        :param sub_type: in case the python type is dict or list (or any other collection type), you might want to specify the element type
+        :param validators: a list of validator elements which are used to validate field content
+        :param to_value_converter:
+        :param from_value_converter:
+        :param default_value:
+        :param generator:
+        """
         self.python_type = python_type
         self.required = required
         self.sub_type = sub_type
@@ -240,7 +273,8 @@ class Model(object):
                     raise AttributeError(
                         'The attribute {} is not a list on {}.'.format(name, self.__class__.__name__))
             else:
-                raise AttributeError('The attribute {} is missing from the {} class.'.format(name, self.__class__.__name__))
+                raise AttributeError(
+                    'The attribute {} is missing from the {} class.'.format(name, self.__class__.__name__))
 
     def __str__(self):
         return "<{}> {}".format(self.__class__.__name__, Model.dumps(self, validate=False))
@@ -306,12 +340,14 @@ class Model(object):
                             setattr(instance, key, Model.from_list(val, parameter.sub_type))
                         elif issubclass(parameter.python_type, Enum):
                             setattr(instance, key, parameter.python_type[val])
-                        elif (key == '_id' or key == 'id') and isinstance(val, (str, basestring)) and val.startswith(OBJ_PREFIX):
+                        elif (key == '_id' or key == 'id') and isinstance(val, (str, basestring)) and val.startswith(
+                                OBJ_PREFIX):
                             # check if the object id is a mongo object id
                             setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[0]))
                         elif isinstance(val, (basestring, str)):
                             # convert json string elements into target types based on the Parameter class
-                            setattr(instance, key, Model.type_converters.get(parameter.python_type, default_convert)(val))
+                            setattr(instance, key,
+                                    Model.type_converters.get(parameter.python_type, default_convert)(val))
                         else:
                             # set object elements on the target instance
                             setattr(instance, key, val)
@@ -333,8 +369,8 @@ class Model(object):
 
     def dumps(self, validate=True, pretty_print=False):
         model_as_dict = Model.to_dict(self, validate=validate)
-        return json.dumps(model_as_dict, default=default_json_serializer, indent=4 if pretty_print else None, sort_keys=True)
-
+        return json.dumps(model_as_dict, default=default_json_serializer, indent=4 if pretty_print else None,
+                          sort_keys=True)
 
     @classmethod
     def loads(cls, json_string):
@@ -353,7 +389,8 @@ class Model(object):
                     setattr(self, param_name, param_object.generator())
             # validate fields
             if param_object.required and param_name not in obj_items:
-                raise ParameterRequiredException('parameter [{}] on class [{}] is required but missing'.format(param_name, self.__class__.__name__))
+                raise ParameterRequiredException(
+                    'parameter [{}] on class [{}] is required but missing'.format(param_name, self.__class__.__name__))
             if param_object.validators is not None and isinstance(param_object.validators, list):
                 for val in param_object.validators:
                     if isinstance(val, Validator) and param_name in self.__dict__:
