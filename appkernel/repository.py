@@ -130,6 +130,7 @@ class MongoRepository(Repository):
 
     @classmethod
     def save_object(cls, document):
+        # type: (object) -> object
         has_id, document_id, document = MongoRepository.prepare_document(document)
         if has_id:
             update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document}, upsert=True)
@@ -208,7 +209,7 @@ class MongoRepository(Repository):
         :return: the id of the inserted or upserted document
         """
         document = Model.to_dict(self, convert_id=True)
-        self.id = self.__class__.save_object(document)
+        self.id = self.__class__.save_object(document) # pylint: disable=C0321
         return self.id
 
     def delete(self):
