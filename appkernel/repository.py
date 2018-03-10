@@ -137,7 +137,7 @@ class MongoRepository(Repository):
             return update_result.upserted_id or document_id
         else:
             insert_result = cls.get_collection().insert_one(document)
-            return insert_result.inserted_id  # pylint: disable=C0103
+            return insert_result.inserted_id  #pylint: disable=C0103
 
     @classmethod
     def update_object(cls, document_id, document):
@@ -209,7 +209,7 @@ class MongoRepository(Repository):
         :return: the id of the inserted or upserted document
         """
         document = Model.to_dict(self, convert_id=True)
-        self.id = self.__class__.save_object(document) # pylint: disable=C0321
+        self.id = self.__class__.save_object(document) #pylint: disable=C0103
         return self.id
 
     def delete(self):
