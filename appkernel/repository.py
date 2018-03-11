@@ -235,7 +235,7 @@ class AuditableRepository(MongoRepository):
     @classmethod
     def save_object(cls, document, object_id=None):
 
-        has_id, doc_id, document = MongoRepository.prepare_document(document)
+        has_id, doc_id, document = MongoRepository.prepare_document(document, object_id)
         now = datetime.now()
         document.update(updated=now)
 
