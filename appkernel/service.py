@@ -67,17 +67,21 @@ class Service(object):
 
         def create_executor(**named_args):
             try:
-                # print '>>> current app name: {}'.format(current_app.name)
-                # print '{}'.format(current_app._get_current_object())
-                # print '{}'.format(request.method)
-                # print '{}'.format()
-                # tod: continue it here
-                # request.form | request.args | request.files
-                # request.values: combined args and form, preferring args if keys overlap
-                # request.json
+                print('named args: {}'.format(named_args))
+                print '>>> current app name: {}'.format(current_app.name)
+                print 'current object: {}'.format(current_app._get_current_object())
+                print 'Request method: {}'.format(request.method)
+                print 'request form: {}'.format(request.form)
+                print 'request args: {}'.format(request.args)
+                #todo: continue it here
+                #request.form | request.args | request.files
+                #request.values: combined args and form, preferring args if keys overlap
+                print 'request json {}'.format(request.json)
 
                 # merge together the named args (url parameters) and the query parameters (from requests.args)
-                named_and_request_arguments = named_args.update(request.args)
+                named_and_request_arguments = named_args.copy()
+                named_and_request_arguments.update(request.args)
+
                 if request.method in ['POST', 'PUT', 'PATCH']:
                     named_args.update(document=Model.loads(request.json))
                 result = provisioner_method(**named_and_request_arguments)
