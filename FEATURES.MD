@@ -3,7 +3,9 @@
 An
 
 -[ ] automatically generate prefixed database ID
--[ ]
+-[ ] validation on the data model using multiple custom validators
+-[ ] builtin converters for serialising or deserialising the model to various other formats
+-[ ] simplified logging
 
 -[ ] parsing of json elements
 

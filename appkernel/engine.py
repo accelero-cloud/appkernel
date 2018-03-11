@@ -65,6 +65,10 @@ class AppKernelEngine(object):
             self.app.logger.error(init_err.message)
             sys.exit(-1)
 
+    @property
+    def logger(self):
+        return self.app.logger
+
     def run(self):
         self.app.logger.info('===== Starting {} ====='.format(self.app_id))
         self.app.run(debug=self.development)
@@ -144,6 +148,7 @@ class AppKernelEngine(object):
         handler.setFormatter(formatter)
         self.app.logger.setLevel(level)
         self.app.logger.addHandler(handler)
+        self.app.logger.info('Logger initialised')
 
     def _enable_werkzeug_logger(self, handler):
         logger = logging.getLogger('werkzeug')
@@ -151,12 +156,17 @@ class AppKernelEngine(object):
         logger.addHandler(handler)
 
     def generic_error_handler(self, ex=None):
+        """
+        Takes a generic exception and returns a json error message which will be returned to the client
+        :param ex:
+        :return:
+        """
         code = (ex.code if isinstance(ex, HTTPException) else 500)
         if ex:
             msg = (ex.description if isinstance(ex, HTTPException) else str(ex))
         else:
             msg = 'Generic server error.'
-        self.app.logger.error('{}/{}'.format(type(ex), str(ex)))
+        self.logger.warn('generic error handler: {}/{}'.format(type(ex), str(ex)))
         return jsonify({'code': 500, 'message': msg}), code
 
     def teardown(self, exception):

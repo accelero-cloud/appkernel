@@ -3,6 +3,7 @@ from model import Model
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract
 from reflection import *
+import traceback, sys
 
 
 class Service(object):
@@ -86,7 +87,7 @@ class Service(object):
                     result_dic_tentative = {'result': result_dic_tentative}
                 return jsonify(result_dic_tentative), 200
             except Exception as exc:
-                app_engine.app.logger.error('exception caught while executing service call: {}'.format(str(exc)), exc)
+                app_engine.logger.exception('exception caught while executing service call: {}'.format(str(exc)))
                 return app_engine.generic_error_handler(exc)
 
         return create_executor
