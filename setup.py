@@ -21,7 +21,7 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=[
         'pyyaml', 'enum34', 'pymongo', 'simplejson',
-        'Flask==0.12.2'
+        'Flask==0.12.2', 'werkzeug'
         # 'requests', 'pymongo', 'Werkzeug==0.12.2',
         #, 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',

@@ -8,10 +8,12 @@ from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import default_exceptions
 from util import default_json_serializer
+
 try:
     import simplejson as json
 except ImportError:
     import json
+
 
 class AppKernelJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -154,6 +156,9 @@ class AppKernelEngine(object):
         logger = logging.getLogger('werkzeug')
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
+
+    def create_custom_error(self, code, message):
+        return jsonify({'code': code, 'message': message}), code
 
     def generic_error_handler(self, ex=None):
         """
