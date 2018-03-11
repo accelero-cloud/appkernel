@@ -32,6 +32,9 @@ def date_now_generator():
 class User(Model, MongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')])
+    password = Parameter(str, required=True, validators=[NotEmpty])
+    description = Parameter(str)
+    roles = Parameter(list, sub_type=str)
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
 
 
@@ -42,7 +45,7 @@ def extract_config():
 
 def init_app():
     kernel.register(User)
-    u = User().update(name='some_user')
+    u = User().update(name='some_user', password='some_pass')
     u.save()
     kernel.run()
 

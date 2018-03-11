@@ -6,6 +6,7 @@ from pymongo.collection import Collection
 
 def xtract(cls):
     """
+    Extract class name from class
     :param cls: the class object
     :return: the name of the desired collection
     """
@@ -23,6 +24,7 @@ class RepositoryException(AppKernelException):
     def __init__(self, value):
         super(AppKernelException, self).__init__('The parameter {} is required.'.format(value))
 
+
 class Repository(object):
 
     @classmethod
@@ -38,7 +40,11 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     @classmethod
-    def replace_object(cls, document):
+    def replace_object(cls, object_id, document):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def save_object(cls, document, object_id=None):
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -109,14 +115,15 @@ class MongoRepository(Repository):
     @classmethod
     def delete_by_id(cls, object_id):
         """
-        Deletes a document idenfitified by the object id
+        Deletes a document identified by the object id
         :param object_id:
         :return: true if the object was deleted
         """
-        cls.get_collection().delete_one({'_id': object_id}).acknowledged
+        delete_result = cls.get_collection().delete_one({'_id': object_id})
+        return delete_result.deleted_count
 
     @staticmethod
-    def prepare_document(document):
+    def prepare_document(document, object_id):
         if isinstance(document, Model):
             document_id = document.id
             has_id = document_id is not None
@@ -124,24 +131,28 @@ class MongoRepository(Repository):
         elif not isinstance(document, dict):
             raise RepositoryException('Only dictionary or Model is accepted.')
         else:
-            has_id = 'id' in document or '_id' in document
-            document_id = document.get('id') or document.get('_id')
+            has_id = object_id or 'id' in document or '_id' in document
+            document_id = object_id or document.get('id') or document.get('_id')
         return has_id, document_id, document
 
     @classmethod
-    def save_object(cls, document):
+    def save_object(cls, document, object_id=None):
         # type: (object) -> object
-        has_id, document_id, document = MongoRepository.prepare_document(document)
+        assert document, 'the document must be provided before saving'
+        has_id, document_id, document = MongoRepository.prepare_document(document, object_id)
         if has_id:
             update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document}, upsert=True)
             return update_result.upserted_id or document_id
         else:
             insert_result = cls.get_collection().insert_one(document)
-            return insert_result.inserted_id  #pylint: disable=C0103
+            return insert_result.inserted_id  # pylint: disable=C0103
 
     @classmethod
-    def update_object(cls, document_id, document):
-        raise NotImplemented('abstract method')
+    def replace_object(cls, document):
+        assert document, 'the document must be provided before replacing'
+        has_id, document_id, document = MongoRepository.prepare_document(document, None)
+        update_result = cls.get_collection().replace_one({'_id': document_id}, document, upsert=False)
+        return update_result.upserted_id or document_id
 
     @classmethod
     def find(cls, *expressions):
@@ -209,7 +220,7 @@ class MongoRepository(Repository):
         :return: the id of the inserted or upserted document
         """
         document = Model.to_dict(self, convert_id=True)
-        self.id = self.__class__.save_object(document) #pylint: disable=C0103
+        self.id = self.__class__.save_object(document)  # pylint: disable=C0103
         return self.id
 
     def delete(self):
@@ -222,7 +233,7 @@ class AuditableRepository(MongoRepository):
         super(AuditableRepository, self).__init__()
 
     @classmethod
-    def save_object(cls, document):
+    def save_object(cls, document, object_id=None):
 
         has_id, doc_id, document = MongoRepository.prepare_document(document)
         now = datetime.now()
@@ -250,7 +261,6 @@ class AuditableRepository(MongoRepository):
     def save(self):
         self.id = self.__class__.save_object(Model.to_dict(self, convert_id=True))
         return self.id
-
 
 # todo:
 # build unique index (eg. for username)
