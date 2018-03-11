@@ -1,12 +1,40 @@
 ## Repository
 
 #### Features
-[ ] audit fields
-[ ] basic CRUD
-[ ] validation and schema management
-[ ] index management
-[ ] ID generation
-[ ]
+- [ ] validation and schema management
+- [ ] validation on the data model using multiple custom validators
+- [ ] builtin converters for serialising or deserialising the model to various other formats
+- [ ] basic CRUD operations
+- [ ] audited fields (created, updated)
+- [ ] index management on the database
+- [ ] automatically generate prefixed database ID
+- [ ] simplified logging
+- [ ] automated marshaling of objects to and from json
+- [ ] REST services
+
+## Creating a small task manager application
+
+Create a simple task and persist it in the database.
+```python
+from appkernel.model import *
+from appkernel.repository import *
+
+class Task(Model, AuditableRepository):
+    id = Parameter(str, required=True, generator=uui_generator('U'))
+    name = Parameter(str, required=True, validators=[NotEmpty])
+    description = Parameter(str, required=True, validators=[NotEmpty])
+    tags = Parameter(list, sub_type=str)
+    completed = Parameter(bool, required=True, default_value=False)
+    created = Parameter(datetime, required=True, generator=date_now_generator)
+    closed_date = Parameter(datetime, validators=[Past])
+
+    def __init__(self, **kwargs):
+        Model.init_model(self, **kwargs)
+
+    def complete(self):
+        self.completed = True
+        self.closed_date = datetime.now()
+```
 
 #### Base Concepts
 Query methods which refer to the whole collection are all class-methods (eg. t = Task.find_by_id() vs. t.delete()).

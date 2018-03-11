@@ -5,6 +5,50 @@ to start a REST application from zero to production within hours.
 We've spent the time on analysing the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting so
 you don't have to.
 
+## An example tells more than a thousands of words
+
+Let's create a simple task management application which stores tasks in MongoDB and exposes them via a RESTful service (create, retrieve, delete).
+```python
+from appkernel.model import *
+from appkernel import AppKernelEngine, Model, AuditableRepository, Service, Parameter, NotEmpty, Past
+from flask import Flask
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
+kernel = AppKernelEngine('test_app', app=app)
+
+def date_now_generator():
+    return datetime.now()
+
+class Task(Model, AuditableRepository, Service):
+    id = Parameter(str, required=True)
+    name = Parameter(str, required=True, validators=[NotEmpty])
+    description = Parameter(str)
+    tags = Parameter(list, sub_type=str)
+    completed = Parameter(bool, required=True, default_value=False)
+    created = Parameter(datetime, required=True, generator=date_now_generator)
+    closed_date = Parameter(datetime, validators=[Past])
+
+    def __init__(self, **kwargs):
+        Model.init_model(self, **kwargs)
+
+    def complete(self):
+        self.completed = True
+        self.closed_date = datetime.now()
+
+def init_app():
+    kernel.register(Task)
+    task = Task().update(name='some task', password='some_pass').append_to(tags='personal')
+    task.save()
+    kernel.run()
+
+
+if __name__ == '__main__':
+    init_app()
+```
+That's it... now one can use curl or other rest client to create/delete tasks. It features validation, JSON serialisation, database persistency, strategies for automatic data generation.
+
+
 ### Why we did this?
 * We had the need to build a myriad of small services in our daily business, ranging from data-aggregation pipelines, to housekeeping services and
 other process automation services. These do share similar requirements and the stack needs to be rebuilt and tested over and over again. The question arose:
@@ -21,24 +65,6 @@ These were the major driving question, which lead to the development of App Kern
 
 AppKernel is built around the concepts of Domain Driven Design. You can start the project by laying out the model.
 In the example below we build a small Task manager. All Tasks belong to one Project.
-```python
-from appkernel import Model, AuditableRepository, Parameter, NotEmpty
-from datetime import datetime
-
-class Task(Model, AuditableRepository):
-    id = Parameter(str, required=True, generator=uui_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty])
-    description = Parameter(str, required=True, validators=[NotEmpty])
-    completed = Parameter(bool, required=True, default_value=False)
-    created = Parameter(datetime, required=True, generator=date_now_generator)
-    closed_date = Parameter(datetime, validators=[Past])
-
-class Project(Model, AuditableRepository):
-    name = Parameter(str, required=True, validators=[NotEmpty()])
-    tasks = Parameter(list, sub_type=Task)
-```
-That's it, now you have validation, JSON serialisation, database persistency, strategies for automatic data generation.
-
 
 
 ## Developing App Kernel
