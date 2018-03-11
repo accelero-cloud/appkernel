@@ -1,8 +1,11 @@
 # appkernel
-**Python micro-services made easy**: a beautiful and opinionated micro-service framework which enables you
-to start a REST application from zero to production within hours.
 
-We've spent the time on analysing the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting so
+**Work in progress / documentation is a progress**
+
+**Python micro-services made easy**: a beautiful and opinionated micro-service framework which enables you
+to start a REST application from zero to production within minutes (no kiddin' literally within minutes).
+
+We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting so
 you don't have to.
 
 ## An example tells more than a thousands of words
@@ -38,6 +41,7 @@ class Task(Model, AuditableRepository, Service):
 
 def init_app():
     kernel.register(Task)
+    #let's save a sample Task upon start
     task = Task().update(name='some task', password='some_pass').append_to(tags='personal')
     task.save()
     kernel.run()
