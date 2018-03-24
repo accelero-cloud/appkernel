@@ -58,7 +58,7 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     @classmethod
-    def find_by_query(cls, sort_by, sort_order=SortOrder.ASC, query_dict={}, page=1, page_size=50):
+    def find_by_query(cls, query={}, page=1, page_size=50, sort_by=None, sort_order=SortOrder.ASC):
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -169,7 +169,7 @@ class MongoRepository(Repository):
         #     assert isinstance(expr, Expression), 'Queries can only be built using {}.'.format(Expression.__class__.__name__)
 
     @classmethod
-    def find_by_query(cls, sort_by, sort_order=SortOrder.ASC, query={}, page=1, page_size=50):
+    def find_by_query(cls, query={}, page=1, page_size=50, sort_by=None, sort_order=SortOrder.ASC):
         """
         query using mongo's built-in query language
         :param sort_order:

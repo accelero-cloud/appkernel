@@ -117,9 +117,9 @@ def test_find_some():
     assert Project.count() == 50, '>> should be 50, but was %s' % Project.count()
     counter = 0
     for p in Project.find_by_query({'counter': {'$gte': 0, '$lt': 10}}):
-        print 'User name: {}'.format(p.name)
+        print 'User name: {} and counter: {}'.format(p.name, p.counter)
         counter += 1
-    assert counter == 10
+    assert counter == 10, "counter should be 10, was: {}".format(counter)
 
 
 def test_find_one():
