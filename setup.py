@@ -17,7 +17,7 @@ setup(
     # 1.2.0b1     # Beta Release
     # 1.2.0rc1    # Release Candidate
     # 1.2.0       # Final Release
-    version='0.1.0',
+    version='0.1.1',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=[
         'pyyaml', 'enum34', 'pymongo', 'simplejson',
@@ -33,7 +33,7 @@ setup(
     tests_require=['pytest'],
     include_package_data=True,
     platforms='any',
-    url='https://appkernel.opsmaster.io',
+    url='https://appkernel.accelero.cloud',
     license='Apache 2.0',
     author='csaba',
     author_email='tamas.csaba@gmail.com',

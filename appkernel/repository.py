@@ -2,6 +2,7 @@ from datetime import datetime
 from appkernel import AppKernelEngine
 from model import Model, Expression, AppKernelException
 from pymongo.collection import Collection
+from enum import Enum
 
 
 def xtract(cls):
@@ -18,6 +19,11 @@ class Query(object):
 
     def __init__(self):
         pass
+
+
+class SortOrder(Enum):
+    ASC = 1
+    DESC = 2
 
 
 class RepositoryException(AppKernelException):
@@ -52,11 +58,11 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     @classmethod
-    def find_by_query(cls, query_dict={}, page=1, page_size=50):
+    def find_by_query(cls, sort_by, sort_order=SortOrder.ASC, query_dict={}, page=1, page_size=50):
         raise NotImplemented('abstract method')
 
     @classmethod
-    def create_cursor_by_query(cls, query_dict):
+    def create_cursor_by_query(cls, query):
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -163,20 +169,22 @@ class MongoRepository(Repository):
         #     assert isinstance(expr, Expression), 'Queries can only be built using {}.'.format(Expression.__class__.__name__)
 
     @classmethod
-    def find_by_query(cls, query_dict={}, page=1, page_size=50):
+    def find_by_query(cls, sort_by, sort_order=SortOrder.ASC, query={}, page=1, page_size=50):
         """
         query using mongo's built-in query language
+        :param sort_order:
+        :param sort_by:
         :param page_size:
         :param page:
-        :param query_dict: the query expression as a dictionary
+        :param query: the query expression as a dictionary
         :return: a generator with the query results
         """
-        cursor = cls.get_collection().find(query_dict).skip((page - 1) * page_size).limit(page_size)
+        cursor = cls.get_collection().find(query).skip((page - 1) * page_size).limit(page_size)
         return [Model.from_dict(result, cls, convert_ids=True) for result in cursor]
 
     @classmethod
-    def create_cursor_by_query(cls, query_dict):
-        cursor = cls.get_collection().find(query_dict)
+    def create_cursor_by_query(cls, query):
+        cursor = cls.get_collection().find(query)
         return (Model.from_dict(result, cls, convert_ids=True) for result in cursor)
 
     @classmethod

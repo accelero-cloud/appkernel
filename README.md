@@ -121,13 +121,21 @@ password=pass
 ```
 You can register at [LIVE](https://pypi.python.org/pypi?%3Aaction=register_form) and [TEST](https://testpypi.python.org/pypi?%3Aaction=register_form).
 Check the setup and load:
+
 ```bash
 python setup.py register -r pypitest
 ```
+*this step is not required anymore, since pre-registration is no more required
+
 
 Than upload the package in both of the repositories
 ```bash
 source ./venv/bin/activate
 python setup.py build bdist_wheel upload -r pypitest
 python setup.py build bdist_wheel upload -r pypi
+```
+
+Update:
+```bash
+python setup.py build install upload -r pypitest
 ```
