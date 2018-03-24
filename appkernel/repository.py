@@ -48,10 +48,6 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     @classmethod
-    def find_by_id(cls, object_id):
-        raise NotImplemented('abstract method')
-
-    @classmethod
     def find(cls, *expressions):
         raise NotImplemented('abstract method')
 

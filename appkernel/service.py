@@ -1,9 +1,11 @@
 from flask import Flask, jsonify, current_app, request, abort
+from werkzeug.datastructures import MultiDict
 from model import Model
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract
 from reflection import *
 import traceback, sys
+import inspect
 
 
 class Service(object):
@@ -15,8 +17,9 @@ class Service(object):
     """
 
     @classmethod
-    def set_app_engine(cls, app_engine, url_base):
+    def set_app_engine(cls, app_engine, url_base, methods):
         """
+        :param methods: the HTTP methods allowed for this service
         :param url_base: the url where the service is exposed
         :type url_base: basestring
         :param app_engine: the app kernel engine
@@ -28,33 +31,34 @@ class Service(object):
         if not url_base.endswith('/'):
             url_base = '{}/'.format(url_base)
         endpoint = '{}{}'.format(url_base, xtract(cls).lower())
-        if issubclass(cls, Repository) and 'find_by_id' in dir(cls):
+        class_methods = dir(cls)
+        if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
-            cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), 'get_by_id_{}'.format(endpoint),
-                                 Service.execute(app_engine, cls.find_by_id, cls),
-                                 methods=['GET'])
-
+            if 'find_by_query' in class_methods:
+                cls.app.add_url_rule('{}/'.format(endpoint), 'get_{}'.format(endpoint),
+                                     Service.execute(app_engine, cls.find_by_query, cls),
+                                     methods=['GET'])
+            if 'find_by_id' in class_methods:
+                cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), 'get_by_id_{}'.format(endpoint),
+                                     Service.execute(app_engine, cls.find_by_id, cls),
+                                     methods=['GET'])
+        if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
             cls.app.add_url_rule('{}/'.format(endpoint), 'post_{}'.format(endpoint),
                                  Service.execute(app_engine, cls.save_object, cls),
                                  methods=['POST'])
-
+        if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
             cls.app.add_url_rule('{}/'.format(endpoint), 'put_{}'.format(endpoint),
                                  Service.execute(app_engine, cls.replace_object, cls),
                                  methods=['PUT'])
-
+        if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
             cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), 'patch_{}'.format(endpoint),
                                  Service.execute(app_engine, cls.save_object, cls),
                                  methods=['PATCH'])
 
-            cls.app.add_url_rule('{}'.format(endpoint), 'get_{}'.format(endpoint),
-                                 Service.execute(app_engine, cls.find_by_id, cls),
-                                 methods=['GET'])
-            # generate delete by id
+        if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
             cls.app.add_url_rule('{}/<object_id>'.format(endpoint), 'delete_{}'.format(endpoint),
                                  Service.execute(app_engine, cls.delete_by_id, cls),
                                  methods=['DELETE'])
-
-    # todo: not found when ids not found
 
     @classmethod
     def execute(cls, app_engine, provisioner_method, model_class):
@@ -80,7 +84,12 @@ class Service(object):
 
                 # merge together the named args (url parameters) and the query parameters (from requests.args)
                 named_and_request_arguments = named_args.copy()
-                named_and_request_arguments.update(request.args)
+
+                # extract the query parameters and add to a generic parameter dictionary
+                if isinstance(request.args, MultiDict):
+                    for arg in request.args:
+                        query_item = {arg: request.args.get(arg)}
+                        named_and_request_arguments.update(query_item)
 
                 if request.method in ['POST', 'PUT']:
                     # load and validate the posted object
@@ -89,7 +98,9 @@ class Service(object):
                     named_and_request_arguments.update(document=Model.to_dict(model_instance, convert_id=True))
                 elif request.method == 'PATCH':
                     named_and_request_arguments.update(document=request.json)
-                result = provisioner_method(**named_and_request_arguments)
+
+                result = provisioner_method(
+                    **Service.autobox_parameters(provisioner_method, named_and_request_arguments))
                 if request.method == 'GET' and result is None:
                     return app_engine.create_custom_error(404, 'Document with id {} is not found.'.format(
                         named_args.get('object_id', '-1')))
@@ -103,6 +114,18 @@ class Service(object):
                 return app_engine.generic_error_handler(exc)
 
         return create_executor
+
+    @staticmethod
+    def autobox_parameters(provisioner_method, arguments):
+        # argspec = inspect.getargspec(provisioner_method)
+        # returns a dict with the call argument names and default values
+        argspec = inspect.getcallargs(provisioner_method)
+        for arg_key, arg_value in arguments.iteritems():
+            required_type = type(argspec.get(arg_key))
+            provided_type = type(arg_value)
+            if required_type and required_type != provided_type:
+                arguments[arg_key] = required_type(arg_value)
+        return arguments
 
     @staticmethod
     def xvert(result_item):

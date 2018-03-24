@@ -8,6 +8,7 @@ from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import default_exceptions
 from util import default_json_serializer
+import atexit, eventlet.debug
 
 try:
     import simplejson as json
@@ -58,6 +59,13 @@ class AppKernelEngine(object):
             self.development = self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
             self.init_logger(log_folder=cwd, level=log_level)
+            # -- initialisation
+            # this can raise false positives if a bit of code running
+            # longer than 1 seconds.
+            # the timeout can be increased by adding the parameter:
+            # resolution=3, where the value 3 represents 3 seconds.
+            eventlet.debug.hub_blocking_detection(True, resolution=3)
+            atexit.register(self.shutdown_hook)
             # -- database host
             db_host = self.cfg_engine.get('appkernel.mongo.host') or 'localhost'
             db_name = self.cfg_engine.get('appkernel.mongo.db') or 'app'
@@ -74,6 +82,10 @@ class AppKernelEngine(object):
     def run(self):
         self.app.logger.info('===== Starting {} ====='.format(self.app_id))
         self.app.run(debug=self.development)
+
+    def shutdown_hook(self):
+        if self.app and self.app.logger:
+            self.app.logger.info('======= Shutting Down {} ======='.format(self.app_id))
 
     def get_cmdline_options(self):
         # working dir is also available on: self.app.root_path
@@ -172,7 +184,7 @@ class AppKernelEngine(object):
         else:
             msg = 'Generic server error.'
         self.logger.warn('generic error handler: {}/{}'.format(type(ex), str(ex)))
-        return jsonify({'code': 500, 'message': msg}), code
+        return jsonify({'code': code, 'message': msg}), code
 
     def teardown(self, exception):
         """
@@ -184,8 +196,8 @@ class AppKernelEngine(object):
         if exception is not None:
             self.app.logger.info(exception.message)
 
-    def register(self, service_class, url_base=None):
-        service_class.set_app_engine(self, url_base or self.root_url)
+    def register(self, service_class, url_base=None, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE']):
+        service_class.set_app_engine(self, url_base or self.root_url, methods=methods)
 
 
 class AppKernelException(Exception):
