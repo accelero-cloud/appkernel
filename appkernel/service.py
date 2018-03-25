@@ -4,12 +4,27 @@ from model import Model
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract
 from reflection import *
+from model import Expression
+import re
+from collections import defaultdict
 import traceback, sys
 import inspect
 
 
+class QueryProcessor(object):
+    def __init__(self):
+        self.query_pattern = re.compile('^(\w+:[\[\],\<\>A-Za-z0-9_\s-]+)(,\w+:[\[\],\<\>A-Za-z0-9_\s-]+)*$')
+        self.expression_mapper = {
+            '<': lambda exp: ('$lt', exp),
+            '>': lambda exp: ('$gte', exp),
+            '~': lambda exp: '\.*{}.*\i'.format(exp)
+        }
+        self.supported_expressions = list(self.expression_mapper.keys())
+
+
 class Service(object):
     pretty_print = True
+    qp = QueryProcessor()
     """
     The Flask App is set on this instance, so one can use the context:
     with self.app_context():
@@ -87,9 +102,17 @@ class Service(object):
 
                 # extract the query parameters and add to a generic parameter dictionary
                 if isinstance(request.args, MultiDict):
+                    # Multidict is a werkzeug only type
                     for arg in request.args:
                         query_item = {arg: request.args.get(arg)}
                         named_and_request_arguments.update(query_item)
+                else:
+                    named_and_request_arguments.update(request.args)
+
+                if 'query' in named_and_request_arguments:
+                    # in case we have a query parameter we should process it
+                    named_and_request_arguments.update(
+                        query=Service.convert_to_query(named_and_request_arguments.get('query')))
 
                 if request.method in ['POST', 'PUT']:
                     # load and validate the posted object
@@ -100,7 +123,7 @@ class Service(object):
                     named_and_request_arguments.update(document=request.json)
 
                 result = provisioner_method(
-                    **Service.autobox_parameters(provisioner_method, named_and_request_arguments))
+                    **Service.__autobox_parameters(provisioner_method, named_and_request_arguments))
                 if request.method == 'GET' and result is None:
                     return app_engine.create_custom_error(404, 'Document with id {} is not found.'.format(
                         named_args.get('object_id', '-1')))
@@ -115,8 +138,84 @@ class Service(object):
 
         return create_executor
 
+    def __convert_to_query(self, query, logic=Expression.OPS.AND):
+        """
+        ?query=first_name:{firstName},last_name:{lastName},birth_date:{birthDate}
+        Supported query formats:
+        The value of first_name, last_name and birth_date is exactly the ones in the list.
+        Converted to:
+        {"$and":[
+            {"first_name":{firstName}},
+            {"last_name":{lastName}},
+            {"birth_date":{birthDate}}
+            ]}
+
+        ?first_name:~{firstName}
+        The first name contains a given value;
+        Converted to:
+        {"first_name" : "/.*{firstName}.*/i"}
+
+        ?birth_date=>{birthDate}
+        Birth date after the given parameter (inclusive >=)
+        Converted to:
+        {"birth_date": {$gte:{birthDate}}}
+
+        ?birth_date:>{birthDate}&?birth_date:<{birthDate}
+        Birth date between the two parameters, with date pattern matching if applies.
+        Converted to:
+        {"birth_date": [{$gte:{birthDate},{"$lt":{birthDate}}]}}
+
+
+        ?state:[NEW, CLOSED]
+        The state of a give content among the provided patterns.
+        Converted to:
+        {"state":{"$in":["NEW", "CLOSED"]}}
+        :param logic: AND or OR, which applies to the query parameters
+        :param query: the query expression, like "first_name:{firstName},last_name:{lastName},birth_date:{birthDate}"
+        :type query: str
+        :return:
+        """
+
+        if not Service.qp.query_pattern.match(query):
+            raise ValueError(
+                'The provided query expression ({}) is not in the accepted format (comma separated groups with colon separated key value pairs)'.format(
+                    query))
+        groups = [tuple(group.split(':')) for group in query.split(',')]
+        query_dict = defaultdict(list)
+        for group in groups:
+            query_dict[group[0]].append(group[1])
+
+        expression_list = []
+        for query_item in [[key, val] for key, val in query_dict.iteritems()]:
+            # where query_item[0] is the key of the future structure nad query_item[1] is the value
+            if isinstance(query_item[1], list) and len(query_item[1]) > 1:
+                # it is a key with a list of values
+                expression_list.append(
+                    {query_item[0]: dict([self.__remap_expressions(expr) for expr in query_item[1]])})
+            else:
+                # it is a key with a list of only 1 item
+                mapped_value = self.__remap_expressions(query_item[1][0])
+                if isinstance(mapped_value, tuple):
+                    expression_list.append({query_item[0]: dict([mapped_value])})
+                else:
+                    expression_list.append({query_item[0]: mapped_value})
+
+        if len(expression_list) == 0:
+            return {}
+        elif len(expression_list) == 1:
+            # the dictionary has 0 or 1 elements
+            return expression_list[0]
+        else:
+            return {logic: expression_list}
+
+    def __remap_expressions(self, expression):
+        if expression[0] in Service.qp.supported_expressions:
+            return Service.qp.expression_mapper.get(expression[0])(expression[1:])
+        else:
+            return expression
+
     @staticmethod
-    def autobox_parameters(provisioner_method, arguments):
+    def __autobox_parameters(provisioner_method, arguments):
         # argspec = inspect.getargspec(provisioner_method)
         # returns a dict with the call argument names and default values
         argspec = inspect.getcallargs(provisioner_method)

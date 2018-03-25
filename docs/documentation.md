@@ -2,15 +2,22 @@
 
 #### Features
 - [ ] validation and schema management
-- [ ] validation on the data model using multiple custom validators
-- [ ] builtin converters for serialising or deserialising the model to various other formats
-- [ ] basic CRUD operations
-- [ ] audited fields (created, updated)
+- [x] validation on the data model using multiple custom validators
+- [x] builtin converters for serialising or deserialising the model to various other formats
+- [x] automated marshaling of objects to and from json
+- [x] basic CRUD operations
+- [x] audited fields (created, updated)
 - [ ] index management on the database
-- [ ] automatically generate prefixed database ID
+- [x] automatically generate prefixed database ID
 - [ ] simplified logging
-- [ ] automated marshaling of objects to and from json
 - [ ] REST services
+- [ ] HATEOAS actions on model
+- [ ] graphql support
+- [ ] swagger support
+- [ ] scheduler and background task executor
+- [ ] basic authentication and JWT token support
+- [ ] OAUTH
+- [ ] rate limiting and circuit breaker
 
 ## Creating a small task manager application
 
