@@ -256,7 +256,7 @@ class Service(object):
             # the dictionary has 0 or 1 elements
             return expression_list[0]
         else:
-            logic = Expression.OPS.from_string(request_args.get('logic', 'and'))
+            logic = Expression.OPS.__getattr__(request_args.get('logic', 'and'))
             return {logic: expression_list}
 
     @staticmethod

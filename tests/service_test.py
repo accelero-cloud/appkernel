@@ -1,6 +1,7 @@
 from appkernel import Service
 from appkernel.model import Expression
 from collections import defaultdict
+from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
 
 # crud
@@ -16,40 +17,36 @@ from collections import defaultdict
 # less params than supported on the query
 
 def test_simple_query_processing():
-    query_expression = "first_name=first Name"
-    service = Service()
-    res = service._Service__convert_to_query(query_expression)
+    query_expression = ImmutableMultiDict([('first_name', u'first Name')])
+    res = Service.convert_to_query(['first_name'], query_expression)
     print('\n{}'.format(res))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
-    assert 'first_name' in res, 'it shoudl contain a key named: first_name'
+    assert 'first_name' in res, 'it should contain a key named: first_name'
     assert res.get('first_name') == 'first Name', 'the value of the key should be: first Name'
 
 
 def test_simple_query_with_contains_expression():
-    query_expression = "first_name:~first Name"
-    service = Service()
-    res = service._Service__convert_to_query(query_expression)
+    query_expression = ImmutableMultiDict([('first_name', u'~first Name')])
+    res = Service.convert_to_query(['first_name'], query_expression)
     print('\n{}'.format(res))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
-    assert res.get('first_name') == '\\.*first Name.*\\i'
+    assert res.get('first_name') == '/.*first Name.*/i'
 
 
-def test_simple_query_with_contains_expression():
-    query_expression = "birth_date:<1980-07-31"
-    service = Service()
-    res = service._Service__convert_to_query(query_expression)
+def test_simple_query_with_less_then():
+    query_expression = ImmutableMultiDict([('birth_date', u'<1980-07-31')])
+    res = Service.convert_to_query(['birth_date'], query_expression)
     print('\n{}'.format(res))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
     assert isinstance(res.get('birth_date'), dict), 'it should be type of dict'
 
 
-def test_simple_query_with_contains_expression():
-    query_expression = "birth_date:<1980-07-31,birth_date:>1980-07-01"
-    service = Service()
-    res = service._Service__convert_to_query(query_expression)
+def test_simple_query_with_between_query():
+    query_expression=ImmutableMultiDict([('birth_date', u'>1980-07-01'), ('birth_date', u'<1980-07-31'), ('logic', u'AND')])
+    res = Service.convert_to_query(['birth_date'], query_expression)
     print('\n{}'.format(res))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
@@ -58,9 +55,9 @@ def test_simple_query_with_contains_expression():
 
 
 def test_or_logic():
-    query_expression = "first_name:first Name,last_name:last Name"
-    service = Service()
-    res = service._Service__convert_to_query(query_expression, logic=Expression.OPS.OR)
+    query_expression = ImmutableMultiDict(
+        [('first_name', u'first Name'), ('last_name', u'last Name'), ('logic', u'OR')])
+    res = Service.convert_to_query(['first_name', 'last_name'], query_expression)
     print('\n{}'.format(res))
     assert '$or' in res, 'it should contain a key $or'
     assert len(list(res.keys())) == 1, 'it should have only one key'
@@ -76,9 +73,9 @@ def test_or_logic():
 
 
 def test_complex_query_processing():
-    query_expression = "first_name:first Name,last_name:last Name,birth_date:>1980-07-01,birth_date:<1980-07-31"
-    service = Service()
-    res = service._Service__convert_to_query(query_expression)
+    query_expression = ImmutableMultiDict(
+        [('first_name', u'first Name'), ('last_name', u'last Name'), ('birth_date', u'>1980-07-01'), ('birth_date', u'<1980-07-31'), ('logic', u'AND')])
+    res = Service.convert_to_query(['last_name', 'first_name', 'birth_date'], query_expression)
     print('\n{}'.format(res))
     assert '$and' in res, 'it should contain a key $and'
     assert len(list(res.keys())) == 1, 'it should have only one key'
