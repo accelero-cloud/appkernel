@@ -12,9 +12,11 @@ from collections import defaultdict
 # test bertween
 # test contains
 # test some error
+# more params on the query than supported by the method
+# less params than supported on the query
 
 def test_simple_query_processing():
-    query_expression = "first_name:first Name"
+    query_expression = "first_name=first Name"
     service = Service()
     res = service._Service__convert_to_query(query_expression)
     print('\n{}'.format(res))
