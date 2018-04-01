@@ -46,7 +46,7 @@ class QueryProcessor(object):
 
 class Service(object):
     pretty_print = True
-    qp = QueryProcessor()
+    qp = QueryProcessor() # pylint: disable=C0103
     """
     The Flask App is set on this instance, so one can use the context:
     with self.app_context():
