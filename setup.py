@@ -23,14 +23,14 @@ setup(
         'pyyaml', 'enum34', 'pymongo', 'simplejson',
         'Flask==0.12.2', 'werkzeug', 'eventlet'
         # 'requests', 'pymongo', 'Werkzeug==0.12.2',
-        #, 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
+        # , 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',
         # 'python-engineio==1.7.0', 'python-socketio==1.8.1',
         # 'flasgger', 'eventlet', 'six==1.10.0',
         # 'watson-developer-cloud==0.26.1', "jsonstruct==0.2a1", "mockito"
         # 'redis',
     ],
-    tests_require=['pytest'],
+    tests_require=['pytest', 'pytest-flask'],
     include_package_data=True,
     platforms='any',
     url='https://appkernel.accelero.cloud',
@@ -40,7 +40,7 @@ setup(
     description='An easy to use, beautiful, opinionated micro-service-chassis.',
     long_description=long_description,
     keywords=['microservice', 'flask', 'pymongo'],
-    #classifier options are available here: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+    # classifier options are available here: https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         'Environment :: Console',
         'Environment :: Web Environment',

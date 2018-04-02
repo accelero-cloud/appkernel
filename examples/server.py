@@ -3,7 +3,6 @@ import uuid
 from flask import Flask
 from appkernel import AppKernelEngine, Model, Repository, Service, Parameter, NotEmpty, Regexp, Past
 from datetime import datetime
-
 from appkernel.repository import MongoRepository
 
 print('Initialising under {}'.format(__name__))
@@ -19,10 +18,6 @@ def uuid_generator(prefix=None):
         return '{}{}'.format(prefix, str(uuid.uuid4()))
 
     return generate_id
-
-
-def date_now_generator():
-    return datetime.now()
 
 
 def date_now_generator():

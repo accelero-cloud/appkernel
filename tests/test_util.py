@@ -1,6 +1,7 @@
+from appkernel import Service
 from appkernel.model import *
 from datetime import datetime
-from appkernel.repository import AuditableRepository, Repository
+from appkernel.repository import AuditableRepository, Repository, MongoRepository
 
 
 def uui_generator(prefix=None):
@@ -12,6 +13,20 @@ def uui_generator(prefix=None):
 def date_now_generator():
     return datetime.now()
 
+
+def uuid_generator(prefix=None):
+    def generate_id():
+        return '{}{}'.format(prefix, str(uuid.uuid4()))
+    return generate_id
+
+
+class User(Model, MongoRepository, Service):
+    id = Parameter(str, required=True, generator=uuid_generator('U'))
+    name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')])
+    password = Parameter(str, required=True, validators=[NotEmpty])
+    description = Parameter(str)
+    roles = Parameter(list, sub_type=str)
+    created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
 
 class TestClass(Model):
     just_numbers = Parameter(str, required=True, validators=[Regexp('^[0-9]+$')])

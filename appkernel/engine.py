@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from flask import Flask, jsonify
+from flask import Flask, jsonify, current_app
 import logging
 from pymongo import MongoClient
 import sys, os, yaml, re
@@ -9,11 +9,16 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import default_exceptions
 from util import default_json_serializer
 import atexit, eventlet.debug
+from enum import Enum
 
 try:
     import simplejson as json
 except ImportError:
     import json
+
+
+class MessageType(Enum):
+    ERROR = 1
 
 
 class AppKernelJSONEncoder(json.JSONEncoder):
@@ -34,7 +39,9 @@ class AppKernelEngine(object):
                  app_id,
                  app=None,
                  root_url='/',
-                 log_level=logging.DEBUG):
+                 log_level=logging.DEBUG,
+                 cfg_dir=None,
+                 development=None):
         """
         Initialising the rest engine with Flask Engine.
         :param app: the Flask App
@@ -42,21 +49,23 @@ class AppKernelEngine(object):
         :param root_url: the url where the service are exposed to.
         :type root_url: str
         :param log_level: the level of log
+        :param cfg_dir: the directory containing the cfg.yml file. If not provided it will be taken from the command line or from current working dir;
+        :param development: the system will be initialised in development mode if True. If None, it will try to read the value as command line parameter or default to false;
         :type log_level: logging
         """
         assert app_id is not None, 'The app_id must be provided'
         assert re.match('[A-Za-z0-9-_]',
                         app_id), 'The app_id must be a single word, no space or special characters except - or _ .'
-        assert app is not None, 'The Flask App must be provided as init parameter.'
+        self.app = app or current_app
+        assert self.app is not None, 'The Flask App must be provided as init parameter.'
         try:
-            self.app = app
             self.app_id = app_id
             self.root_url = root_url
             self.init_flask_app()
             self.init_web_layer()
             self.cmd_line_options = self.get_cmdline_options()
-            self.cfg_engine = CfgEngine(self.cmd_line_options.get('cfg_dir'))
-            self.development = self.cmd_line_options.get('development')
+            self.cfg_engine = CfgEngine(cfg_dir or self.cmd_line_options.get('cfg_dir'))
+            self.development = development or self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
             self.init_logger(log_folder=cwd, level=log_level)
             # -- initialisation
@@ -170,7 +179,7 @@ class AppKernelEngine(object):
         logger.addHandler(handler)
 
     def create_custom_error(self, code, message):
-        return jsonify({'code': code, 'message': message}), code
+        return jsonify({'type': MessageType.ERROR.name, 'code': code, 'message': message}), code
 
     def generic_error_handler(self, ex=None):
         """

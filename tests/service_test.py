@@ -1,93 +1,84 @@
-from appkernel import Service
-from appkernel.model import Expression
-from collections import defaultdict
-from werkzeug.datastructures import MultiDict, ImmutableMultiDict
-
+from flask import Flask
+from appkernel import AppKernelEngine, Model, Repository, Service, Parameter, NotEmpty, Regexp, Past
+from datetime import datetime
+from appkernel.repository import MongoRepository
+from test_util import User
+import uuid, os, sys
+import pytest
 
 # crud
 # not found
 # method not allowed
 # patch nonexitent/existent field
 # test sort and sort by
-# test query AND and OR and NOT
-# test bertween
-# test contains
 # test some error
 # more params on the query than supported by the method
 # less params than supported on the query
 
-def test_simple_query_processing():
-    query_expression = ImmutableMultiDict([('first_name', u'first Name')])
-    res = Service.convert_to_query(['first_name'], query_expression)
-    print('\n{}'.format(res))
-    assert isinstance(res, dict), 'it should be type of dict'
-    assert len(list(res.keys())) == 1, 'it should have only one key'
-    assert 'first_name' in res, 'it should contain a key named: first_name'
-    assert res.get('first_name') == 'first Name', 'the value of the key should be: first Name'
+flask_app = Flask(__name__)
+flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
+flask_app.testing = True
 
 
-def test_simple_query_with_contains_expression():
-    query_expression = ImmutableMultiDict([('first_name', u'~first Name')])
-    res = Service.convert_to_query(['first_name'], query_expression)
-    print('\n{}'.format(res))
-    assert isinstance(res, dict), 'it should be type of dict'
-    assert len(list(res.keys())) == 1, 'it should have only one key'
-    assert res.get('first_name') == '/.*first Name.*/i'
+@pytest.fixture
+def app():
+    return flask_app
 
 
-def test_simple_query_with_less_then():
-    query_expression = ImmutableMultiDict([('birth_date', u'<1980-07-31')])
-    res = Service.convert_to_query(['birth_date'], query_expression)
-    print('\n{}'.format(res))
-    assert isinstance(res, dict), 'it should be type of dict'
-    assert len(list(res.keys())) == 1, 'it should have only one key'
-    assert isinstance(res.get('birth_date'), dict), 'it should be type of dict'
+def setup_module(module):
+    print '\nModule: >> {}'.format(module)
+    kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(os.getcwdu()), development=True)
+    kernel.register(User)
 
 
-def test_simple_query_with_between_query():
-    query_expression=ImmutableMultiDict([('birth_date', u'>1980-07-01'), ('birth_date', u'<1980-07-31'), ('logic', u'AND')])
-    res = Service.convert_to_query(['birth_date'], query_expression)
-    print('\n{}'.format(res))
-    assert isinstance(res, dict), 'it should be type of dict'
-    assert len(list(res.keys())) == 1, 'it should have only one key'
-    assert isinstance(res.get('birth_date'), dict), 'it should be type of dict'
-    assert len(res.get('birth_date')) == 2, 'the date parameter should contain 2 elements'
+def setup_function(function):
+    """ executed before each method call
+    """
+    print ('\n\nSETUP ==> ')
+    User.delete_all()
 
 
-def test_or_logic():
-    query_expression = ImmutableMultiDict(
-        [('first_name', u'first Name'), ('last_name', u'last Name'), ('logic', u'OR')])
-    res = Service.convert_to_query(['first_name', 'last_name'], query_expression)
-    print('\n{}'.format(res))
-    assert '$or' in res, 'it should contain a key $or'
-    assert len(list(res.keys())) == 1, 'it should have only one key'
-    query_items = res.get('$or')
-    assert len(query_items) == 2, 'the query should have 2 query params'
+def test_get_basic(client):
+    u = User().update(name='some_user', password='some_pass')
+    user_id = u.save()
+    rsp = client.get('/users/{}'.format(user_id))
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200, 'the status code is expected to be 200'
+    result = rsp.json
+    assert result.get('id') == user_id
+    assert 'type' in result
+    assert result.get('type') == 'User'
 
 
-# def test_in_query():
-#     query_expression = "state:[NEW,CLOSED]"
-#     service = Service()
-#     res = service._Service__convert_to_query(query_expression)
-#     print('\n{}'.format(res))
+def test_get_not_found(client):
+    rsp = client.get('/users/1234')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 404, 'the status code is expected to be 404'
+    assert rsp.json.get('type') == 'ERROR'
 
 
-def test_complex_query_processing():
-    query_expression = ImmutableMultiDict(
-        [('first_name', u'first Name'), ('last_name', u'last Name'), ('birth_date', u'>1980-07-01'), ('birth_date', u'<1980-07-31'), ('logic', u'AND')])
-    res = Service.convert_to_query(['last_name', 'first_name', 'birth_date'], query_expression)
-    print('\n{}'.format(res))
-    assert '$and' in res, 'it should contain a key $and'
-    assert len(list(res.keys())) == 1, 'it should have only one key'
-    query_items = res.get('$and')
-    assert isinstance(query_items, list), 'the logical groups should be included in a list'
-    assert len(query_items) == 3, 'the query should have 3 query params'
-    for query_item in query_items:
-        if 'birth_date' in query_item:
-            bd_item = query_item.get('birth_date')
-            assert '$gte' in bd_item, '$gte expression should be in the birthday item'
-            assert '$lt' in bd_item, '$lt expression should be in the birthday item'
-        if 'first_name' in query_item:
-            assert query_item.get('first_name') == 'first Name'
-        if 'last_name' in query_item:
-            assert query_item.get('last_name') == 'last Name'
+def test_delete_basic(client):
+    u = User().update(name='some_user', password='some_pass')
+    user_id = u.save()
+    rsp = client.delete('/users/{}'.format(user_id))
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200, 'the status code is expected to be 200'
+    assert rsp.json.get('result') == 1
+
+
+def test_get_query_between_dates(client):
+    u = User().update(name='some_user', password='some_pass')
+    u.birth_date = datetime.strptime('1980-06-30', '%Y-%m-%d')
+    user_id = u.save()
+    print('\nSaved user -> {}'.format(User.find_by_id(user_id)))
+    rsp = client.get('/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200, 'the status code is expected to be 200'
+    assert rsp.json.get('id') == user_id
+
+
+def test_get_query_between_not_found(client):
+    rsp = client.get('/users/?birth_date=>1980&birth_date=<1985&logic=AND')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 404, 'the status code is expected to be 404'
+    assert rsp.json.get('type') == 'ERROR'

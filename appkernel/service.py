@@ -1,5 +1,4 @@
 from types import NoneType
-
 from flask import Flask, jsonify, current_app, request, abort
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 from model import Model
@@ -11,6 +10,16 @@ import re
 from collections import defaultdict
 import traceback, sys
 
+
+def get_argument_spec(provisioner_method):
+    """
+    :param provisioner_method: the method of an instance
+    :return: the method arguments and default values as a dictionary, with method parameters as key and default values as dictionary value
+    """
+    assert inspect.ismethod(provisioner_method), 'The provisioner method must be a method'
+    args = [name for name in getattr(inspect.getargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
+    defaults = getattr(inspect.getargspec(provisioner_method), 'defaults')
+    return dict(zip(args, defaults or []))
 
 
 class QueryProcessor(object):
@@ -38,15 +47,16 @@ class QueryProcessor(object):
         :param provisioner_method:
         :return: True if the method has a parameter named query and the default value is of type dict
         """
-        args = [name for name in getattr(inspect.getargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
-        defaults = getattr(inspect.getargspec(provisioner_method), 'defaults')
-        method_structure = dict(zip(args, defaults))
-        return 'query' in method_structure and isinstance(method_structure.get('query'), dict)
+        method_structure = get_argument_spec(provisioner_method)
+        if 'query' in method_structure:
+            return isinstance(method_structure.get('query'), dict)
+        else:
+            return False
 
 
 class Service(object):
     pretty_print = True
-    qp = QueryProcessor() # pylint: disable=C0103
+    qp = QueryProcessor()  # pylint: disable=C0103
     """
     The Flask App is set on this instance, so one can use the context:
     with self.app_context():
@@ -153,13 +163,16 @@ class Service(object):
 
                 result = provisioner_method(
                     **Service.__autobox_parameters(provisioner_method, named_and_request_arguments))
-                if request.method == 'GET' and result is None:
-                    return app_engine.create_custom_error(404, 'Document with id {} is not found.'.format(
-                        named_args.get('object_id', '-1')))
+                if request.method == 'GET':
+                    if result is None:
+                        return app_engine.create_custom_error(404, 'Document with id {} is not found.'.format(
+                            named_args.get('object_id', '-1')))
+                    elif isinstance(result, list) and len(result) == 0:
+                        return app_engine.create_custom_error(404, 'This query returned and empty result set.')
                 if request.method == 'DELETE' and isinstance(result, int) and result == 0:
                     return app_engine.create_custom_error(404, 'Document with id {} was not deleted.'.format(
                         named_args.get('object_id', '-1')))
-                result_dic_tentative = {} if result is None else Service.xvert(result)
+                result_dic_tentative = {} if result is None else Service.xvert(model_class, result)
                 # todo: codify 201 or anything else what can be derived from the response
                 return jsonify(result_dic_tentative), 200
             except Exception as exc:
@@ -169,7 +182,6 @@ class Service(object):
         # add supported method parameter names to the list of reserved keywords
         Service.qp.add_reserved_keywords(provisioner_method)
         return create_executor
-
 
     @staticmethod
     def get_query_param_names(provisioner_method):
@@ -268,23 +280,30 @@ class Service(object):
 
     @staticmethod
     def __autobox_parameters(provisioner_method, arguments):
-        # argspec = inspect.getargspec(provisioner_method)
-        # returns a dict with the call argument names and default values
-        argspec = inspect.getcallargs(provisioner_method)
+        method_structure = get_argument_spec(provisioner_method)
+        # getattr(argspec, 'args'))
         for arg_key, arg_value in arguments.iteritems():
-            required_type = type(argspec.get(arg_key))
+            required_type = type(method_structure.get(arg_key))
             provided_type = type(arg_value)
             if required_type is not NoneType and provided_type is not NoneType and required_type != provided_type:
                 arguments[arg_key] = required_type(arg_value)
         return arguments
 
     @staticmethod
-    def xvert(result_item):
+    def xvert(model_class, result_item):
+        """
+        converts the response object into Json
+        :param model_class: the name of the class of teh model
+        :param result_item: the actual item which will get converted
+        :return:
+        """
         if isinstance(result_item, Model):
-            return Model.to_dict(result_item)
+            model = Model.to_dict(result_item)
+            model.update(type=model_class.__name__)
+            return model
         elif is_dictionary(result_item) or is_dictionary_subclass(result_item):
             return result_item
         elif isinstance(result_item, (list, set, tuple)):
-            return [Service.xvert(item) for item in result_item]
+            return [Service.xvert(model_class, item) for item in result_item]
         elif is_primitive(result_item) or isinstance(result_item, (str, basestring, int)) or is_noncomplex(result_item):
             return {'result': result_item}
