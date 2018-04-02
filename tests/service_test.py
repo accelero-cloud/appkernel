@@ -76,7 +76,7 @@ def test_get_query_between_dates(client):
     rsp = client.get('/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200, 'the status code is expected to be 200'
-    assert rsp.json.get('id') == user_id
+    assert rsp.json[0].get('id') == user_id
 
 
 def test_get_query_between_not_found(client):
