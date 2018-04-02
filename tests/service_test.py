@@ -28,8 +28,9 @@ def app():
 
 
 def setup_module(module):
-    print '\nModule: >> {}'.format(module)
-    kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(os.getcwdu()), development=True)
+    current_file_path = os.path.dirname(os.path.realpath(__file__))
+    print '\nModule: >> {} at {}'.format(module, current_file_path)
+    kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(current_file_path), development=True)
     kernel.register(User)
 
 
