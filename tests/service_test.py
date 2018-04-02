@@ -14,6 +14,8 @@ import pytest
 # test some error
 # more params on the query than supported by the method
 # less params than supported on the query
+# test between a range of sequences
+# test not just date but time too
 
 flask_app = Flask(__name__)
 flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'

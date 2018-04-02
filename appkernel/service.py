@@ -8,7 +8,7 @@ from reflection import *
 from model import Expression
 import re
 from collections import defaultdict
-import traceback, sys
+from datetime import datetime
 
 
 def get_argument_spec(provisioner_method):
@@ -25,6 +25,17 @@ def get_argument_spec(provisioner_method):
 class QueryProcessor(object):
     def __init__(self):
         self.query_pattern = re.compile('^(\w+:[\[\],\<\>A-Za-z0-9_\s-]+)(,\w+:[\[\],\<\>A-Za-z0-9_\s-]+)*$')
+        self.date_patterns = {
+            re.compile('^(0?[1-9]|[12][0-9]|3[01])(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)\d{4}$'): '%d{0}%m{0}%Y',
+        # 31/02/4500
+            re.compile('^\d{4}(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)(0?[1-9]|[12][0-9]|3[01])$'): '%Y{0}%m{0}%d'
+        # 4500/02/31,
+        }
+        self.date_separator_patterns = {
+            re.compile('([0-9].*-)+.*'): '-',
+            re.compile('([0-9].*\/)+.*'): '/',
+            re.compile('([0-9].*\.)+.*'): '.',
+        }
         self.expression_mapper = {
             '<': lambda exp: ('$lt', exp),
             '>': lambda exp: ('$gte', exp),
@@ -273,15 +284,37 @@ class Service(object):
 
     @staticmethod
     def __remap_expressions(expression):
+        """
+        Takes a query expression such as >1994-12-02 and turns into a {'$gte':'1994-12-02'}. Additionally converts the date string into datetime object;
+        :param expression:
+        :return:
+        """
         if expression[0] in Service.qp.supported_expressions:
-            return Service.qp.expression_mapper.get(expression[0])(expression[1:])
+            converted_value = Service.__convert_expressions(expression[1:])
+            return Service.qp.expression_mapper.get(expression[0])(converted_value)
         else:
-            return expression
+            return Service.__convert_expressions(expression)
+
+    @staticmethod
+    def __convert_expressions(expression):
+        """
+        :param arguments:
+        :return:
+        """
+        if isinstance(expression, (str, basestring, unicode)):
+            for date_pattern in Service.qp.date_patterns.iterkeys():
+                if date_pattern.match(expression):
+                    for parser_format_matcher in Service.qp.date_separator_patterns.iterkeys():
+                        if parser_format_matcher.match(expression):
+                            date_parser_pattern = Service.qp.date_patterns.get(date_pattern)
+                            separator = Service.qp.date_separator_patterns.get(parser_format_matcher)
+                            return datetime.strptime(expression, date_parser_pattern.format(separator))
+            # todo: number conversion
+        return expression
 
     @staticmethod
     def __autobox_parameters(provisioner_method, arguments):
         method_structure = get_argument_spec(provisioner_method)
-        # getattr(argspec, 'args'))
         for arg_key, arg_value in arguments.iteritems():
             required_type = type(method_structure.get(arg_key))
             provided_type = type(arg_value)
