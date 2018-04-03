@@ -1,7 +1,7 @@
 from types import NoneType
 from flask import Flask, jsonify, current_app, request, abort
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
-from model import Model
+from model import Model, ParameterRequiredException
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract
 from reflection import *
@@ -9,6 +9,11 @@ from model import Expression
 import re
 from collections import defaultdict
 from datetime import datetime
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 
 def get_argument_spec(provisioner_method):
@@ -27,9 +32,9 @@ class QueryProcessor(object):
         self.query_pattern = re.compile('^(\w+:[\[\],\<\>A-Za-z0-9_\s-]+)(,\w+:[\[\],\<\>A-Za-z0-9_\s-]+)*$')
         self.date_patterns = {
             re.compile('^(0?[1-9]|[12][0-9]|3[01])(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)\d{4}$'): '%d{0}%m{0}%Y',
-        # 31/02/4500
+            # 31/02/4500
             re.compile('^\d{4}(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)(0?[1-9]|[12][0-9]|3[01])$'): '%Y{0}%m{0}%d'
-        # 4500/02/31,
+            # 4500/02/31,
         }
         self.date_separator_patterns = {
             re.compile('([0-9].*-)+.*'): '-',
@@ -117,6 +122,9 @@ class Service(object):
             cls.app.add_url_rule('{}/<object_id>'.format(endpoint), 'delete_{}'.format(endpoint),
                                  Service.execute(app_engine, cls.delete_by_id, cls),
                                  methods=['DELETE'])
+    @staticmethod
+    def __extract_json(request):
+        return request.json or json.loads(request.data)
 
     @classmethod
     def execute(cls, app_engine, provisioner_method, model_class):
@@ -139,7 +147,7 @@ class Service(object):
                 # #request.form | request.args | request.files
                 # #request.values: combined args and form, preferring args if keys overlap
                 # print 'request json {}'.format(request.json)
-
+                return_code = 200
                 # merge together the named args (url parameters) and the query parameters (from requests.args)
                 named_and_request_arguments = named_args.copy()
 
@@ -166,11 +174,12 @@ class Service(object):
 
                 if request.method in ['POST', 'PUT']:
                     # load and validate the posted object
-                    model_instance = Model.from_dict(request.json, model_class)
+                    model_instance = Model.from_dict(Service.__extract_json(request), model_class)
                     # save or update the object
                     named_and_request_arguments.update(document=Model.to_dict(model_instance, convert_id=True))
+                    return_code = 201
                 elif request.method == 'PATCH':
-                    named_and_request_arguments.update(document=request.json)
+                    named_and_request_arguments.update(document=Service.__extract_json(request))
 
                 result = provisioner_method(
                     **Service.__autobox_parameters(provisioner_method, named_and_request_arguments))
@@ -183,9 +192,14 @@ class Service(object):
                 if request.method == 'DELETE' and isinstance(result, int) and result == 0:
                     return app_engine.create_custom_error(404, 'Document with id {} was not deleted.'.format(
                         named_args.get('object_id', '-1')))
+                if result is None:
+                    return_code = 204
                 result_dic_tentative = {} if result is None else Service.xvert(model_class, result)
                 # todo: codify 201 or anything else what can be derived from the response
-                return jsonify(result_dic_tentative), 200
+                return jsonify(result_dic_tentative), return_code
+            except ParameterRequiredException as pexc:
+                app_engine.logger.warn('missing parameter: {}'.format(str(pexc)))
+                return app_engine.create_custom_error(400, str(pexc))
             except Exception as exc:
                 app_engine.logger.exception('exception caught while executing service call: {}'.format(str(exc)))
                 return app_engine.generic_error_handler(exc)

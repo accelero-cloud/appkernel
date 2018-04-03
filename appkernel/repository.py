@@ -140,7 +140,7 @@ class MongoRepository(Repository):
     @classmethod
     def save_object(cls, document, object_id=None):
         # type: (object) -> object
-        assert document, 'the document must be provided before saving'
+        assert document, 'the document must be handed over as a parameter'
         has_id, document_id, document = MongoRepository.prepare_document(document, object_id)
         if has_id:
             update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document}, upsert=True)

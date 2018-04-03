@@ -390,7 +390,7 @@ class Model(object):
             # validate fields
             if param_object.required and param_name not in obj_items:
                 raise ParameterRequiredException(
-                    'parameter [{}] on class [{}] is required but missing'.format(param_name, self.__class__.__name__))
+                    '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
             if param_object.validators is not None and isinstance(param_object.validators, list):
                 for val in param_object.validators:
                     if isinstance(val, Validator) and param_name in self.__dict__:

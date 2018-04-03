@@ -18,7 +18,7 @@ except ImportError:
 
 
 class MessageType(Enum):
-    ERROR = 1
+    ErrorMessage = 1
 
 
 class AppKernelJSONEncoder(json.JSONEncoder):
@@ -179,7 +179,7 @@ class AppKernelEngine(object):
         logger.addHandler(handler)
 
     def create_custom_error(self, code, message):
-        return jsonify({'type': MessageType.ERROR.name, 'code': code, 'message': message}), code
+        return jsonify({'type': MessageType.ErrorMessage.name, 'code': code, 'message': message}), code
 
     def generic_error_handler(self, ex=None):
         """
@@ -193,7 +193,7 @@ class AppKernelEngine(object):
         else:
             msg = 'Generic server error.'
         self.logger.warn('generic error handler: {}/{}'.format(type(ex), str(ex)))
-        return jsonify({'code': code, 'message': msg}), code
+        return self.create_custom_error(code, msg)
 
     def teardown(self, exception):
         """
