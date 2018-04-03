@@ -122,19 +122,39 @@ def test_find_date_range(client):
     assert len(response_list) == 3
 
 
-# todo: range in user sequence
-def test_find_range_in_user_sequence(client):
+def create_50_users():
     for i in xrange(50):
         u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i)
         u.save()
     assert User.count() == 50
+
+
+def test_find_range_in_user_sequence(client):
+    create_50_users()
     rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
     assert len(response_object) == 5
 
-#todo: find contans
+
+def test_find_less_than(client):
+    create_50_users()
+    rsp = client.get('/users/?sequence=<5')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    response_object = rsp.json
+    assert len(response_object) == 5
+
+
+def test_find_greater_than(client):
+    create_50_users()
+    rsp = client.get('/users/?sequence=>45')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    response_object = rsp.json
+    assert len(response_object) == 5
+
+#todo: find contains string
+#todo: find boolean
 
 def test_post_user(client, user_dict):
     user_json = json.dumps(user_dict)
