@@ -36,6 +36,8 @@ class QueryProcessor(object):
             re.compile('^\d{4}(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)(0?[1-9]|[12][0-9]|3[01])$'): '%Y{0}%m{0}%d'
             # 4500/02/31,
         }
+        self.number_pattern = re.compile('[0-9]*')
+        self.boolean_pattern = re.compile('[true|false|True|False|y|yes|n|no]')
         self.date_separator_patterns = {
             re.compile('([0-9].*-)+.*'): '-',
             re.compile('([0-9].*\/)+.*'): '/',
@@ -122,6 +124,7 @@ class Service(object):
             cls.app.add_url_rule('{}/<object_id>'.format(endpoint), 'delete_{}'.format(endpoint),
                                  Service.execute(app_engine, cls.delete_by_id, cls),
                                  methods=['DELETE'])
+
     @staticmethod
     def __extract_json(request):
         return request.json or json.loads(request.data)
@@ -312,10 +315,15 @@ class Service(object):
     @staticmethod
     def __convert_expressions(expression):
         """
+        converts strings containing numbers to int, string containing a date to datetime, string containing a boolean expression to boolean
         :param arguments:
         :return:
         """
         if isinstance(expression, (str, basestring, unicode)):
+            if Service.qp.number_pattern.match(expression):
+                return int(expression)
+            if Service.qp.boolean_pattern.match(expression):
+                return True if expression in ['true', 'True', 'y', 'yes'] else False
             for date_pattern in Service.qp.date_patterns.iterkeys():
                 if date_pattern.match(expression):
                     for parser_format_matcher in Service.qp.date_separator_patterns.iterkeys():
@@ -323,7 +331,6 @@ class Service(object):
                             date_parser_pattern = Service.qp.date_patterns.get(date_pattern)
                             separator = Service.qp.date_separator_patterns.get(parser_format_matcher)
                             return datetime.strptime(expression, date_parser_pattern.format(separator))
-            # todo: number conversion
         return expression
 
     @staticmethod

@@ -102,8 +102,6 @@ def test_get_query_between_dates(client):
     assert rsp.json[0].get('id') == user_id
 
 
-# todo: range in user date
-
 def test_get_query_between_not_found(client):
     rsp = client.get('/users/?birth_date=>1980&birth_date=<1985&logic=AND')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
@@ -111,8 +109,32 @@ def test_get_query_between_not_found(client):
     assert rsp.json.get('type') == 'ErrorMessage'
 
 
-# todo: range in user sequence
+def test_find_date_range(client):
+    base_birth_date = datetime.strptime('1980-01-01', '%Y-%m-%d')
+    for m in xrange(1, 13):
+        u = User().update(name='multi_user_{}'.format(m)).update(password='some default password'). \
+            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(birth_date=base_birth_date.replace(month=m))
+        u.save()
+    assert User.count() == 12
+    rsp = client.get('/users/?birth_date=>1980-03-01&birth_date=<1980-05-30&logic=AND')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    response_list = rsp.json
+    assert len(response_list) == 3
 
+
+# todo: range in user sequence
+def test_find_range_in_user_sequence(client):
+    for i in xrange(50):
+        u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
+            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i)
+        u.save()
+    assert User.count() == 50
+    rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    response_object = rsp.json
+    assert len(response_object) == 5
+
+#todo: find contans
 
 def test_post_user(client, user_dict):
     user_json = json.dumps(user_dict)
@@ -169,6 +191,7 @@ def test_patch_user(client, user_dict):
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result_user = rsp.json
     assert result_user.get('description') == 'patched description'
+
 
 def test_put_user(client, user_dict):
     user_json = json.dumps(user_dict)
