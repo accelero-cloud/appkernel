@@ -37,7 +37,7 @@ class QueryProcessor(object):
             # 4500/02/31,
         }
         self.number_pattern = re.compile('^[-+]?[0-9]+$')
-        self.boolean_pattern = re.compile('[true|false|True|False|y|yes|n|no]')
+        self.boolean_pattern = re.compile('^(true|false|True|False|y|yes|no)$')
         self.date_separator_patterns = {
             re.compile('([0-9].*-)+.*'): '-',
             re.compile('([0-9].*\/)+.*'): '/',

@@ -77,7 +77,7 @@ def test_get_not_found(client):
     rsp = client.get('/users/1234')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 404, 'the status code is expected to be 404'
-    assert rsp.json.get('type') == 'ERROR'
+    assert rsp.json.get('type') == 'ErrorMessage'
 
 
 def test_delete_basic(client):

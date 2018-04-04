@@ -23,7 +23,7 @@ def test_simple_query_with_contains_expression():
     print('\n{}'.format(res))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
-    assert res.get('first_name') == '/.*first Name.*/i'
+    assert '$regex' in res.get('first_name')
 
 
 def test_simple_query_with_less_then():
