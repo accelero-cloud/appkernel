@@ -36,7 +36,7 @@ class QueryProcessor(object):
             re.compile('^\d{4}(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)(0?[1-9]|[12][0-9]|3[01])$'): '%Y{0}%m{0}%d'
             # 4500/02/31,
         }
-        self.number_pattern = re.compile('[0-9]*')
+        self.number_pattern = re.compile('^[-+]?[0-9]+$')
         self.boolean_pattern = re.compile('[true|false|True|False|y|yes|n|no]')
         self.date_separator_patterns = {
             re.compile('([0-9].*-)+.*'): '-',
@@ -46,7 +46,7 @@ class QueryProcessor(object):
         self.expression_mapper = {
             '<': lambda exp: ('$lt', exp),
             '>': lambda exp: ('$gte', exp),
-            '~': lambda exp: '/.*{}.*/i'.format(exp)
+            '~': lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}
         }
         self.supported_expressions = list(self.expression_mapper.keys())
         self.reserved_param_names = {}

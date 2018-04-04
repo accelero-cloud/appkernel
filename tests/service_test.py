@@ -122,6 +122,13 @@ def test_find_date_range(client):
     assert len(response_list) == 3
 
 
+def create_a_user(name, password, description):
+    u = User().update(name=name).update(password=password). \
+        append_to(roles=['Admin', 'User', 'Operator']).update(description=description)
+    u.save()
+    return u
+
+
 def create_50_users():
     for i in xrange(50):
         u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
@@ -152,6 +159,28 @@ def test_find_greater_than(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
     assert len(response_object) == 5
+
+
+def test_find_contains(client):
+    john = create_a_user('John Doe', 'a password', 'John is a random guy')
+    jane = create_a_user('Jane Doe', 'a password', 'Jane is a random girl')
+    rsp = client.get('/users/?name=~Jane')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    rsp_object = rsp.json
+    assert len(rsp_object) == 1
+    assert rsp_object[0].get('name') == 'Jane Doe'
+
+    rsp = client.get('/users/?name=~John')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    rsp_object = rsp.json
+    assert len(rsp_object) == 1
+    assert rsp_object[0].get('name') == 'John Doe'
+
+    rsp = client.get('/users/?name=~Doe')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    rsp_object = rsp.json
+    assert len(rsp_object) == 2
+
 
 #todo: find contains string
 #todo: find boolean
