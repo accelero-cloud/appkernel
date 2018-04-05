@@ -11,16 +11,27 @@ try:
 except ImportError:
     import json
 
-# post patch and put with a form
-# find value in array
-# method not allowed
-# test some error
-# less params than supported on the query
-# test not just date but time too
-# todo: has field
-# todo: contains element size
 # todo: try class based discovery before regular expression matching
-# todo: contains roles
+# examples of supported queries:
+# GET /users/12345
+# GET /users/?name=Jane&name=John
+# GET /users/?name=Jane&name=John&logic=OR
+# GET /users/?sequence=>10&sequence=<20
+# GET /users/?birth_date=>1980-06-10&birth_date=<1980-08-15
+# GET /users/?name=~Doe
+# GET /users/?name=!Max
+# --
+# post patch and put with a form data
+# GET /users/query - json body with query expression
+# GET /users/pipe - json body with query expression
+# -- Not yet implemented
+# GET /users/?name=[Jane,John]
+# GET /users/?roles=#0
+# find value in array (simple and complex array)
+# /users/?roles=~Admin
+# search in structures ?subelement.field = 3
+# test not just date but time too
+# --
 
 flask_app = Flask(__name__)
 flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
@@ -333,6 +344,31 @@ def test_find_boolean(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert len(rsp.json) == 2
 
+
+def test_find_not_equal(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?name=!Max')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    result_set = rsp.json
+    assert len(result_set) == 2
+    max_found = False
+    for uzer in result_set:
+        max_found = uzer.get('name') == 'Max'
+    assert not max_found
+
+# def test_find_in(client):
+#     create_john_jane_and_max()
+#     rsp = client.get('/users/?name=[Jane,John]')
+#     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+#     assert rsp.status_code == 200
+
+
+# def test_array_contains(client):
+#     create_john_jane_and_max()
+#     rsp = client.get('/users/?name=[Jane,John]')
+#     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+#     assert rsp.status_code == 200
 
 def test_post_user(client, user_dict):
     user_json = json.dumps(user_dict)

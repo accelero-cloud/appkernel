@@ -48,7 +48,9 @@ class QueryProcessor(object):
         self.expression_mapper = {
             '<': lambda exp: ('$lte', exp),
             '>': lambda exp: ('$gte', exp),
-            '~': lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}
+            '~': lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'},
+            '!': lambda exp: ('$ne', exp),
+            '#': lambda exp: ('$size', exp),
         }
         self.supported_expressions = list(self.expression_mapper.keys())
         self.reserved_param_names = {}

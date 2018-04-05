@@ -2,8 +2,6 @@ from appkernel import Service
 from werkzeug.datastructures import ImmutableMultiDict
 
 # test query AND and OR and NOT
-# test between
-# test contains
 # test date pattern recognition and conversion
 
 
