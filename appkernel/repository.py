@@ -182,11 +182,10 @@ class MongoRepository(Repository):
         :param query: the query expression as a dictionary
         :return: a generator with the query results
         """
+        cursor = cls.get_collection().find(query).skip((page - 1) * page_size).limit(page_size)
         if sort_by:
-            cursor = cls.get_collection().find(query).skip((page - 1) * page_size).limit(page_size).sort(sort_by,
-                                                                                                         direction=pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING)
-        else:
-            cursor = cls.get_collection().find(query).skip((page - 1) * page_size).limit(page_size)
+            py_direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
+            cursor.sort(sort_by, direction=py_direction)
         return [Model.from_dict(result, cls, convert_ids=True) for result in cursor]
 
     @classmethod

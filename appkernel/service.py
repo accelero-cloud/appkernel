@@ -46,7 +46,7 @@ class QueryProcessor(object):
             re.compile('([0-9].*\.)+.*'): '.',
         }
         self.expression_mapper = {
-            '<': lambda exp: ('$lt', exp),
+            '<': lambda exp: ('$lte', exp),
             '>': lambda exp: ('$gte', exp),
             '~': lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}
         }

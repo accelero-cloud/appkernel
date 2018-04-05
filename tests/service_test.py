@@ -17,8 +17,8 @@ except ImportError:
 # more params on the query than supported by the method
 # less params than supported on the query
 # test not just date but time too
-#todo: has field
-#todo: contains element size
+# todo: has field
+# todo: contains element size
 # todo: try class based discovery before regular expression matching
 # todo: contains roles
 
@@ -127,7 +127,8 @@ def test_find_date_range(client):
     base_birth_date = datetime.strptime('1980-01-01', '%Y-%m-%d')
     for m in xrange(1, 13):
         u = User().update(name='multi_user_{}'.format(m)).update(password='some default password'). \
-            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(birth_date=base_birth_date.replace(month=m))
+            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(
+            birth_date=base_birth_date.replace(month=m))
         u.save()
     assert User.count() == 12
     rsp = client.get('/users/?birth_date=>1980-03-01&birth_date=<1980-05-30&logic=AND')
@@ -144,7 +145,7 @@ def create_a_user(name, password, description):
 
 
 def create_50_users():
-    for i in xrange(50):
+    for i in xrange(1, 51):
         u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i)
         u.save()
@@ -188,9 +189,10 @@ def test_sort_by(client):
     prev_user_seq = None
     for uzer in rsp.json:
         if prev_user_seq:
-            assert uzer.get('sequence') == prev_user_seq+1
+            assert uzer.get('sequence') == prev_user_seq + 1
         prev_user_seq = uzer.get('sequence')
         assert prev_user_seq is not None
+
 
 def test_sort_by(client):
     create_50_users()
@@ -200,9 +202,21 @@ def test_sort_by(client):
     prev_user_seq = None
     for uzer in rsp.json:
         if prev_user_seq:
-            assert uzer.get('sequence') == prev_user_seq-1
+            assert uzer.get('sequence') == prev_user_seq - 1
         prev_user_seq = uzer.get('sequence')
         assert prev_user_seq is not None
+
+
+def test_pagination(client):
+    create_50_users()
+    for page in range(1, 6):
+        print('\n== Page: ({}) ===='.format(page))
+        rsp = client.get('/users/?page={}&page_size=5'.format(page))
+        print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+        assert rsp.status_code == 200
+        result_set = rsp.json
+        assert len(result_set) == 5
+        assert result_set[4].get('sequence') == page * 5, 'the sequence number should be a multiple of 5'
 
 
 def test_find_contains(client):
