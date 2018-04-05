@@ -192,15 +192,12 @@ class Service(object):
                     if result is None:
                         return app_engine.create_custom_error(404, 'Document with id {} is not found.'.format(
                             named_args.get('object_id', '-1')))
-                    elif isinstance(result, list) and len(result) == 0:
-                        return app_engine.create_custom_error(404, 'This query returned and empty result set.')
                 if request.method == 'DELETE' and isinstance(result, int) and result == 0:
                     return app_engine.create_custom_error(404, 'Document with id {} was not deleted.'.format(
                         named_args.get('object_id', '-1')))
-                if result is None:
+                if result is None or isinstance(result, list) and len(result) == 0:
                     return_code = 204
                 result_dic_tentative = {} if result is None else Service.xvert(model_class, result)
-                # todo: codify 201 or anything else what can be derived from the response
                 return jsonify(result_dic_tentative), return_code
             except ParameterRequiredException as pexc:
                 app_engine.logger.warn('missing parameter: {}'.format(str(pexc)))
@@ -312,7 +309,7 @@ class Service(object):
             # the dictionary has 0 or 1 elements
             return expression_list[0]
         else:
-            logic = Expression.OPS.__getattr__(request_args.get('logic', 'and'))
+            logic = Expression.OPS.__getattr__(request_args.get('logic', 'and').upper())
             return {logic: expression_list}
 
     @staticmethod

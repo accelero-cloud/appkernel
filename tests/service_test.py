@@ -11,7 +11,8 @@ try:
 except ImportError:
     import json
 
-# crud
+# post patch and put with a form
+# find value in array
 # method not allowed
 # test some error
 # more params on the query than supported by the method
@@ -119,8 +120,7 @@ def test_get_query_between_dates(client):
 def test_get_query_between_not_found(client):
     rsp = client.get('/users/?birth_date=>1980&birth_date=<1985&logic=AND')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    assert rsp.status_code == 404, 'the status code is expected to be 404'
-    assert rsp.json.get('type') == 'ErrorMessage'
+    assert rsp.status_code == 204, 'the status code is expected to be 204'
 
 
 def test_find_date_range(client):
@@ -194,7 +194,7 @@ def test_sort_by(client):
         assert prev_user_seq is not None
 
 
-def test_sort_by(client):
+def test_sort_by_and_sort_order_desc(client):
     create_50_users()
     rsp = client.get('/users/?sequence=>45&sort_by=sequence&sort_order=DESC')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
@@ -260,6 +260,25 @@ def test_find_exact_or(client):
     assert len(rsp.json) == 2
 
 
+def test_find_exact_and(client):
+    jane1 = create_a_user('Jane', 'some secret', 'some silly description')
+    jane2 = create_a_user('Jane', 'some secret', 'some silly description')
+    jane1.enabled = True
+    jane2.enabled = False
+    jane1.save()
+    jane2.save()
+    rsp = client.get('/users/?name=~Jane&name=Jane&enabled=false')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert len(rsp.json) == 1
+
+
+def test_more_params_than_supported(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?name=~Jane&jibberish=5')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 204
+
 def test_find_contains_or(client):
     create_john_jane_and_max()
     rsp = client.get('/users/?name=~Jane&name=~John&logic=OR')
@@ -272,7 +291,7 @@ def test_search_for_nonexistent_field(client):
     john = create_a_user('John Doe', 'a password', 'John is a random guy')
     rsp = client.get('/users/?xxxx=Jane')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    assert rsp.status_code == 404, 'the status code is expected to be 404'
+    assert rsp.status_code == 204, 'the status code is expected to be 204'
 
 
 def test_find_by_exact_match(client):
