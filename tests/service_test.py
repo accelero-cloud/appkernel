@@ -219,6 +219,18 @@ def test_pagination(client):
         assert result_set[4].get('sequence') == page * 5, 'the sequence number should be a multiple of 5'
 
 
+def test_pagination_with_sort(client):
+    create_50_users()
+    for page in range(1, 6):
+        print('\n== Page: ({}) ===='.format(page))
+        rsp = client.get('/users/?page={}&page_size=5&sort_by=sequence&sort_order=DESC'.format(page))
+        print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+        assert rsp.status_code == 200
+        result_set = rsp.json
+        assert len(result_set) == 5
+        assert result_set[0].get('sequence') == 55 - (page * 5)
+
+
 def test_find_contains(client):
     john = create_a_user('John Doe', 'a password', 'John is a random guy')
     jane = create_a_user('Jane Doe', 'a password', 'Jane is a random girl')
