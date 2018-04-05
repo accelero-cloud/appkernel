@@ -12,15 +12,17 @@ except ImportError:
     import json
 
 # crud
-# not found
 # method not allowed
-# patch nonexitent/existent field
+# patch nonexistent/existent field
 # test sort and sort by
 # test some error
 # more params on the query than supported by the method
 # less params than supported on the query
-# test between a range of sequences
 # test not just date but time too
+#todo: has field
+#todo: contains element size
+# todo: try class based discovery before regular expression matching
+# todo: contains roles
 
 flask_app = Flask(__name__)
 flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
@@ -137,6 +139,12 @@ def create_50_users():
     assert User.count() == 50
 
 
+def create_john_jane_and_max():
+    john = create_a_user('John', 'a password', 'John is a random guy')
+    jane = create_a_user('Jane', 'a password', 'Jane is a random girl')
+    max = create_a_user('Max', 'a password', 'Jane is a random girl')
+
+
 def test_find_range_in_user_sequence(client):
     create_50_users()
     rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
@@ -182,8 +190,60 @@ def test_find_contains(client):
     assert len(rsp_object) == 2
 
 
-#todo: find contains string
-#todo: find boolean
+def test_find_exact_or(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?name=Jane&name=John&logic=OR')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert len(rsp.json) == 2
+
+
+def test_find_contains_or(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?name=~Jane&name=~John&logic=OR')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert len(rsp.json) == 2
+
+
+def test_search_for_nonexistent_field(client):
+    john = create_a_user('John Doe', 'a password', 'John is a random guy')
+    rsp = client.get('/users/?xxxx=Jane')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 404, 'the status code is expected to be 404'
+
+
+def test_find_by_exact_match(client):
+    john = create_a_user('John', 'a_password', 'John is a random guy')
+    rsp = client.get('/users/?name=John')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert rsp.json[0].get('name') == 'John'
+
+
+def test_find_boolean(client):
+    john = create_a_user('John Doe', 'a password', 'John is a random guy')
+    john.locked = True
+    john.save()
+
+    jane = create_a_user('Jane Doe', 'a password', 'Jane is a random girl')
+    jane.locked = False
+    jane.save()
+
+    max = create_a_user('Max Mustermann', 'a password', 'Max is yet another random guy')
+
+    rsp = client.get('/users/?locked=false')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.json[0].get('name') == 'Jane Doe'
+
+    rsp = client.get('/users/?locked=true')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.json[0].get('name') == 'John Doe'
+
+    rsp = client.get('/users/?locked=true&locked=false&logic=OR')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert len(rsp.json) == 2
+
 
 def test_post_user(client, user_dict):
     user_json = json.dumps(user_dict)

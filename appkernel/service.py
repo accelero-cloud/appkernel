@@ -279,11 +279,25 @@ class Service(object):
         for query_item in [[key, val] for key, val in query_dict.iteritems()]:
             # where query_item[0] is the key of the future structure and query_item[1] is the value
             if isinstance(query_item[1], list) and len(query_item[1]) > 1:
-                # it is a key with a list of values
-                expression_list.append(
-                    {query_item[0]: dict([Service.__remap_expressions(expr) for expr in query_item[1]])})
+                # it is a key with a list of values;
+                # examples for query item:
+                #   ['name', ['Jane', 'John']]          output: [{'name': 'Jane'}, {'name': 'John'}]
+                #   ['locked', ['true', 'false']]       output: [{'locked': True}, {'locked': False}]
+                #   ['birth_date', ['<1980','>1970']]   output: [{'$gte':' 1970', '$lt': '1980'}]
+                #   ['name', ['~Jane', '~John']]        output: [{'name': {'$regex': '.*Jane.*', 'options': 'i'}}, {'$regex': '.*John.*', 'options': 'i'}]
+
+                value_list = [Service.__remap_expressions(expr) for expr in query_item[1]]
+                if isinstance(value_list[0], tuple):
+                    expression_list.append(
+                        {query_item[0]: dict(value_list)})
+                else:
+                    for val in value_list:
+                        expression_list.append({query_item[0]: val})
             else:
                 # it is a key with a list of only 1 item
+                # examples:
+                #   ['name', ['~Jane']]
+                #   ['name', ['John']]
                 mapped_value = Service.__remap_expressions(query_item[1][0])
                 if isinstance(mapped_value, tuple):
                     expression_list.append({query_item[0]: dict([mapped_value])})
@@ -302,7 +316,8 @@ class Service(object):
     @staticmethod
     def __remap_expressions(expression):
         """
-        Takes a query expression such as >1994-12-02 and turns into a {'$gte':'1994-12-02'}. Additionally converts the date string into datetime object;
+        Takes a query expression such as >1994-12-02 and turns into a {'$gte':'1994-12-02'}.
+        Additionally converts the date string into datetime object;
         :param expression:
         :return:
         """
