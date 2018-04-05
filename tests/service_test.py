@@ -13,8 +13,6 @@ except ImportError:
 
 # crud
 # method not allowed
-# patch nonexistent/existent field
-# test sort and sort by
 # test some error
 # more params on the query than supported by the method
 # less params than supported on the query
@@ -82,6 +80,13 @@ def test_get_not_found(client):
     assert rsp.json.get('type') == 'ErrorMessage'
 
 
+def test_get_invalid_url(client):
+    rsp = client.get('/uzerz/1234')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 404, 'the status code is expected to be 404'
+    assert rsp.json.get('type') == 'ErrorMessage'
+
+
 def test_delete_basic(client):
     u = User().update(name='some_user', password='some_pass')
     user_id = u.save()
@@ -89,6 +94,13 @@ def test_delete_basic(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     assert rsp.json.get('result') == 1
+
+
+def test_delete_invalid_url(client):
+    rsp = client.delete('/uzerz/1234')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 404, 'the status code is expected to be 404'
+    assert rsp.json.get('type') == 'ErrorMessage'
 
 
 def test_get_query_between_dates(client):
@@ -167,6 +179,30 @@ def test_find_greater_than(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
     assert len(response_object) == 5
+
+
+def test_sort_by(client):
+    create_50_users()
+    rsp = client.get('/users/?sequence=>45&sort_by=sequence')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    prev_user_seq = None
+    for uzer in rsp.json:
+        if prev_user_seq:
+            assert uzer.get('sequence') == prev_user_seq+1
+        prev_user_seq = uzer.get('sequence')
+        assert prev_user_seq is not None
+
+def test_sort_by(client):
+    create_50_users()
+    rsp = client.get('/users/?sequence=>45&sort_by=sequence&sort_order=DESC')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    prev_user_seq = None
+    for uzer in rsp.json:
+        if prev_user_seq:
+            assert uzer.get('sequence') == prev_user_seq-1
+        prev_user_seq = uzer.get('sequence')
+        assert prev_user_seq is not None
 
 
 def test_find_contains(client):
@@ -300,6 +336,17 @@ def test_patch_user(client, user_dict):
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result_user = rsp.json
     assert result_user.get('description') == 'patched description'
+
+
+def test_patch_nonexistent_field(client):
+    john = create_a_user('John Doe', 'some pass', 'a silly description')
+    user_url = '/users/{}'.format(john.id)
+    rsp = client.patch(user_url, data=json.dumps({'locked': True}))
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    rsp = client.get(user_url)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200, 'the status code is expected to be 200'
+    assert rsp.json.get('locked')
 
 
 def test_put_user(client, user_dict):

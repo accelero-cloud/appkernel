@@ -1,4 +1,6 @@
 from types import NoneType
+
+from enum import Enum
 from flask import Flask, jsonify, current_app, request, abort
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 from model import Model, ParameterRequiredException
@@ -355,7 +357,10 @@ class Service(object):
             required_type = type(method_structure.get(arg_key))
             provided_type = type(arg_value)
             if required_type is not NoneType and provided_type is not NoneType and required_type != provided_type:
-                arguments[arg_key] = required_type(arg_value)
+                if issubclass(required_type, Enum):
+                    arguments[arg_key] = required_type[arg_value]
+                else:
+                    arguments[arg_key] = required_type(arg_value)
         return arguments
 
     @staticmethod
