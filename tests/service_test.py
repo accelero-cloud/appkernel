@@ -15,7 +15,6 @@ except ImportError:
 # find value in array
 # method not allowed
 # test some error
-# more params on the query than supported by the method
 # less params than supported on the query
 # test not just date but time too
 # todo: has field
@@ -144,12 +143,12 @@ def create_a_user(name, password, description):
     return u
 
 
-def create_50_users():
-    for i in xrange(1, 51):
+def create_some_users(range=51):
+    for i in xrange(1, range):
         u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i)
         u.save()
-    assert User.count() == 50
+    assert User.count() == range - 1
 
 
 def create_john_jane_and_max():
@@ -159,7 +158,7 @@ def create_john_jane_and_max():
 
 
 def test_find_range_in_user_sequence(client):
-    create_50_users()
+    create_some_users()
     rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
@@ -167,7 +166,7 @@ def test_find_range_in_user_sequence(client):
 
 
 def test_find_less_than(client):
-    create_50_users()
+    create_some_users()
     rsp = client.get('/users/?sequence=<5')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
@@ -175,7 +174,7 @@ def test_find_less_than(client):
 
 
 def test_find_greater_than(client):
-    create_50_users()
+    create_some_users()
     rsp = client.get('/users/?sequence=>45')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
@@ -183,7 +182,7 @@ def test_find_greater_than(client):
 
 
 def test_sort_by(client):
-    create_50_users()
+    create_some_users()
     rsp = client.get('/users/?sequence=>45&sort_by=sequence')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     prev_user_seq = None
@@ -195,7 +194,7 @@ def test_sort_by(client):
 
 
 def test_sort_by_and_sort_order_desc(client):
-    create_50_users()
+    create_some_users()
     rsp = client.get('/users/?sequence=>45&sort_by=sequence&sort_order=DESC')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
@@ -208,7 +207,7 @@ def test_sort_by_and_sort_order_desc(client):
 
 
 def test_pagination(client):
-    create_50_users()
+    create_some_users()
     for page in range(1, 6):
         print('\n== Page: ({}) ===='.format(page))
         rsp = client.get('/users/?page={}&page_size=5'.format(page))
@@ -220,7 +219,7 @@ def test_pagination(client):
 
 
 def test_pagination_with_sort(client):
-    create_50_users()
+    create_some_users()
     for page in range(1, 6):
         print('\n== Page: ({}) ===='.format(page))
         rsp = client.get('/users/?page={}&page_size=5&sort_by=sequence&sort_order=DESC'.format(page))
@@ -229,6 +228,14 @@ def test_pagination_with_sort(client):
         result_set = rsp.json
         assert len(result_set) == 5
         assert result_set[0].get('sequence') == 55 - (page * 5)
+
+
+def test_default_pagination(client):
+    create_some_users(range=101)
+    rsp = client.get('/users/')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert len(rsp.json) == 50
 
 
 def test_find_contains(client):
@@ -278,6 +285,7 @@ def test_more_params_than_supported(client):
     rsp = client.get('/users/?name=~Jane&jibberish=5')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 204
+
 
 def test_find_contains_or(client):
     create_john_jane_and_max()
