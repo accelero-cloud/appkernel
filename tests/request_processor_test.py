@@ -76,7 +76,7 @@ def test_complex_query_processing():
         if 'birth_date' in query_item:
             bd_item = query_item.get('birth_date')
             assert '$gte' in bd_item, '$gte expression should be in the birthday item'
-            assert '$lt' in bd_item, '$lt expression should be in the birthday item'
+            assert '$lte' in bd_item, '$lt expression should be in the birthday item'
         if 'first_name' in query_item:
             assert query_item.get('first_name') == 'first Name'
         if 'last_name' in query_item:

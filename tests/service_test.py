@@ -163,7 +163,7 @@ def test_find_range_in_user_sequence(client):
     rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
-    assert len(response_object) == 5
+    assert len(response_object) == 6
 
 
 def test_find_less_than(client):
@@ -179,7 +179,7 @@ def test_find_greater_than(client):
     rsp = client.get('/users/?sequence=>45')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
-    assert len(response_object) == 5
+    assert len(response_object) == 6
 
 
 def test_sort_by(client):
