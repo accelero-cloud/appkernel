@@ -1,24 +1,3 @@
-## Repository
-
-#### Features
-- [ ] validation and schema management
-- [x] validation on the data model using multiple custom validators
-- [x] builtin converters for serialising or deserialising the model to various other formats
-- [x] automated marshaling of objects to and from json
-- [x] basic CRUD operations
-- [x] audited fields (created, updated)
-- [ ] index management on the database
-- [x] automatically generate prefixed database ID
-- [ ] simplified logging
-- [ ] REST services
-- [ ] HATEOAS actions on model
-- [ ] graphql support
-- [ ] swagger support
-- [ ] scheduler and background task executor
-- [ ] basic authentication and JWT token support
-- [ ] OAUTH
-- [ ] rate limiting and circuit breaker
-
 ## Creating a small task manager application
 
 Create a simple task and persist it in the database.
