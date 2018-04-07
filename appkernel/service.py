@@ -3,7 +3,7 @@ from types import NoneType
 from enum import Enum
 from flask import Flask, jsonify, current_app, request, abort
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
-from model import Model, ParameterRequiredException
+from model import Model, ParameterRequiredException, ValidationException
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract, MongoRepository
 from reflection import *
@@ -137,8 +137,17 @@ class Service(object):
                                  methods=['DELETE'])
 
     @staticmethod
-    def __extract_json(request):
-        return request.json or json.loads(request.data)
+    def __extract_dict_from_payload():
+        if request.data and len(request.data) > 0:
+            object_dict = request.json or json.loads(request.data)
+        elif request.form and len(request.form) > 0:
+            object_dict = Service.__xtract_form()
+        return object_dict
+
+    @staticmethod
+    def __xtract_form():
+        target = dict((key, request.form.getlist(key)) for key in request.form.keys())
+        return dict((key, value[0] if len(value) == 1 else value) for key, value in target.iteritems())
 
     @classmethod
     def execute(cls, app_engine, provisioner_method, model_class):
@@ -157,11 +166,13 @@ class Service(object):
                 # print 'Request method: {}'.format(request.method)
                 # print 'request form: {}'.format(request.form)
                 # print 'request args: {}'.format(request.args)
+                # print 'request form: {}'.format(request.form)
                 # #todo: continue it here
                 # #request.form | request.args | request.files
                 # #request.values: combined args and form, preferring args if keys overlap
                 # print 'request json {}'.format(request.json)
                 return_code = 200
+
                 # merge together the named args (url parameters) and the query parameters (from requests.args)
                 named_and_request_arguments = named_args.copy()
 
@@ -188,12 +199,12 @@ class Service(object):
 
                 if request.method in ['POST', 'PUT']:
                     # load and validate the posted object
-                    model_instance = Model.from_dict(Service.__extract_json(request), model_class)
+                    model_instance = Model.from_dict(Service.__extract_dict_from_payload(), model_class)
                     # save or update the object
                     named_and_request_arguments.update(document=Model.to_dict(model_instance, convert_id=True))
                     return_code = 201
                 elif request.method == 'PATCH':
-                    named_and_request_arguments.update(document=Service.__extract_json(request))
+                    named_and_request_arguments.update(document=Service.__extract_dict_from_payload())
 
                 result = provisioner_method(
                     **Service.__autobox_parameters(provisioner_method, named_and_request_arguments))
@@ -209,8 +220,11 @@ class Service(object):
                 result_dic_tentative = {} if result is None else Service.xvert(model_class, result)
                 return jsonify(result_dic_tentative), return_code
             except ParameterRequiredException as pexc:
-                app_engine.logger.warn('missing parameter: {}'.format(str(pexc)))
+                app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
                 return app_engine.create_custom_error(400, str(pexc))
+            except ValidationException as vexc:
+                app_engine.logger.warn('validation error: {}'.format(str(vexc)))
+                return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)))
             except Exception as exc:
                 app_engine.logger.exception('exception caught while executing service call: {}'.format(str(exc)))
                 return app_engine.generic_error_handler(exc)
@@ -386,8 +400,10 @@ class Service(object):
         elif isinstance(result_item, (list, set, tuple)):
             return [Service.xvert(model_class, item) for item in result_item]
         elif is_primitive(result_item) or isinstance(result_item, (str, basestring, int)) or is_noncomplex(result_item):
-            return {'result': result_item}
+            return {'type': 'OperationResult', 'result': result_item}
 
     @staticmethod
     def __calculate_hateoas_fields(model_class, model_object):
         assert isinstance(model_object, Model), 'This method supports only model objects'
+        # todo: implement hateoas support
+        pass

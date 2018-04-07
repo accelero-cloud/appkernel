@@ -357,6 +357,7 @@ def test_find_not_equal(client):
         max_found = uzer.get('name') == 'Max'
     assert not max_found
 
+
 # def test_find_in(client):
 #     create_john_jane_and_max()
 #     rsp = client.get('/users/?name=[Jane,John]')
@@ -392,7 +393,37 @@ def test_post_incomplete_user(client, user_dict):
     assert rsp.status_code == 400, 'the status code is expected to be 400'
     assert rsp.json.get('type') == 'ErrorMessage'
 
-# def test_post_user_as_form(client):
+
+def test_post_user_as_form(client):
+    rsp = client.post('/users/', data=dict(
+        name="some_user",
+        description="soe",
+        password="some pass",
+        birth_date="1980-06-30T00:00:00",
+        roles=["User", "Admin", "Operator"]
+    ), follow_redirects=True)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 201
+    user = User.find_by_id(rsp.json.get('result'))
+    assert user is not None
+    assert user.name == "some_user"
+    assert len(user.roles) == 3
+
+
+def test_post_user_as_form_with_single_list_item(client):
+    rsp = client.post('/users/', data=dict(
+        name="some_user",
+        description="some description",
+        password="some pass",
+        birth_date="1980-06-30T00:00:00",
+        roles=["User"]
+    ), follow_redirects=True)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 201
+    user = User.find_by_id(rsp.json.get('result'))
+    assert user is not None
+    assert len(user.roles) == 1
+    assert user.roles[0] == "User"
 
 def test_post_update_with_id(client, user_dict):
     user_json = json.dumps(user_dict)

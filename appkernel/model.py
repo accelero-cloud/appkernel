@@ -72,7 +72,7 @@ class Regexp(Validator):
         if isinstance(validable_object, basestring):
             if not re.match(self.value, validable_object):
                 raise ValidationException(self.type, validable_object,
-                                          'The parameter {} cannot be validated against {}'.format(parameter_name,
+                                          'The parameter *{}* cannot be validated against {}'.format(parameter_name,
                                                                                                    self.value))
 
 
@@ -81,9 +81,9 @@ class NotEmpty(Validator):
         super(NotEmpty, self).__init__(ValidatorType.NOT_EMPTY)
 
     def validate(self, parameter_name, validable_object):
-        if validable_object is None or not isinstance(validable_object, basestring) or not validable_object:
+        if not validable_object or not isinstance(validable_object, (basestring, str, unicode)) or len(validable_object) == 0:
             raise ValidationException(self.type, validable_object,
-                                      'The parameter {} is None or empty.'.format(parameter_name))
+                                      'The parameter *{}* is None or not String.'.format(parameter_name))
 
 
 class Past(Validator):
@@ -93,10 +93,10 @@ class Past(Validator):
     def validate(self, parameter_name, validable_object):
         if validable_object is None or not self._is_date(validable_object):
             raise ValidationException(self.type, validable_object,
-                                      'The parameter {} is none or not date type.'.format(parameter_name))
+                                      'The parameter *{}* is none or not date type.'.format(parameter_name))
         elif validable_object >= datetime.now():
             raise ValidationException(self.type, validable_object,
-                                      'The parameter {} must define the past.'.format(parameter_name))
+                                      'The parameter *{}* must define the past.'.format(parameter_name))
 
 
 class Future(Validator):
@@ -106,10 +106,10 @@ class Future(Validator):
     def validate(self, parameter_name, validable_object):
         if validable_object is None or not self._is_date(validable_object):
             raise ValidationException(self.type, validable_object,
-                                      'The parameter {} is none or not date type.'.format(parameter_name))
+                                      'The parameter *{}* is none or not date type.'.format(parameter_name))
         elif validable_object <= datetime.now():
             raise ValidationException(self.type, validable_object,
-                                      'The parameter {} must define the future.'.format(parameter_name))
+                                      'The parameter *{}* must define the future.'.format(parameter_name))
 
 
 class AttrDict(dict):
@@ -344,7 +344,7 @@ class Model(object):
                                 OBJ_PREFIX):
                             # check if the object id is a mongo object id
                             setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[0]))
-                        elif isinstance(val, (basestring, str)):
+                        elif isinstance(val, (basestring, str, unicode)):
                             # convert json string elements into target types based on the Parameter class
                             setattr(instance, key,
                                     Model.type_converters.get(parameter.python_type, default_convert)(val))
@@ -358,13 +358,14 @@ class Model(object):
     @staticmethod
     def from_list(list_obj, item_cls):
         return_list = []
-        if not list_obj:
-            return return_list
-        for item in list_obj:
-            if issubclass(item_cls, str):
-                return_list.append(item)
-            else:
-                return_list.append(Model.from_dict(item, item_cls))
+        if list_obj and not isinstance(list_obj, list):
+            return_list.append(list_obj)
+        elif list_obj:
+            for item in list_obj:
+                if issubclass(item_cls, str):
+                    return_list.append(item)
+                else:
+                    return_list.append(Model.from_dict(item, item_cls))
         return return_list
 
     def dumps(self, validate=True, pretty_print=False):
