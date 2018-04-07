@@ -55,10 +55,29 @@ class Task(Model, AuditableRepository, Service):
 ### Use the builtin fluent-factory api to create and save new objects
 ```python
     task = Task().update(name='develop appkernel',
-            description='deliver the first version and spread the word.')
-        .append_to(tags=['fun','important'])
+                         description='deliver the first version and spread the word.') \
+        .append_to(tags=['fun', 'important'])
     task.save()
 ```
+This will create the following document in MongoDB:
+```json
+{
+    "_id" : "U7b7453b8-6ed3-42e5-917f-86a657285279",
+    "updated" : ISODate("2018-04-07T17:49:10.777Z"),
+    "description" : "deliver the first version and spread the word.",
+    "tags" : [
+        "fun",
+        "important"
+    ],
+    "completed" : false,
+    "name" : "develop appkernel",
+    "version" : 1,
+    "inserted" : ISODate("2018-04-07T17:49:10.777Z")
+}
+```
+Mind the version, inserted and updated fields. These are added automagically, because our model have extended the AuditableRepository class.
+In case you don't need those extra fields, you can extend MongoRepository instead.
+
 That's all folks ;)
 
 ### Expose the model over HTTP as a REST service
@@ -72,6 +91,30 @@ def init_app():
 
 if __name__ == '__main__':
     init_app()
+```
+Now we are ready to call the endpoint. Let's use curl for the sake of simplicity:
+```bash
+curl -i -X GET \
+ 'http://127.0.0.1:5000/tasks/'
+```
+And here's the return value:
+```json
+[
+  {
+    "completed": false,
+    "description": "deliver the first version and spread the word.",
+    "id": "U7b7453b8-6ed3-42e5-917f-86a657285279",
+    "inserted": "2018-04-07T17:49:10.777000",
+    "name": "develop appkernel",
+    "tags": [
+      "fun",
+      "important"
+    ],
+    "type": "Task",
+    "updated": "2018-04-07T17:49:10.777000",
+    "version": 1
+  }
+]
 ```
 That was easy, isn't it? now one can use curl or other rest client to create/delete tasks. It features validation, JSON serialisation, database persistency, strategies for automatic data generation.
 

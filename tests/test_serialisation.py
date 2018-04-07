@@ -16,7 +16,7 @@ def teardown_function(function):
 
 def test_basic_serialisation():
     p = create_rich_project()
-    p.validate_and_finalise()
+    p.finalise_and_validate()
     print ('\n> serialized project: {}'.format(p.dumps(pretty_print=True)))
     deserialised_proj = Project.loads(p.dumps())
     print('> deserialized project: {}'.format(deserialised_proj))

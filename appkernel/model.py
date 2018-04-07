@@ -296,7 +296,7 @@ class Model(object):
         :return: a dictionary representing the python object
         """
         if validate and isinstance(instance, Model):
-            instance.validate_and_finalise()
+            instance.finalise_and_validate()
         if not hasattr(instance, '__dict__') and not isinstance(instance, dict):
             return instance
         result = {}
@@ -377,7 +377,7 @@ class Model(object):
         # type: (basestring, cls) -> Model
         return Model.from_dict(json.loads(json_string), cls)
 
-    def validate_and_finalise(self):
+    def finalise_and_validate(self):
         obj_items = self.__dict__
         cls_items = {k: v for k, v in self.__class__.__dict__.iteritems() if isinstance(v, Parameter)}
         for param_name, param_object in cls_items.items():
@@ -398,7 +398,7 @@ class Model(object):
                     elif isinstance(val, type) and issubclass(val, Validator) and param_name in self.__dict__:
                         val().validate(param_name, self.__dict__.get(param_name))
             if issubclass(param_object.python_type, Model):
-                self.__dict__[param_name].validate_and_finalise()
+                self.__dict__[param_name].finalise_and_validate()
 
     def describe(self):
         props = set(dir(self))
