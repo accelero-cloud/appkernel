@@ -370,7 +370,7 @@ def test_find_not_equal(client):
 #     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
 #     assert rsp.status_code == 200
 
-def test_post_user(client, user_dict):
+def test_post_user_as_json_payload(client, user_dict):
     user_json = json.dumps(user_dict)
     print '\nSending: {}'.format(user_json)
     rsp = client.post('/users/', data=user_json)
@@ -392,6 +392,7 @@ def test_post_incomplete_user(client, user_dict):
     assert rsp.status_code == 400, 'the status code is expected to be 400'
     assert rsp.json.get('type') == 'ErrorMessage'
 
+# def test_post_user_as_form(client):
 
 def test_post_update_with_id(client, user_dict):
     user_json = json.dumps(user_dict)

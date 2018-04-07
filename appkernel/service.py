@@ -5,7 +5,7 @@ from flask import Flask, jsonify, current_app, request, abort
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 from model import Model, ParameterRequiredException
 from appkernel import AppKernelEngine
-from appkernel.repository import Repository, xtract
+from appkernel.repository import Repository, xtract, MongoRepository
 from reflection import *
 from model import Expression
 import re
@@ -104,9 +104,16 @@ class Service(object):
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
             if 'find_by_query' in class_methods:
-                cls.app.add_url_rule('{}/'.format(endpoint), 'get_{}'.format(endpoint),
+                cls.app.add_url_rule('{}/'.format(endpoint), 'get_by_query{}'.format(endpoint),
                                      Service.execute(app_engine, cls.find_by_query, cls),
                                      methods=['GET'])
+                cls.app.add_url_rule('{}/query/'.format(endpoint), 'get_by_custom_query'.format(endpoint),
+                                     Service.execute(app_engine, cls.find_by_query, cls),
+                                     methods=['GET'])
+                if issubclass(cls, MongoRepository):
+                    cls.app.add_url_rule('{}/aggregate/'.format(endpoint), 'get_by_aggregate'.format(endpoint),
+                                         Service.execute(app_engine, cls.aggregate, cls),
+                                         methods=['GET'])
             if 'find_by_id' in class_methods:
                 cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), 'get_by_id_{}'.format(endpoint),
                                      Service.execute(app_engine, cls.find_by_id, cls),

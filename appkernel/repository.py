@@ -221,8 +221,10 @@ class MongoRepository(Repository):
         return cls.get_collection().count(query_filter)
 
     @classmethod
-    def aggregate(cls, pipeline_dict, allow_disk_use=False, batch_size=100):
-        return cls.get_collection().aggregate(pipeline_dict, allowDiskUse=allow_disk_use, batchSize=batch_size)
+    def aggregate(cls, pipeline_dict, allow_disk_use=False, batch_size=100, page=1, page_size=50):
+        cursor = cls.get_collection().aggregate(pipeline_dict, allowDiskUse=allow_disk_use, batchSize=batch_size).skip(
+            (page - 1) * page_size).limit(page_size)
+        return [result for result in cursor]
 
     def save(self):
         """
