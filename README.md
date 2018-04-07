@@ -116,8 +116,11 @@ And here's the return value:
   }
 ]
 ```
-That was easy, isn't it? now one can use curl or other rest client to create/delete tasks. It features validation, JSON serialisation, database persistency, strategies for automatic data generation.
+Mind a new property, called **type**. This can be used by the client application in order to decide which parser of parsing method to use for this object.
 
+That was easy, isn't it? now one can use curl or other rest client to create/delete and further modify tasks. It features validation, JSON serialisation, database persistency, strategies for automatic data generation.
+
+[I want to know more. Bring me to the tutorial](docs/tutorial.md)
 
 ### Why did we built this?
 * We had the need to build a myriad of small services in our daily business, ranging from data-aggregation pipelines, to housekeeping services and
@@ -135,6 +138,10 @@ These were the major driving question, which lead to the development of App Kern
 ### How does it works?
 
 AppKernel is built around the concepts of Domain Driven Design. You can start the project by laying out the model.
+The first step is to define the validation and data generations rules. For making life easier, one can also set default values.
+Than one can extend several built-in classes in order to augment the model with extended functionality:
+* extending the Repository class (or its descendants) adds and ORM persistency capability to the model;
+* extending the Service class (or its descendants) add the capablity to expose the model over REST services;
 
 ### How can I use it?
 TBD;

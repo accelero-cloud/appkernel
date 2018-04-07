@@ -387,3 +387,7 @@ class Service(object):
             return [Service.xvert(model_class, item) for item in result_item]
         elif is_primitive(result_item) or isinstance(result_item, (str, basestring, int)) or is_noncomplex(result_item):
             return {'result': result_item}
+
+    @staticmethod
+    def __calculate_hateoas_fields(model_class, model_object):
+        assert isinstance(model_object, Model), 'This method supports only model objects'
