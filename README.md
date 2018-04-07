@@ -60,7 +60,7 @@ class Task(Model, AuditableRepository, Service):
     task.save()
 ```
 This will create the following document in MongoDB:
-```json
+```
 {
     "_id" : "U7b7453b8-6ed3-42e5-917f-86a657285279",
     "updated" : ISODate("2018-04-07T17:49:10.777Z"),
