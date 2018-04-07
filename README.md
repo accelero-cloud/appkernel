@@ -75,7 +75,7 @@ This will create the following document in MongoDB:
     "inserted" : ISODate("2018-04-07T17:49:10.777Z")
 }
 ```
-Mind the version, inserted and updated fields. These are added automagically, because our model have extended the AuditableRepository class.
+Mind the **version**, **inserted** and **updated** fields. These are added automagically, because our model have extended the AuditableRepository class.
 In case you don't need those extra fields, you can extend MongoRepository instead.
 
 That's all folks ;)
