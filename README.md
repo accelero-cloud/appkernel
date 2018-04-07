@@ -52,9 +52,10 @@ class Task(Model, AuditableRepository, Service):
         self.completed = True
         self.closed_date = datetime.now()
 ```
-### Use the builtin fluent-factory api to create ans save new Tasks
+### Use the builtin fluent-factory api to create and save new objects
 ```python
-    task = Task().update(name='develop appkernel', description='deliver the first version and spread the word.')
+    task = Task().update(name='develop appkernel',
+            description='deliver the first version and spread the word.')
         .append_to(tags=['fun','important'])
     task.save()
 ```
