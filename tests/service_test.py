@@ -371,6 +371,38 @@ def test_find_not_equal(client):
 #     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
 #     assert rsp.status_code == 200
 
+def test_find_by_query_expression(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?query={"$or":[{"name":"John"}, {"name":"Jane"}]}')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    result_set = rsp.json
+    assert len(result_set) == 2
+
+
+def test_find_by_query_expression_not_found(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?query={"$or":[{"name":"Brigitte"}, {"name":"Jona"}]}')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 204
+
+
+def test_find_by_query_expression_wrong_query_format(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?query={"$or":[{"name":", {"name":"Jona"}]}')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 500
+    assert rsp.json.get('type') == "ErrorMessage"
+
+
+def test_run_aggregation_pipeline(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert rsp.json[0].get('name') == 'Jane'
+
+
 def test_post_user_as_json_payload(client, user_dict):
     user_json = json.dumps(user_dict)
     print '\nSending: {}'.format(user_json)
@@ -424,6 +456,7 @@ def test_post_user_as_form_with_single_list_item(client):
     assert user is not None
     assert len(user.roles) == 1
     assert user.roles[0] == "User"
+
 
 def test_post_update_with_id(client, user_dict):
     user_json = json.dumps(user_dict)

@@ -31,7 +31,9 @@ def get_argument_spec(provisioner_method):
 
 class QueryProcessor(object):
     def __init__(self):
-        self.query_pattern = re.compile('^(\w+:[\[\],\<\>A-Za-z0-9_\s-]+)(,\w+:[\[\],\<\>A-Za-z0-9_\s-]+)*$')
+        # self.query_pattern = re.compile('^(\w+:[\[\],\<\>A-Za-z0-9_\s-]+)(,\w+:[\[\],\<\>A-Za-z0-9_\s-]+)*$')
+        self.csv_pattern = re.compile('^.*,.*$')
+        self.json_pattern = re.compile('\{.*\:\{.*\:.*\}\}')
         self.date_patterns = {
             re.compile('^(0?[1-9]|[12][0-9]|3[01])(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)\d{4}$'): '%d{0}%m{0}%Y',
             # 31/02/4500
@@ -99,40 +101,38 @@ class Service(object):
         cls.app_engine = app_engine
         if not url_base.endswith('/'):
             url_base = '{}/'.format(url_base)
-        endpoint = '{}{}'.format(url_base, xtract(cls).lower())
+        clazz_name = xtract(cls).lower()
+        endpoint = '{}{}'.format(url_base, clazz_name)
         class_methods = dir(cls)
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
             if 'find_by_query' in class_methods:
-                cls.app.add_url_rule('{}/'.format(endpoint), 'get_by_query{}'.format(endpoint),
+                cls.app.add_url_rule('{}/'.format(endpoint), '{}_get_by_query'.format(clazz_name),
                                      Service.execute(app_engine, cls.find_by_query, cls),
                                      methods=['GET'])
-                cls.app.add_url_rule('{}/query/'.format(endpoint), 'get_by_custom_query'.format(endpoint),
-                                     Service.execute(app_engine, cls.find_by_query, cls),
-                                     methods=['GET'])
-                if issubclass(cls, MongoRepository):
-                    cls.app.add_url_rule('{}/aggregate/'.format(endpoint), 'get_by_aggregate'.format(endpoint),
-                                         Service.execute(app_engine, cls.aggregate, cls),
-                                         methods=['GET'])
             if 'find_by_id' in class_methods:
-                cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), 'get_by_id_{}'.format(endpoint),
+                cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), '{}_get_by_id'.format(clazz_name),
                                      Service.execute(app_engine, cls.find_by_id, cls),
                                      methods=['GET'])
+        if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
+            cls.app.add_url_rule('{}/aggregate/'.format(endpoint), '{}_aggregate'.format(clazz_name),
+                                 Service.execute(app_engine, cls.aggregate, cls),
+                                 methods=['GET'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
-            cls.app.add_url_rule('{}/'.format(endpoint), 'post_{}'.format(endpoint),
+            cls.app.add_url_rule('{}/'.format(endpoint), '{}_post'.format(clazz_name),
                                  Service.execute(app_engine, cls.save_object, cls),
                                  methods=['POST'])
         if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
-            cls.app.add_url_rule('{}/'.format(endpoint), 'put_{}'.format(endpoint),
+            cls.app.add_url_rule('{}/'.format(endpoint), '{}_put'.format(clazz_name),
                                  Service.execute(app_engine, cls.replace_object, cls),
                                  methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
-            cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), 'patch_{}'.format(endpoint),
+            cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), '{}_patch'.format(clazz_name),
                                  Service.execute(app_engine, cls.save_object, cls),
                                  methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
-            cls.app.add_url_rule('{}/<object_id>'.format(endpoint), 'delete_{}'.format(endpoint),
+            cls.app.add_url_rule('{}/<object_id>'.format(endpoint), '{}_delete'.format(clazz_name),
                                  Service.execute(app_engine, cls.delete_by_id, cls),
                                  methods=['DELETE'])
 
@@ -196,6 +196,8 @@ class Service(object):
                         for query_param_name in query_param_names:
                             if query_param_name in named_and_request_arguments:
                                 del named_and_request_arguments[query_param_name]
+                    elif 'query' in request.args.keys():
+                        named_and_request_arguments.update(query=json.loads(request.args.get('query')))
 
                 if request.method in ['POST', 'PUT']:
                     # load and validate the posted object
@@ -379,6 +381,28 @@ class Service(object):
             if required_type is not NoneType and provided_type is not NoneType and required_type != provided_type:
                 if issubclass(required_type, Enum):
                     arguments[arg_key] = required_type[arg_value]
+                elif issubclass(required_type, list) and provided_type in [str, basestring, unicode]:
+                    # if the required type should be a list
+                    if Service.qp.csv_pattern.match(arg_value):
+                        arguments[arg_key] = [int(item) if item.isdigit() else item.strip('"').strip('\'') for item in
+                                              arg_value.split(',')]
+                    else:
+                        try:
+                            result = json.loads(arg_value)
+                            if isinstance(result, list):
+                                arguments[arg_key] = result
+                            else:
+                                arguments[arg_key] = [result]
+                        except ValueError as verr:
+                            # skip boxing
+                            pass
+                elif issubclass(required_type, dict) and provided_type in [str, basestring, unicode]:
+                    # if the required type is dict, but provided string
+                    try:
+                        arguments[arg_key] = json.loads(arg_value)
+                    except ValueError as verr:
+                        # skip boxing
+                        pass
                 else:
                     arguments[arg_key] = required_type(arg_value)
         return arguments

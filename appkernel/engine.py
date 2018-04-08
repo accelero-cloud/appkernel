@@ -189,7 +189,7 @@ class AppKernelEngine(object):
         """
         code = (ex.code if isinstance(ex, HTTPException) else 500)
         if ex:
-            msg = '{}/{}'.format(type(ex), ex.description if isinstance(ex, HTTPException) else str(ex))
+            msg = '{}/{}'.format(ex.__class__.__name__, ex.description if isinstance(ex, HTTPException) else str(ex))
         else:
             msg = 'Generic server error.'
         self.logger.warn('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
