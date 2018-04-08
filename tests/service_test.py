@@ -24,8 +24,8 @@ except ImportError:
 # GET /users/aggregate/?pipe={} - json body with query expression
 # /users/?roles=~Admin
 # GET /users/?name=[Jane,John]
-# -- features needs to be implemented
 # post patch and put with a form data
+# -- features needs to be implemented
 # -- Not yet implemented
 # sort after multiple fields and use '-' for signaling descending order
 # GET /users/?roles=#0
