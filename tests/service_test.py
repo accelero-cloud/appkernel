@@ -27,6 +27,7 @@ except ImportError:
 # -- features needs to be implemented
 # post patch and put with a form data
 # -- Not yet implemented
+# sort after multiple fields and use '-' for signaling descending order
 # GET /users/?roles=#0
 # find value in array (simple and complex array)
 # search in structures ?subelement.field = 3
@@ -166,7 +167,8 @@ def create_some_users(range=51):
 def create_john_jane_and_max():
     john = create_a_user('John', 'a password', 'John is a random guy')
     jane = create_a_user('Jane', 'a password', 'Jane is a random girl')
-    max = create_a_user('Max', 'a password', 'Jane is a random girl')
+    maxx = create_a_user('Max', 'a password', 'Jane is a random girl')
+    return john, jane, maxx
 
 
 def test_find_range_in_user_sequence(client):
@@ -376,19 +378,6 @@ def test_find_not_equal(client):
         max_found = uzer.get('name') == 'Max'
     assert not max_found
 
-
-# def test_find_in(client):
-#     create_john_jane_and_max()
-#     rsp = client.get('/users/?name=[Jane,John]')
-#     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-#     assert rsp.status_code == 200
-
-
-# def test_array_contains(client):
-#     create_john_jane_and_max()
-#     rsp = client.get('/users/?name=[Jane,John]')
-#     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-#     assert rsp.status_code == 200
 
 def test_find_by_query_expression(client):
     create_john_jane_and_max()
