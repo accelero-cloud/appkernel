@@ -500,6 +500,17 @@ def test_patch_user(client, user_dict):
     assert result_user.get('description') == 'patched description'
 
 
+def test_patch_user_with_form_data(client):
+    maxx = create_a_user('Maxx', 'some pass', 'user description')
+    user_url = '/users/{}'.format(maxx.id)
+    rsp = client.patch(user_url, data=dict({'description': 'patched description'}))
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert rsp.json.get('result') == maxx.id
+    patched_user = User.find_by_id(maxx.id)
+    assert patched_user.description == 'patched description'
+
+
 def test_patch_nonexistent_field(client):
     john = create_a_user('John Doe', 'some pass', 'a silly description')
     user_url = '/users/{}'.format(john.id)
