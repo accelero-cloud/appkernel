@@ -11,7 +11,7 @@ try:
 except ImportError:
     import json
 
-# todo: try class based discovery before regular expression matching
+# == supported features ===
 # examples of supported queries:
 # GET /users/12345
 # GET /users/?name=Jane&name=John
@@ -20,18 +20,19 @@ except ImportError:
 # GET /users/?birth_date=>1980-06-10&birth_date=<1980-08-15
 # GET /users/?name=~Doe
 # GET /users/?name=!Max
-# --
-# post patch and put with a form data
-# GET /users/query - json body with query expression
-# GET /users/pipe - json body with query expression
-# -- Not yet implemented
+# GET /users/?query={} - json body with query expression
+# GET /users/aggregate/?pipe={} - json body with query expression
+# /users/?roles=~Admin
 # GET /users/?name=[Jane,John]
+# -- features needs to be implemented
+# post patch and put with a form data
+# -- Not yet implemented
 # GET /users/?roles=#0
 # find value in array (simple and complex array)
-# /users/?roles=~Admin
 # search in structures ?subelement.field = 3
 # test not just date but time too
 # --
+# todo: try class based discovery before regular expression matching
 
 flask_app = Flask(__name__)
 flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
@@ -268,6 +269,24 @@ def test_find_contains(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     rsp_object = rsp.json
     assert len(rsp_object) == 2
+
+
+def test_find_in_array(client):
+    john = create_a_user('John Doe', 'a password', 'John is a random guy')
+    rsp = client.get('/users/?roles=~xxxx')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 204
+    rsp = client.get('/users/?roles=~Admin')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+
+
+def test_find_in_array(client):
+    create_john_jane_and_max()
+    rsp = client.get('/users/?name=[Jane,John]')
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200
+    assert len(rsp.json) == 2
 
 
 def test_find_exact_or(client):

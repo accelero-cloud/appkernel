@@ -53,6 +53,7 @@ class QueryProcessor(object):
             '~': lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'},
             '!': lambda exp: ('$ne', exp),
             '#': lambda exp: ('$size', exp),
+            '[': lambda exp: {'$in': exp.strip(']').split(',')}
         }
         self.supported_expressions = list(self.expression_mapper.keys())
         self.reserved_param_names = {}
@@ -287,11 +288,6 @@ class Service(object):
         :return: the query expression which than can be converted to repository specific queries (eg. Mongo or SQL query)
         :rtype: dict
         """
-
-        # if not Service.qp.query_pattern.match(query_params):
-        #     raise ValueError(
-        #         'The provided query expression ({}) is not in the accepted format (comma separated groups with colon separated key value pairs)'.format(
-        #             query_params))
 
         query_dict = defaultdict(list)
         for arg in request_args:
