@@ -420,9 +420,3 @@ class Service(object):
                                                                      ['POST'] if len(args) > 0 else ['GET'])
                 })
             return links
-
-        @staticmethod
-        def __calculate_hateoas_fields(model_class, model_object):
-            assert isinstance(model_object, Model), 'This method supports only model objects'
-            # todo: implement hateoas support
-            pass
