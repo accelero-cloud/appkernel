@@ -1,14 +1,16 @@
 from types import NoneType
 
 from enum import Enum
-from flask import Flask, jsonify, current_app, request, abort
+from flask import Flask, jsonify, current_app, request, abort, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
-from model import Model, ParameterRequiredException, ValidationException
+
+from appkernel.query import QueryProcessor
+from model import Model, ParameterRequiredException, ValidationException, create_tagging_decorator, TaggingMetaClass, \
+    get_argument_spec
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract, MongoRepository
 from reflection import *
 from model import Expression
-import re
 from collections import defaultdict
 from datetime import datetime
 
@@ -17,69 +19,12 @@ try:
 except ImportError:
     import json
 
-
-def get_argument_spec(provisioner_method):
-    """
-    :param provisioner_method: the method of an instance
-    :return: the method arguments and default values as a dictionary, with method parameters as key and default values as dictionary value
-    """
-    assert inspect.ismethod(provisioner_method), 'The provisioner method must be a method'
-    args = [name for name in getattr(inspect.getargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
-    defaults = getattr(inspect.getargspec(provisioner_method), 'defaults')
-    return dict(zip(args, defaults or []))
-
-
-class QueryProcessor(object):
-    def __init__(self):
-        # self.query_pattern = re.compile('^(\w+:[\[\],\<\>A-Za-z0-9_\s-]+)(,\w+:[\[\],\<\>A-Za-z0-9_\s-]+)*$')
-        self.csv_pattern = re.compile('^.*,.*$')
-        self.json_pattern = re.compile('\{.*\:\{.*\:.*\}\}')
-        self.date_patterns = {
-            re.compile('^(0?[1-9]|[12][0-9]|3[01])(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)\d{4}$'): '%d{0}%m{0}%Y',
-            # 31/02/4500
-            re.compile('^\d{4}(\/|-|\.)(0?[1-9]|1[012])(\/|-|\.)(0?[1-9]|[12][0-9]|3[01])$'): '%Y{0}%m{0}%d'
-            # 4500/02/31,
-        }
-        self.number_pattern = re.compile('^[-+]?[0-9]+$')
-        self.boolean_pattern = re.compile('^(true|false|True|False|y|yes|no)$')
-        self.date_separator_patterns = {
-            re.compile('([0-9].*-)+.*'): '-',
-            re.compile('([0-9].*\/)+.*'): '/',
-            re.compile('([0-9].*\.)+.*'): '.',
-        }
-        self.expression_mapper = {
-            '<': lambda exp: ('$lte', exp),
-            '>': lambda exp: ('$gte', exp),
-            '~': lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'},
-            '!': lambda exp: ('$ne', exp),
-            '#': lambda exp: ('$size', exp),
-            '[': lambda exp: {'$in': exp.strip(']').split(',')}
-        }
-        self.supported_expressions = list(self.expression_mapper.keys())
-        self.reserved_param_names = {}
-
-    def add_reserved_keywords(self, provisioner_method):
-        self.reserved_param_names[QueryProcessor.create_key_from_instance_method(provisioner_method)] = set(
-            getattr(inspect.getargspec(provisioner_method), 'args'))
-
-    @staticmethod
-    def create_key_from_instance_method(provisioner_method):
-        return '{}_{}'.format(provisioner_method.im_self.__name__, provisioner_method.__name__)
-
-    @staticmethod
-    def supports_query(provisioner_method):
-        """
-        :param provisioner_method:
-        :return: True if the method has a parameter named query and the default value is of type dict
-        """
-        method_structure = get_argument_spec(provisioner_method)
-        if 'query' in method_structure:
-            return isinstance(method_structure.get('query'), dict)
-        else:
-            return False
+# tagging decorator which will tag the decorated function
+link = create_tagging_decorator('links')
 
 
 class Service(object):
+    __metaclass__ = TaggingMetaClass
     pretty_print = True
     qp = QueryProcessor()  # pylint: disable=C0103
     """
@@ -98,44 +43,71 @@ class Service(object):
         :type app_engine: AppKernelEngine
         :return:
         """
-        cls.app = app_engine.app
-        cls.app_engine = app_engine
+        Service.app = app_engine.app
+        Service.app_engine = app_engine
         if not url_base.endswith('/'):
             url_base = '{}/'.format(url_base)
         clazz_name = xtract(cls).lower()
-        endpoint = '{}{}'.format(url_base, clazz_name)
+        cls.endpoint = '{}{}'.format(url_base, clazz_name)
         class_methods = dir(cls)
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
             if 'find_by_query' in class_methods:
-                cls.app.add_url_rule('{}/'.format(endpoint), '{}_get_by_query'.format(clazz_name),
-                                     Service.execute(app_engine, cls.find_by_query, cls),
+                cls.app.add_url_rule('{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
+                                     cls.execute(app_engine, cls.find_by_query, cls),
                                      methods=['GET'])
             if 'find_by_id' in class_methods:
-                cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), '{}_get_by_id'.format(clazz_name),
-                                     Service.execute(app_engine, cls.find_by_id, cls),
+                cls.app.add_url_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
+                                     cls.execute(app_engine, cls.find_by_id, cls),
                                      methods=['GET'])
         if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
-            cls.app.add_url_rule('{}/aggregate/'.format(endpoint), '{}_aggregate'.format(clazz_name),
-                                 Service.execute(app_engine, cls.aggregate, cls),
+            cls.app.add_url_rule('{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
+                                 cls.execute(app_engine, cls.aggregate, cls),
                                  methods=['GET'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
-            cls.app.add_url_rule('{}/'.format(endpoint), '{}_post'.format(clazz_name),
-                                 Service.execute(app_engine, cls.save_object, cls),
+            cls.app.add_url_rule('{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
+                                 cls.execute(app_engine, cls.save_object, cls),
                                  methods=['POST'])
         if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
-            cls.app.add_url_rule('{}/'.format(endpoint), '{}_put'.format(clazz_name),
-                                 Service.execute(app_engine, cls.replace_object, cls),
+            cls.app.add_url_rule('{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
+                                 cls.execute(app_engine, cls.replace_object, cls),
                                  methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
-            cls.app.add_url_rule('{}/<string:object_id>'.format(endpoint), '{}_patch'.format(clazz_name),
-                                 Service.execute(app_engine, cls.save_object, cls),
+            cls.app.add_url_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
+                                 cls.execute(app_engine, cls.save_object, cls),
                                  methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
-            cls.app.add_url_rule('{}/<object_id>'.format(endpoint), '{}_delete'.format(clazz_name),
-                                 Service.execute(app_engine, cls.delete_by_id, cls),
+            cls.app.add_url_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
+                                 cls.execute(app_engine, cls.delete_by_id, cls),
                                  methods=['DELETE'])
+
+        cls.prepare_actions()
+
+    @classmethod
+    def prepare_actions(cls):
+        def action_executor(**named_args):
+            if 'object_id' not in named_args:
+                return Service.app_engine.create_custom_error(400,
+                                                              'The object_id parameter is required for this action to execute')
+            else:
+                try:
+                    instance = cls.find_by_id(named_args['object_id'])
+                    executable_method = getattr(instance, func_name)
+                    executable_method(**Service.__autobox_parameters(executable_method, request.args))
+                except Exception as exc:
+                    return Service.app_engine.generic_error_handler(exc)
+
+        if 'links' in cls.__dict__:
+            for this_link in cls.links:
+                func_name = this_link.get('function_name')
+                args = this_link.get('argspec')
+                methods = this_link.get('decorator_kwargs').get('http_method',
+                                                                ['POST'] if len(args) > 0 else ['GET'])
+                cls.app.add_url_rule('{}/<object_id>/{}'.format(cls.endpoint, func_name),
+                                     '{}_{}'.format(xtract(cls).lower(), func_name.lower()),
+                                     action_executor,
+                                     methods=methods)
 
     @staticmethod
     def __extract_dict_from_payload():
@@ -149,6 +121,25 @@ class Service(object):
     def __xtract_form():
         target = dict((key, request.form.getlist(key)) for key in request.form.keys())
         return dict((key, value[0] if len(value) == 1 else value) for key, value in target.iteritems())
+
+    @staticmethod
+    def get_merged_request_and_named_args(named_args):
+        """
+        Merge together the named args (url parameters) and the query parameters (from requests.args)
+        :param named_args:
+        :return: a dictionary with both: named and query parameters
+        """
+        named_and_request_arguments = named_args.copy()
+
+        # extract the query parameters and add to a generic parameter dictionary
+        if isinstance(request.args, MultiDict):
+            # Multidict is a werkzeug only type so we should check what happens in production
+            for arg in request.args:
+                query_item = {arg: request.args.get(arg)}
+                named_and_request_arguments.update(query_item)
+        else:
+            named_and_request_arguments.update(request.args)
+        return named_and_request_arguments
 
     @classmethod
     def execute(cls, app_engine, provisioner_method, model_class):
@@ -173,19 +164,7 @@ class Service(object):
                 # #request.values: combined args and form, preferring args if keys overlap
                 # print 'request json {}'.format(request.json)
                 return_code = 200
-
-                # merge together the named args (url parameters) and the query parameters (from requests.args)
-                named_and_request_arguments = named_args.copy()
-
-                # extract the query parameters and add to a generic parameter dictionary
-                if isinstance(request.args, MultiDict):
-                    # Multidict is a werkzeug only type so we should check what happens in production
-                    for arg in request.args:
-                        query_item = {arg: request.args.get(arg)}
-                        named_and_request_arguments.update(query_item)
-                else:
-                    named_and_request_arguments.update(request.args)
-
+                named_and_request_arguments = Service.get_merged_request_and_named_args(named_args)
                 if QueryProcessor.supports_query(provisioner_method):
                     query_param_names = Service.get_query_param_names(provisioner_method)
                     if query_param_names and len(query_param_names) > 0:
@@ -220,7 +199,7 @@ class Service(object):
                         named_args.get('object_id', '-1')))
                 if result is None or isinstance(result, list) and len(result) == 0:
                     return_code = 204
-                result_dic_tentative = {} if result is None else Service.xvert(model_class, result)
+                result_dic_tentative = {} if result is None else cls.xvert(result)
                 return jsonify(result_dic_tentative), return_code
             except ParameterRequiredException as pexc:
                 app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
@@ -232,7 +211,8 @@ class Service(object):
                 app_engine.logger.exception('exception caught while executing service call: {}'.format(str(exc)))
                 return app_engine.generic_error_handler(exc)
 
-        # add supported method parameter names to the list of reserved keywords
+        # add supported method parameter names to the list of reserved keywords;
+        # These won't be added to query expressions (because they are already arguments of methods);
         Service.qp.add_reserved_keywords(provisioner_method)
         return create_executor
 
@@ -403,8 +383,8 @@ class Service(object):
                     arguments[arg_key] = required_type(arg_value)
         return arguments
 
-    @staticmethod
-    def xvert(model_class, result_item):
+    @classmethod
+    def xvert(cls, result_item):
         """
         converts the response object into Json
         :param model_class: the name of the class of teh model
@@ -413,17 +393,36 @@ class Service(object):
         """
         if isinstance(result_item, Model):
             model = Model.to_dict(result_item)
-            model.update(type=model_class.__name__)
+            model.update(_type=cls.__name__)
+            model.update(_links=cls.__calculate_links(result_item.id))
             return model
         elif is_dictionary(result_item) or is_dictionary_subclass(result_item):
             return result_item
         elif isinstance(result_item, (list, set, tuple)):
-            return [Service.xvert(model_class, item) for item in result_item]
+            return [cls.xvert(item) for item in result_item]
         elif is_primitive(result_item) or isinstance(result_item, (str, basestring, int)) or is_noncomplex(result_item):
-            return {'type': 'OperationResult', 'result': result_item}
+            return {'_type': 'OperationResult', 'result': result_item}
 
-    @staticmethod
-    def __calculate_hateoas_fields(model_class, model_object):
-        assert isinstance(model_object, Model), 'This method supports only model objects'
-        # todo: implement hateoas support
-        pass
+    @classmethod
+    def __calculate_links(cls, object_id):
+        links = []
+        all_members = cls.__dict__
+        if 'links' in all_members:
+            for this_link in all_members.get('links'):
+                func_name = this_link.get('function_name')
+                endpoint_name = '{}_{}'.format(xtract(cls).lower(), func_name)
+                href = '{}'.format(url_for(endpoint_name, object_id=object_id))
+                args = [key for key in this_link.get('argspec').iterkeys()]
+                links.append({
+                    'href': href,
+                    'args': args,
+                    'methods': this_link.get('decorator_kwargs').get('http_method',
+                                                                     ['POST'] if len(args) > 0 else ['GET'])
+                })
+            return links
+
+        @staticmethod
+        def __calculate_hateoas_fields(model_class, model_object):
+            assert isinstance(model_object, Model), 'This method supports only model objects'
+            # todo: implement hateoas support
+            pass

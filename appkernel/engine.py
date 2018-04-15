@@ -179,7 +179,7 @@ class AppKernelEngine(object):
         logger.addHandler(handler)
 
     def create_custom_error(self, code, message):
-        return jsonify({'type': MessageType.ErrorMessage.name, 'code': code, 'message': message}), code
+        return jsonify({'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}), code
 
     def generic_error_handler(self, ex=None):
         """
@@ -205,7 +205,7 @@ class AppKernelEngine(object):
         if exception is not None:
             self.app.logger.info(exception.message)
 
-    def register(self, service_class, url_base=None, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE']):
+    def register(self, service_class, url_base=None, methods=['GET']):
         service_class.set_app_engine(self, url_base or self.root_url, methods=methods)
 
 

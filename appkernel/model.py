@@ -1,3 +1,5 @@
+import inspect
+
 from bson import ObjectId
 from enum import Enum
 import re, uuid
@@ -73,7 +75,7 @@ class Regexp(Validator):
             if not re.match(self.value, validable_object):
                 raise ValidationException(self.type, validable_object,
                                           'The parameter *{}* cannot be validated against {}'.format(parameter_name,
-                                                                                                   self.value))
+                                                                                                     self.value))
 
 
 class NotEmpty(Validator):
@@ -81,7 +83,8 @@ class NotEmpty(Validator):
         super(NotEmpty, self).__init__(ValidatorType.NOT_EMPTY)
 
     def validate(self, parameter_name, validable_object):
-        if not validable_object or not isinstance(validable_object, (basestring, str, unicode)) or len(validable_object) == 0:
+        if not validable_object or not isinstance(validable_object, (basestring, str, unicode)) or len(
+                validable_object) == 0:
             raise ValidationException(self.type, validable_object,
                                       'The parameter *{}* is None or not String.'.format(parameter_name))
 
@@ -135,6 +138,54 @@ class Expression(object):
         self.lhs = lhs
         self.ops = ops
         self.rhs = rhs
+
+
+def get_argument_spec(provisioner_method):
+    """
+    Provides the argument list and types of methods which have a default value;
+    :param provisioner_method: the method of an instance
+    :return: the method arguments and default values as a dictionary, with method parameters as key and default values as dictionary value
+    """
+    assert inspect.ismethod(provisioner_method) or inspect.isfunction(
+        provisioner_method), 'The provisioner method must be a method'
+    args = [name for name in getattr(inspect.getargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
+    defaults = getattr(inspect.getargspec(provisioner_method), 'defaults')
+    return dict(zip(args, defaults or [None for arg in args]))
+
+
+def create_tagging_decorator(tag_name):
+    def tagging_decorator(*args, **kwargs):
+        # here we can receive the parameters handed over on the decorator (@decorator(a=b))
+        def wrapper(method):
+            method.member_tag = (tag_name, {'args': args, 'kwargs': kwargs})
+            return method
+
+        return wrapper
+
+    return tagging_decorator
+
+
+class TaggingMetaClass(type):
+    def __new__(cls, name, bases, dct):
+        tags = {}
+        for member in dct.itervalues():
+            if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
+                if member.member_tag[0] not in tags:
+                    tags[member.member_tag[0]] = []
+                tags[member.member_tag[0]].append({'function_name': member.__name__,
+                                                   'argspec': get_argument_spec(member),
+                                                   'decorator_args': list(member.member_tag[1].get('args')),
+                                                   'decorator_kwargs': member.member_tag[1].get('kwargs'),
+                                                   })
+                # One example of a tag:
+                # {
+                #   'function_name': 'change_password',
+                #   'argspec': {'password': 'default pass'},
+                #   'decorator_args': [],
+                #   'decorator_kwargs': {'http_method': ['POST']},
+                # }
+        dct.update(tags)
+        return type.__new__(cls, name, bases, dct)
 
 
 class Parameter(object):
