@@ -34,8 +34,12 @@ class User(Model, MongoRepository, Service):
     #@link(http_method=['POST'])
     @link()
     def change_password(self, current_password, new_password):
-        print(current_password)
-        print(new_password)
+        if self.password != current_password:
+            raise ValueError('Current password is not correct')
+        else:
+            self.password = new_password
+            self.save()
+
 
     @link()
     def get_status(self):

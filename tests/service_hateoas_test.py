@@ -39,3 +39,19 @@ def test_action_registration(client):
     rsp = client.get('/users/{}'.format(user.id))
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200, 'the status code is expected to be 200'
+    result = rsp.json
+    assert result.get('_links') is not None
+    change_pass_included = False
+    for link in result.get('_links'):
+        if link.get('rel') == 'change_password':
+            change_pass_included = True
+            post_data = json.dumps({'current_password': 'test password', 'new_password': 'new pass'})
+            rsp = client.post(link.get('href'), data=post_data)
+            print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+            break
+    assert change_pass_included, 'Should contain change_password link'
+    rsp = client.get('/users/{}'.format(user.id))
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200, 'the status code is expected to be 200'
+    result = rsp.json
+    assert result.get('password') == 'new pass'

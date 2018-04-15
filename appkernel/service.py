@@ -94,8 +94,13 @@ class Service(object):
                 try:
                     instance = cls.find_by_id(named_args['object_id'])
                     executable_method = getattr(instance, func_name)
-                    executable_method(**Service.__autobox_parameters(executable_method, request.args))
+                    request_and_posted_arguments = Service.get_request_args()
+                    request_and_posted_arguments.update(Service.__extract_dict_from_payload())
+                    result = executable_method(**Service.__autobox_parameters(executable_method, request_and_posted_arguments))
+                    result_dic_tentative = {} if result is None else cls.xvert(result)
+                    return jsonify(result_dic_tentative), 200
                 except Exception as exc:
+                    Service.app_engine.logger.warn('generic error: {}'.format(str(exc)))
                     return Service.app_engine.generic_error_handler(exc)
 
         if 'links' in cls.__dict__:
@@ -130,16 +135,21 @@ class Service(object):
         :return: a dictionary with both: named and query parameters
         """
         named_and_request_arguments = named_args.copy()
+        named_and_request_arguments.update(Service.get_request_args())
+        return named_and_request_arguments
 
+    @staticmethod
+    def get_request_args():
+        request_args = {}
         # extract the query parameters and add to a generic parameter dictionary
         if isinstance(request.args, MultiDict):
             # Multidict is a werkzeug only type so we should check what happens in production
             for arg in request.args:
                 query_item = {arg: request.args.get(arg)}
-                named_and_request_arguments.update(query_item)
+                request_args.update(query_item)
         else:
-            named_and_request_arguments.update(request.args)
-        return named_and_request_arguments
+            request_args.update(request.args)
+        return request_args
 
     @classmethod
     def execute(cls, app_engine, provisioner_method, model_class):
@@ -414,6 +424,7 @@ class Service(object):
                 href = '{}'.format(url_for(endpoint_name, object_id=object_id))
                 args = [key for key in this_link.get('argspec').iterkeys()]
                 links.append({
+                    'rel': func_name,
                     'href': href,
                     'args': args,
                     'methods': this_link.get('decorator_kwargs').get('http_method',
