@@ -190,9 +190,10 @@ class AppKernelEngine(object):
         code = (ex.code if isinstance(ex, HTTPException) else 500)
         if ex:
             msg = '{}/{}'.format(ex.__class__.__name__, ex.description if isinstance(ex, HTTPException) else str(ex))
+            self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
         else:
             msg = 'Generic server error.'
-        self.logger.warn('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
+            self.logger.warn('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
         return self.create_custom_error(code, msg)
 
     def teardown(self, exception):

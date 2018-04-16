@@ -41,11 +41,16 @@ def test_working_action(client):
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
     assert result.get('_links') is not None
+    assert 'change_password' in result.get('_links')
+    assert 'get_description' in result.get('_links')
+    assert 'self' in result.get('_links')
+    assert 'collection' in result.get('_links')
     change_pass_included = False
     for link_name, link_value in result.get('_links').iteritems():
         if link_name == 'change_password':
             change_pass_included = True
             post_data = json.dumps({'current_password': 'test password', 'new_password': 'new pass'})
+            assert link_value.get('href') is not None
             rsp = client.post(link_value.get('href'), data=post_data)
             print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
             assert rsp.status_code == 200, 'the status code is expected to be 200'
@@ -75,6 +80,7 @@ def test_failing_action(client):
             assert rsp.status_code == 403
             break
     assert change_pass_included, 'Should contain change_password link'
+
 
 def test_getter_action(client):
     user = create_and_save_a_user('test user', 'test password', 'test description')

@@ -25,6 +25,7 @@ The framework is supposed to cover all or most of the requirements of the Micros
 - [ ] simplified logging
 - [X] REST services
 - [x] HATEOAS actions on model
+- [ ] object metadata
 - [ ] JSONP
 - [ ] graphql support
 - [ ] swagger support
@@ -35,6 +36,7 @@ The framework is supposed to cover all or most of the requirements of the Micros
 - [ ] API Versioning
 - [ ] Read-only by default
 - [ ] GeoJSON
+- [ ] webflow
 
 ## Performance controls
 - [ ] Data Integrity and Concurrency Control

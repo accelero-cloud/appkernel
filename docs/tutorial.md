@@ -6,7 +6,7 @@ from appkernel.model import *
 from appkernel.repository import *
 
 class Task(Model, AuditableRepository):
-    id = Parameter(str, required=True, generator=uui_generator('U'))
+    id = Parameter(str, required=True, generator=uui_generator('T'))
     name = Parameter(str, required=True, validators=[NotEmpty])
     description = Parameter(str, required=True, validators=[NotEmpty])
     tags = Parameter(list, sub_type=str)

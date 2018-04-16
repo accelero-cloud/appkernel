@@ -34,7 +34,7 @@ class Service(object):
     """
 
     @classmethod
-    def set_app_engine(cls, app_engine, url_base, methods):
+    def set_app_engine(cls, app_engine, url_base, methods, enable_hateoas=True):
         """
         :param methods: the HTTP methods allowed for this service
         :param url_base: the url where the service is exposed
@@ -49,6 +49,8 @@ class Service(object):
             url_base = '{}/'.format(url_base)
         clazz_name = xtract(cls).lower()
         cls.endpoint = '{}{}'.format(url_base, clazz_name)
+        cls.http_methods = methods
+        cls.enable_hateoas = enable_hateoas
         class_methods = dir(cls)
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
@@ -81,8 +83,8 @@ class Service(object):
             cls.app.add_url_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
                                  cls.execute(app_engine, cls.delete_by_id, cls),
                                  methods=['DELETE'])
-
-        cls.prepare_actions()
+        if cls.enable_hateoas:
+            cls.prepare_actions()
 
     @classmethod
     def prepare_actions(cls):
@@ -115,10 +117,11 @@ class Service(object):
                 args = this_link.get('argspec')
                 methods = this_link.get('decorator_kwargs').get('http_method',
                                                                 ['POST'] if len(args) > 0 else ['GET'])
+                relation = this_link.get('decorator_kwargs').get('rel', func_name)
                 if not isinstance(methods, list):
                     methods = [methods]
-                cls.app.add_url_rule('{}/<object_id>/{}'.format(cls.endpoint, func_name),
-                                     '{}_{}'.format(xtract(cls).lower(), func_name),
+                cls.app.add_url_rule('{}/<object_id>/{}'.format(cls.endpoint, relation),
+                                     '{}_{}'.format(xtract(cls).lower(), relation),
                                      create_action_executor(func_name),
                                      methods=methods)
 
@@ -413,7 +416,8 @@ class Service(object):
         if isinstance(result_item, Model):
             model = Model.to_dict(result_item)
             model.update(_type=cls.__name__)
-            model.update(_links=cls.__calculate_links(result_item.id))
+            if cls.enable_hateoas:
+                model.update(_links=cls.__calculate_links(result_item.id))
             return model
         elif is_dictionary(result_item) or is_dictionary_subclass(result_item):
             return result_item
@@ -425,18 +429,28 @@ class Service(object):
     @classmethod
     def __calculate_links(cls, object_id):
         links = {}
+        clazz_name = xtract(cls).lower()
         all_members = cls.__dict__
         if 'links' in all_members:
             for this_link in all_members.get('links'):
                 func_name = this_link.get('function_name')
-                endpoint_name = '{}_{}'.format(xtract(cls).lower(), func_name)
+                rel = this_link.get('decorator_kwargs').get('rel', func_name)
+                endpoint_name = '{}_{}'.format(clazz_name, rel)
                 href = '{}'.format(url_for(endpoint_name, object_id=object_id))
                 args = [key for key in this_link.get('argspec').iterkeys()]
-                rel = this_link.get('decorator_kwargs').get('rel', func_name)
+
                 links[rel] = {
                     'href': href,
                     'args': args,
                     'methods': this_link.get('decorator_kwargs').get('http_method',
                                                                      ['POST'] if len(args) > 0 else ['GET'])
                 }
+            links['self'] = {
+                'href': url_for('{}_get_by_id'.format(clazz_name), object_id=object_id),
+                'methods': cls.http_methods
+            }
+            links['collection'] = {
+                'href': url_for('{}_get_by_query'.format(clazz_name)),
+                'methods': ['GET']
+            }
             return links
