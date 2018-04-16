@@ -31,19 +31,17 @@ class User(Model, MongoRepository, Service):
     roles = Parameter(list, sub_type=str)
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
 
-    #@link(http_method=['POST'])
-    @link()
-    def change_password(self, current_password, new_password):
+    @link(rel='change_password', http_method='POST')
+    def change_p(self, current_password, new_password):
         if self.password != current_password:
-            raise ValueError('Current password is not correct')
+            raise ServiceException(403, 'Current password is not correct')
         else:
             self.password = new_password
             self.save()
 
-
     @link()
-    def get_status(self):
-        return True
+    def get_description(self):
+        return self.description
 
 
 class TestClass(Model):

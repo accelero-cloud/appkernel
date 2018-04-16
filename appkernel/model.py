@@ -36,11 +36,18 @@ class ValidationException(AppKernelException):
             '{} on type {} - {}'.format(validator_type.name, self.validable_object_name, message))
 
 
+class ServiceException(AppKernelException):
+    def __init__(self, http_error_code, message):
+        super(AppKernelException, self).__init__(message)
+        self.http_error_code = http_error_code
+
+
 class ValidatorType(Enum):
     REGEXP = 1
     NOT_EMPTY = 2
     PAST = 3
     FUTURE = 4
+    EXACT = 5
 
 
 class Validator(object):

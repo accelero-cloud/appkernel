@@ -6,7 +6,7 @@ from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
 from appkernel.query import QueryProcessor
 from model import Model, ParameterRequiredException, ValidationException, create_tagging_decorator, TaggingMetaClass, \
-    get_argument_spec
+    get_argument_spec, ServiceException
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract, MongoRepository
 from reflection import *
@@ -86,22 +86,28 @@ class Service(object):
 
     @classmethod
     def prepare_actions(cls):
-        def action_executor(**named_args):
-            if 'object_id' not in named_args:
-                return Service.app_engine.create_custom_error(400,
-                                                              'The object_id parameter is required for this action to execute')
-            else:
-                try:
-                    instance = cls.find_by_id(named_args['object_id'])
-                    executable_method = getattr(instance, func_name)
-                    request_and_posted_arguments = Service.get_request_args()
-                    request_and_posted_arguments.update(Service.__extract_dict_from_payload())
-                    result = executable_method(**Service.__autobox_parameters(executable_method, request_and_posted_arguments))
-                    result_dic_tentative = {} if result is None else cls.xvert(result)
-                    return jsonify(result_dic_tentative), 200
-                except Exception as exc:
-                    Service.app_engine.logger.warn('generic error: {}'.format(str(exc)))
-                    return Service.app_engine.generic_error_handler(exc)
+        def create_action_executor(function_name):
+            def action_executor(**named_args):
+                if 'object_id' not in named_args:
+                    return Service.app_engine.create_custom_error(400,
+                                                                  'The object_id parameter is required for this action to execute')
+                else:
+                    try:
+                        instance = cls.find_by_id(named_args['object_id'])
+                        executable_method = getattr(instance, function_name)
+                        request_and_posted_arguments = Service.get_request_args()
+                        request_and_posted_arguments.update(Service.__extract_dict_from_payload())
+                        result = executable_method(
+                            **Service.__autobox_parameters(executable_method, request_and_posted_arguments))
+                        result_dic_tentative = {} if result is None else cls.xvert(result)
+                        return jsonify(result_dic_tentative), 200
+                    except ServiceException as sexc:
+                        Service.app_engine.logger.warn('Service error: {}'.format(str(sexc)))
+                        return Service.app_engine.create_custom_error(sexc.http_error_code, sexc.message)
+                    except Exception as exc:
+                        Service.app_engine.logger.exception(exc)
+                        return Service.app_engine.generic_error_handler(exc)
+            return action_executor
 
         if 'links' in cls.__dict__:
             for this_link in cls.links:
@@ -109,9 +115,11 @@ class Service(object):
                 args = this_link.get('argspec')
                 methods = this_link.get('decorator_kwargs').get('http_method',
                                                                 ['POST'] if len(args) > 0 else ['GET'])
+                if not isinstance(methods, list):
+                    methods = [methods]
                 cls.app.add_url_rule('{}/<object_id>/{}'.format(cls.endpoint, func_name),
-                                     '{}_{}'.format(xtract(cls).lower(), func_name.lower()),
-                                     action_executor,
+                                     '{}_{}'.format(xtract(cls).lower(), func_name),
+                                     create_action_executor(func_name),
                                      methods=methods)
 
     @staticmethod
@@ -120,6 +128,8 @@ class Service(object):
             object_dict = request.json or json.loads(request.data)
         elif request.form and len(request.form) > 0:
             object_dict = Service.__xtract_form()
+        else:
+            object_dict = {}
         return object_dict
 
     @staticmethod
@@ -218,7 +228,6 @@ class Service(object):
                 app_engine.logger.warn('validation error: {}'.format(str(vexc)))
                 return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)))
             except Exception as exc:
-                app_engine.logger.exception('exception caught while executing service call: {}'.format(str(exc)))
                 return app_engine.generic_error_handler(exc)
 
         # add supported method parameter names to the list of reserved keywords;
@@ -415,7 +424,7 @@ class Service(object):
 
     @classmethod
     def __calculate_links(cls, object_id):
-        links = []
+        links = {}
         all_members = cls.__dict__
         if 'links' in all_members:
             for this_link in all_members.get('links'):
@@ -423,11 +432,11 @@ class Service(object):
                 endpoint_name = '{}_{}'.format(xtract(cls).lower(), func_name)
                 href = '{}'.format(url_for(endpoint_name, object_id=object_id))
                 args = [key for key in this_link.get('argspec').iterkeys()]
-                links.append({
-                    'rel': func_name,
+                rel = this_link.get('decorator_kwargs').get('rel', func_name)
+                links[rel] = {
                     'href': href,
                     'args': args,
                     'methods': this_link.get('decorator_kwargs').get('http_method',
                                                                      ['POST'] if len(args) > 0 else ['GET'])
-                })
+                }
             return links
