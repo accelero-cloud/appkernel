@@ -125,7 +125,10 @@ def test_get_query_between_dates(client):
     rsp = client.get('/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200, 'the status code is expected to be 200'
-    assert rsp.json[0].get('id') == user_id
+    result = rsp.json
+    assert result.get('_items')[0].get('id') == user_id
+    assert '_links' in result
+    assert '_type' in result
 
 
 def test_get_query_between_not_found(client):
@@ -153,7 +156,7 @@ def test_find_range_in_user_sequence(client):
     rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
-    assert len(response_object) == 6
+    assert len(response_object.get('_items')) == 6
 
 
 def test_find_less_than(client):
@@ -161,7 +164,7 @@ def test_find_less_than(client):
     rsp = client.get('/users/?sequence=<5')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
-    assert len(response_object) == 5
+    assert len(response_object.get('_items')) == 5
 
 
 def test_find_greater_than(client):
@@ -169,7 +172,7 @@ def test_find_greater_than(client):
     rsp = client.get('/users/?sequence=>45')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     response_object = rsp.json
-    assert len(response_object) == 6
+    assert len(response_object.get('_items')) == 6
 
 
 def test_sort_by(client):
@@ -177,7 +180,7 @@ def test_sort_by(client):
     rsp = client.get('/users/?sequence=>45&sort_by=sequence')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     prev_user_seq = None
-    for uzer in rsp.json:
+    for uzer in rsp.json.get('_items'):
         if prev_user_seq:
             assert uzer.get('sequence') == prev_user_seq + 1
         prev_user_seq = uzer.get('sequence')
@@ -190,7 +193,7 @@ def test_sort_by_and_sort_order_desc(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
     prev_user_seq = None
-    for uzer in rsp.json:
+    for uzer in rsp.json.get('_items'):
         if prev_user_seq:
             assert uzer.get('sequence') == prev_user_seq - 1
         prev_user_seq = uzer.get('sequence')
@@ -205,8 +208,8 @@ def test_pagination(client):
         print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
         assert rsp.status_code == 200
         result_set = rsp.json
-        assert len(result_set) == 5
-        assert result_set[4].get('sequence') == page * 5, 'the sequence number should be a multiple of 5'
+        assert len(result_set.get('_items')) == 5
+        assert result_set.get('_items')[4].get('sequence') == page * 5, 'the sequence number should be a multiple of 5'
 
 
 def test_pagination_with_sort(client):
@@ -217,8 +220,8 @@ def test_pagination_with_sort(client):
         print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
         assert rsp.status_code == 200
         result_set = rsp.json
-        assert len(result_set) == 5
-        assert result_set[0].get('sequence') == 55 - (page * 5)
+        assert len(result_set.get('_items')) == 5
+        assert result_set.get('_items')[0].get('sequence') == 55 - (page * 5)
 
 
 def test_default_pagination(client):
@@ -226,7 +229,7 @@ def test_default_pagination(client):
     rsp = client.get('/users/')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
-    assert len(rsp.json) == 50
+    assert len(rsp.json.get('_items')) == 50
 
 
 def test_find_contains(client):
@@ -235,19 +238,19 @@ def test_find_contains(client):
     rsp = client.get('/users/?name=~Jane')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     rsp_object = rsp.json
-    assert len(rsp_object) == 1
-    assert rsp_object[0].get('name') == 'Jane Doe'
+    assert len(rsp_object.get('_items')) == 1
+    assert rsp_object.get('_items')[0].get('name') == 'Jane Doe'
 
     rsp = client.get('/users/?name=~John')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     rsp_object = rsp.json
-    assert len(rsp_object) == 1
-    assert rsp_object[0].get('name') == 'John Doe'
+    assert len(rsp_object.get('_items')) == 1
+    assert rsp_object.get('_items')[0].get('name') == 'John Doe'
 
     rsp = client.get('/users/?name=~Doe')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     rsp_object = rsp.json
-    assert len(rsp_object) == 2
+    assert len(rsp_object.get('_items')) == 2
 
 
 def test_find_in_array(client):
@@ -265,7 +268,7 @@ def test_find_in_array(client):
     rsp = client.get('/users/?name=[Jane,John]')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
-    assert len(rsp.json) == 2
+    assert len(rsp.json.get('_items')) == 2
 
 
 def test_find_exact_or(client):
@@ -273,7 +276,7 @@ def test_find_exact_or(client):
     rsp = client.get('/users/?name=Jane&name=John&logic=OR')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
-    assert len(rsp.json) == 2
+    assert len(rsp.json.get('_items')) == 2
 
 
 def test_find_exact_and(client):
@@ -286,7 +289,7 @@ def test_find_exact_and(client):
     rsp = client.get('/users/?name=~Jane&name=Jane&enabled=false')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
-    assert len(rsp.json) == 1
+    assert len(rsp.json.get('_items')) == 1
 
 
 def test_more_params_than_supported(client):
@@ -301,7 +304,7 @@ def test_find_contains_or(client):
     rsp = client.get('/users/?name=~Jane&name=~John&logic=OR')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
-    assert len(rsp.json) == 2
+    assert len(rsp.json.get('_items')) == 2
 
 
 def test_search_for_nonexistent_field(client):
@@ -316,7 +319,7 @@ def test_find_by_exact_match(client):
     rsp = client.get('/users/?name=John')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
-    assert rsp.json[0].get('name') == 'John'
+    assert rsp.json.get('_items')[0].get('name') == 'John'
 
 
 def test_find_boolean(client):
@@ -332,15 +335,15 @@ def test_find_boolean(client):
 
     rsp = client.get('/users/?locked=false')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    assert rsp.json[0].get('name') == 'Jane Doe'
+    assert rsp.json.get('_items')[0].get('name') == 'Jane Doe'
 
     rsp = client.get('/users/?locked=true')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    assert rsp.json[0].get('name') == 'John Doe'
+    assert rsp.json.get('_items')[0].get('name') == 'John Doe'
 
     rsp = client.get('/users/?locked=true&locked=false&logic=OR')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    assert len(rsp.json) == 2
+    assert len(rsp.json.get('_items')) == 2
 
 
 def test_find_not_equal(client):
@@ -349,9 +352,9 @@ def test_find_not_equal(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
     result_set = rsp.json
-    assert len(result_set) == 2
+    assert len(result_set.get('_items')) == 2
     max_found = False
-    for uzer in result_set:
+    for uzer in result_set.get('_items'):
         max_found = uzer.get('name') == 'Max'
     assert not max_found
 
@@ -362,7 +365,7 @@ def test_find_by_query_expression(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
     result_set = rsp.json
-    assert len(result_set) == 2
+    assert len(result_set.get('_items')) == 2
 
 
 def test_find_by_query_expression_not_found(client):
@@ -385,7 +388,7 @@ def test_run_aggregation_pipeline(client):
     rsp = client.get('/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
-    assert rsp.json[0].get('name') == 'Jane'
+    assert rsp.json.get('_items')[0].get('name') == 'Jane'
 
 
 def test_post_user_as_json_payload(client, user_dict):
@@ -522,6 +525,6 @@ def test_put_user(client, user_dict):
     rsp = client.get('/users/'.format(document_id))
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     returned_user = rsp.json
-    assert returned_user[0].get('locked') == True
-    assert returned_user[0].get('name') == 'changed user'
-    assert len(returned_user[0].get('roles')) == 0
+    assert returned_user.get('_items')[0].get('locked') is True
+    assert returned_user.get('_items')[0].get('name') == 'changed user'
+    assert len(returned_user.get('_items')[0].get('roles')) == 0

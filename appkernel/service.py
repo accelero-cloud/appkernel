@@ -109,6 +109,7 @@ class Service(object):
                     except Exception as exc:
                         Service.app_engine.logger.exception(exc)
                         return Service.app_engine.generic_error_handler(exc)
+
             return action_executor
 
         if 'links' in cls.__dict__:
@@ -406,7 +407,7 @@ class Service(object):
         return arguments
 
     @classmethod
-    def xvert(cls, result_item):
+    def xvert(cls, result_item, generate_links=True):
         """
         converts the response object into Json
         :param model_class: the name of the class of teh model
@@ -416,13 +417,19 @@ class Service(object):
         if isinstance(result_item, Model):
             model = Model.to_dict(result_item)
             model.update(_type=cls.__name__)
-            if cls.enable_hateoas:
+            if cls.enable_hateoas and generate_links:
                 model.update(_links=cls.__calculate_links(result_item.id))
             return model
         elif is_dictionary(result_item) or is_dictionary_subclass(result_item):
             return result_item
         elif isinstance(result_item, (list, set, tuple)):
-            return [cls.xvert(item) for item in result_item]
+            result = {
+                '_type': cls.__name__,
+                '_items': [cls.xvert(item, generate_links=False) for item in result_item]
+            }
+            if cls.enable_hateoas:
+                result.update(_links={'self': {'href': url_for('{}_get_by_query'.format(xtract(cls).lower()))}})
+            return result
         elif is_primitive(result_item) or isinstance(result_item, (str, basestring, int)) or is_noncomplex(result_item):
             return {'_type': 'OperationResult', 'result': result_item}
 
@@ -441,16 +448,17 @@ class Service(object):
 
                 links[rel] = {
                     'href': href,
-                    'args': args,
                     'methods': this_link.get('decorator_kwargs').get('http_method',
-                                                                     ['POST'] if len(args) > 0 else ['GET'])
+                                                                     'POST' if len(args) > 0 else 'GET')
                 }
+                if args and len(args) > 0:
+                    links[rel].update(args=args)
             links['self'] = {
                 'href': url_for('{}_get_by_id'.format(clazz_name), object_id=object_id),
                 'methods': cls.http_methods
             }
             links['collection'] = {
                 'href': url_for('{}_get_by_query'.format(clazz_name)),
-                'methods': ['GET']
+                'methods': 'GET'
             }
             return links
