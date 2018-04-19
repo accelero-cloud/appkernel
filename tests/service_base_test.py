@@ -279,14 +279,14 @@ def test_find_exact_or(client):
     assert len(rsp.json.get('_items')) == 2
 
 
-def test_find_exact_and(client):
-    jane1 = create_and_save_a_user('Jane', 'some secret', 'some silly description')
-    jane2 = create_and_save_a_user('Jane', 'some secret', 'some silly description')
+def test_find_contains_and(client):
+    jane1 = create_and_save_a_user('Jane 1', 'some secret', 'some silly description')
+    jane2 = create_and_save_a_user('Jane 2', 'some secret', 'some silly description')
     jane1.enabled = True
     jane2.enabled = False
     jane1.save()
     jane2.save()
-    rsp = client.get('/users/?name=~Jane&name=Jane&enabled=false')
+    rsp = client.get('/users/?name=~Jane&&enabled=false')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200
     assert len(rsp.json.get('_items')) == 1

@@ -50,7 +50,7 @@ def test_basic_model():
     print '\n\n==== reloading ===='
     p2 = Project.find_by_id(obj_id)
     print '> dict of p2: {}'.format(Model.to_dict(p2, convert_id=False))
-    p2.describe()
+    print '\n{}'.format(p2.get_parameter_spec())
     print '> str reloaded object :: %s' % p2
     assert p2.undefined_parameter == 'something else'
     assert p2.id is not None
@@ -71,7 +71,7 @@ def test_complex_model():
         append_to(groups='some group name').append_to(groups='some other group name')
     obj_id = p.save()
     u2 = Project.find_by_id(obj_id)
-    u2.describe
+    print '\n{}'.format(u2.get_parameter_spec())
     print 'reloaded user -> {}'.format(u2)
     print '\n\n'
     assert len(u2.groups) == 2

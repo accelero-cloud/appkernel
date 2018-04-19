@@ -266,7 +266,7 @@ class MongoRepository(Repository):
         return self.id
 
     def delete(self):
-        return self.collection().delete_one({'_id': self.id}).deleted_count
+        return self.collection.delete_one({'_id': self.id}).deleted_count
 
 
 class AuditableRepository(MongoRepository):
