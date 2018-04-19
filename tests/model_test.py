@@ -1,5 +1,7 @@
+from appkernel.validators import ValidationException
 from test_util import *
 import pytest
+import json
 from datetime import timedelta
 
 
@@ -120,6 +122,18 @@ def test_generator():
     print('\nTask:\n {}'.format(task))
     assert task.id is not None and task.id.startswith('U')
 
+
+def test_describe_model():
+    user_spec = User.get_parameter_spec()
+    print User.get_paramater_spec_as_json()
+    assert 'name' in user_spec
+    assert user_spec.get('name').get('required')
+    assert user_spec.get('name').get('type') == 'str'
+    assert len(user_spec.get('name').get('validators')) == 2
+    for validator in user_spec.get('name').get('validators'):
+        if validator.get('type') == 'Regexp':
+            assert validator.get('value') == '[A-Za-z0-9-_]'
+    assert user_spec.get('roles').get('sub_type') == 'str'
 
     #todo: test mappers
     #to_value_converter=to_unix_time, from_value_converter=to_time_unit

@@ -5,7 +5,8 @@ from flask import Flask, jsonify, current_app, request, abort, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
 from appkernel.query import QueryProcessor
-from model import Model, ParameterRequiredException, ValidationException, create_tagging_decorator, TaggingMetaClass, \
+from appkernel.validators import ValidationException
+from model import Model, ParameterRequiredException, create_tagging_decorator, _TaggingMetaClass, \
     get_argument_spec, ServiceException
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract, MongoRepository
@@ -24,7 +25,6 @@ link = create_tagging_decorator('links')
 
 
 class Service(object):
-    __metaclass__ = TaggingMetaClass
     pretty_print = True
     qp = QueryProcessor()  # pylint: disable=C0103
     """

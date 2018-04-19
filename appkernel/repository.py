@@ -3,7 +3,8 @@ from datetime import datetime
 import pymongo
 
 from appkernel import AppKernelEngine
-from model import Model, Expression, AppKernelException
+from model import Model, Expression, AppKernelException, SortOrder, Parameter, Index, TextIndex, UniqueIndex, \
+    _TaggingMetaClass
 from pymongo.collection import Collection
 from enum import Enum
 
@@ -22,11 +23,6 @@ class Query(object):
 
     def __init__(self):
         pass
-
-
-class SortOrder(Enum):
-    ASC = 1
-    DESC = 2
 
 
 class RepositoryException(AppKernelException):
@@ -97,8 +93,43 @@ class Repository(object):
 
 class MongoRepository(Repository):
 
+    def __init__(self):
+        index_factories = {
+            Index: MongoRepository.create_index,
+            TextIndex: MongoRepository.create_text_index,
+            UniqueIndex: MongoRepository.create_unique_index
+        }
+
+        for key, value in self.__class__.__dict__.iteritems():
+            if isinstance(value, Parameter):
+                if value.index:
+                    fct = index_factories.get(value.index, MongoRepository.not_supported)
+                    fct(self.get_collection(), key,
+                        value.index.sort_order if hasattr(value.index, 'sort_order') else SortOrder.ASC)
+
+    @staticmethod
+    def create_index(collection, member_name, sort_order, unique=False):
+        if member_name not in collection.index_information():
+            direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
+            collection.create_index(
+                [(member_name, direction)],
+                unique=unique, background=True, name='{}_idx'.format(member_name))
+
+    @staticmethod
+    def create_text_index(collection, member_name, *args):
+        pass
+
+    @staticmethod
+    def create_unique_index(collection, member_name, sort_order):
+        MongoRepository.create_index(collection, member_name, sort_order, unique=True)
+
+    @staticmethod
+    def not_supported(*args):
+        pass
+
+    @property
     def collection(self):
-        return AppKernelEngine.database[xtract(self.__class__)]
+        return self.__class__.get_collection()
 
     @classmethod
     def get_collection(cls):

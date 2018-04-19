@@ -1,9 +1,9 @@
 import inspect
-
 from bson import ObjectId
 from enum import Enum
-import re, uuid
+import uuid
 from datetime import datetime, date
+from appkernel.validators import Validator
 
 try:
     import simplejson as json
@@ -29,97 +29,10 @@ class ParameterRequiredException(AppKernelException):
         super(AppKernelException, self).__init__('The parameter {} is required.'.format(value))
 
 
-class ValidationException(AppKernelException):
-    def __init__(self, validator_type, validable_object, message):
-        self.validable_object_name = validable_object.__class__.__name__
-        super(AppKernelException, self).__init__(
-            '{} on type {} - {}'.format(validator_type.name, self.validable_object_name, message))
-
-
 class ServiceException(AppKernelException):
     def __init__(self, http_error_code, message):
         super(AppKernelException, self).__init__(message)
         self.http_error_code = http_error_code
-
-
-class ValidatorType(Enum):
-    REGEXP = 1
-    NOT_EMPTY = 2
-    PAST = 3
-    FUTURE = 4
-    EXACT = 5
-
-
-class Validator(object):
-    """
-    a root object for different type of validators
-    """
-
-    def __init__(self, validator_type, value=None):
-        # type: (str, ValidatorType) -> ()
-        self.value = value
-        self.type = validator_type
-
-    def validate(self, parameter_name, validable_object):
-        """
-        Validates and object against the validation pramaters.
-        :param parameter_name:
-        :param validable_object:
-        :raise ValidationException:
-        """
-        pass
-
-    def _is_date(self, validable_object):
-        return isinstance(validable_object, (datetime, date))
-
-
-class Regexp(Validator):
-    def __init__(self, value):
-        super(Regexp, self).__init__(ValidatorType.REGEXP, value)
-
-    def validate(self, parameter_name, validable_object):
-        if isinstance(validable_object, basestring):
-            if not re.match(self.value, validable_object):
-                raise ValidationException(self.type, validable_object,
-                                          'The parameter *{}* cannot be validated against {}'.format(parameter_name,
-                                                                                                     self.value))
-
-
-class NotEmpty(Validator):
-    def __init__(self):
-        super(NotEmpty, self).__init__(ValidatorType.NOT_EMPTY)
-
-    def validate(self, parameter_name, validable_object):
-        if not validable_object or not isinstance(validable_object, (basestring, str, unicode)) or len(
-                validable_object) == 0:
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is None or not String.'.format(parameter_name))
-
-
-class Past(Validator):
-    def __init__(self):
-        super(Past, self).__init__(ValidatorType.PAST)
-
-    def validate(self, parameter_name, validable_object):
-        if validable_object is None or not self._is_date(validable_object):
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is none or not date type.'.format(parameter_name))
-        elif validable_object >= datetime.now():
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* must define the past.'.format(parameter_name))
-
-
-class Future(Validator):
-    def __init__(self):
-        super(Future, self).__init__(ValidatorType.FUTURE)
-
-    def validate(self, parameter_name, validable_object):
-        if validable_object is None or not self._is_date(validable_object):
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is none or not date type.'.format(parameter_name))
-        elif validable_object <= datetime.now():
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* must define the future.'.format(parameter_name))
 
 
 class AttrDict(dict):
@@ -161,6 +74,11 @@ def get_argument_spec(provisioner_method):
 
 
 def create_tagging_decorator(tag_name):
+    """
+    Creates a new decorator which adds arbitrary tags to the decorated functions and methods, enabling these to be listed in a registry
+    :param tag_name:
+    :return:
+    """
     def tagging_decorator(*args, **kwargs):
         # here we can receive the parameters handed over on the decorator (@decorator(a=b))
         def wrapper(method):
@@ -172,8 +90,8 @@ def create_tagging_decorator(tag_name):
     return tagging_decorator
 
 
-class TaggingMetaClass(type):
-    def __new__(cls, name, bases, dct):
+class _TaggingMetaClass(type):
+    def __new__(mcs, name, bases, dct):
         tags = {}
         for member in dct.itervalues():
             if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
@@ -192,7 +110,28 @@ class TaggingMetaClass(type):
                 #   'decorator_kwargs': {'http_method': ['POST']},
                 # }
         dct.update(tags)
-        return type.__new__(cls, name, bases, dct)
+        return type.__new__(mcs, name, bases, dct)
+
+
+class SortOrder(Enum):
+    ASC = 1
+    DESC = -1
+
+
+class Index(object):
+    def __init__(self, sort_order):
+        # type: (SortOrder) -> ()
+        self.sort_order = sort_order
+
+
+class TextIndex(Index):
+    def __init__(self):
+        super(TextIndex, self).__init__(SortOrder.ASC)
+
+
+class UniqueIndex(Index):
+    def __init__(self):
+        super(UniqueIndex, self).__init__(SortOrder.ASC)
 
 
 class Parameter(object):
@@ -203,8 +142,9 @@ class Parameter(object):
                  to_value_converter=None,
                  from_value_converter=None,
                  default_value=None,
-                 generator=None):
-        # type: (type, bool, ParameterType, list, function, function, function) -> ()
+                 generator=None,
+                 index=None):
+        # type: (type, bool, type, function, function, function, function, Index) -> ()
         """
 
         :param python_type: the python type object (str, datetime or anything else)
@@ -215,7 +155,9 @@ class Parameter(object):
         :param from_value_converter:
         :param default_value:
         :param generator:
+        :param index: the type of index (if any) which needs to be added to the database;
         """
+        self.index = index
         self.python_type = python_type
         self.required = required
         self.sub_type = sub_type
@@ -288,6 +230,8 @@ def default_convert(string):
 
 
 class Model(object):
+    __metaclass__ = _TaggingMetaClass
+
     type_converters = {
         date: convert_date_time,
         datetime: convert_date_time
@@ -344,10 +288,48 @@ class Model(object):
         else:
             raise TypeError('The Model initialisation works only with instances which inherit from Model.')
 
+    @classmethod
+    def get_parameter_spec(cls):
+        props = cls.__dict__  # or: set(dir(cls))
+        # print "params: %s" % [f for f in props if cls.__is_param_field(f, cls)]
+        result_dct = {}
+        for field_name in props:
+            attribute = getattr(cls, field_name)
+            if isinstance(attribute, Parameter):
+                result_dct[field_name] = cls.__describe_attribute(attribute)
+        return result_dct
+
+    @classmethod
+    def get_paramater_spec_as_json(cls):
+        return json.dumps(cls.get_parameter_spec(), default=default_json_serializer, indent=4, sort_keys=True)
+
+    @classmethod
+    def __describe_attribute(cls, attribute):
+        attr_desc = {
+            'type': attribute.python_type.__name__,
+            'required': attribute.required,
+        }
+        if attribute.default_value:
+            attr_desc.update(default_value=attribute.default_value)
+        if attribute.sub_type:
+            attr_desc.update(sub_type=attribute.sub_type.__name__)
+        if attribute.validators:
+            attr_desc.update(validators=[cls.__describe_validator(val) for val in attribute.validators])
+        return attr_desc
+
+    @staticmethod
+    def __describe_validator(validator):
+        val_desc = {
+            'type': validator.__name__ if hasattr(validator, '__name__') else validator.__class__.__name__
+        }
+        if hasattr(validator, 'value'):
+            val_desc.update(value=validator.value)
+        return val_desc
+
     @staticmethod
     def to_dict(instance, convert_id=False, validate=True):
         """
-        Turns the python instance object into a dictionary
+        Turns the python instance object into a dictionary after finalising and validating it.
         :param validate: if false, the validation of the object will be skipped
         :param convert_id: it will convert id fields to _id for mongodb
         :param instance: the pythin instance object
@@ -377,6 +359,7 @@ class Model(object):
     def from_dict(dict_obj, cls, convert_ids=False, set_unmanaged_parameters=True):
         # type: (dict, cls) -> Model
         """
+        Reads a dictionary representation of the model and turns it into a python object model.
         :param set_unmanaged_parameters: if False, key-value pairs from the dict object which are not class variables on the Model (there is no Parameter object for them) will not be set
         :param convert_ids: strip the underscore prefix from object id parameter is exists ( _id -> id )
         :param dict_obj: the dictionary to be converted to object
@@ -384,7 +367,7 @@ class Model(object):
         :return: returns an instantiated object from the dict
         """
         instance = cls()
-        class_variables = [f for f in set(dir(instance)) if Model._include_param(f, cls)]
+        class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]
         if dict_obj and isinstance(dict_obj, dict):
             for key, val in dict_obj.items():
                 if convert_ids and key == '_id':
@@ -427,16 +410,33 @@ class Model(object):
         return return_list
 
     def dumps(self, validate=True, pretty_print=False):
+        """
+        Returns the json representation of the object.
+        :param validate: if True (default), will validate the object before converting it to Json;
+        :param pretty_print:  if True (False by default) it will format the json object upon conversion;
+        :return: the json object as a string
+        """
         model_as_dict = Model.to_dict(self, validate=validate)
         return json.dumps(model_as_dict, default=default_json_serializer, indent=4 if pretty_print else None,
                           sort_keys=True)
 
     @classmethod
     def loads(cls, json_string):
+        """
+        Takes a json string and creates a python object from it.
+        :param json_string: the Json string to be converted into an object
+        :return: the generated object (it won't run validation on it)
+        """
         # type: (basestring, cls) -> Model
         return Model.from_dict(json.loads(json_string), cls)
 
     def finalise_and_validate(self):
+        """
+        It will call the generator methods (eg. special id generator, date generators or default value generator) first,
+        than it will validate the object;
+        :raises ParameterRequiredException: in case some value property is mandatory
+        :raises ValidationException: in case one of the parameter validators do not validate
+        """
         obj_items = self.__dict__
         cls_items = {k: v for k, v in self.__class__.__dict__.iteritems() if isinstance(v, Parameter)}
         for param_name, param_object in cls_items.items():
@@ -459,11 +459,14 @@ class Model(object):
             if issubclass(param_object.python_type, Model):
                 self.__dict__[param_name].finalise_and_validate()
 
-    def describe(self):
+    def dump_spec(self):
+        """
+        prints the parameter specification of the model
+        """
         props = set(dir(self))
         # print '(P): %s' % dir(self)
         # obj_dict = {k: v for k, v in self.__dict__.items()}
-        print "params: %s" % [f for f in props if self._include_param(f, self.__class__)]
+        print "params: %s" % [f for f in props if self.__is_param_field(f, self.__class__)]
         # print "vars :: %s" % vars(list).keys()
 
     def _include_instance(self, field):
@@ -471,5 +474,5 @@ class Model(object):
             getattr(self, field), Parameter)
 
     @staticmethod
-    def _include_param(field, cls):
+    def __is_param_field(field, cls):
         return field in cls.__dict__ and isinstance(getattr(cls, field), Parameter)

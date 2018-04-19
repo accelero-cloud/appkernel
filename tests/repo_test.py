@@ -12,6 +12,7 @@ def setup_function(function):
     """
     print ('\n\nSETUP ==> ')
     Project.delete_all()
+    User.delete_all()
 
 
 
@@ -121,6 +122,11 @@ def test_find_some():
         counter += 1
     assert counter == 10, "counter should be 10, was: {}".format(counter)
 
+
+def test_unique_index_creation():
+    user = create_and_save_a_user('some user', 'some pass', 'some description')
+    idx_info = AppKernelEngine.database['Users'].index_information()
+    assert 'name_idx' in idx_info
 
 def test_find_one():
     pass
