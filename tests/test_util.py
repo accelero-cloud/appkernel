@@ -3,13 +3,13 @@ from appkernel.model import *
 from datetime import datetime
 from appkernel.repository import AuditableRepository, Repository, MongoRepository
 from appkernel.service import link
-from appkernel import NotEmpty, Regexp, Past, Future, uuid_generator, date_now_generator
+from appkernel import NotEmpty, Regexp, Past, Future, uuid_generator, date_now_generator, password_hash_generator
 
 
 class User(Model, MongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
-    password = Parameter(str, required=True, validators=[NotEmpty])
+    password = Parameter(str, required=True, validators=[NotEmpty], to_value_converter=password_hash_generator)
     description = Parameter(str)
     roles = Parameter(list, sub_type=str)
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)

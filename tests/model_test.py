@@ -1,8 +1,21 @@
+from pymongo import MongoClient
+
+from appkernel import AppKernelEngine
 from appkernel.validators import ValidationException
 from test_util import *
 import pytest
-import json
 from datetime import timedelta
+
+def setup_module(module):
+    AppKernelEngine.database = MongoClient(host='localhost')['appkernel']
+
+
+def setup_function(function):
+    """ executed before each method call
+    """
+    print ('\n\nSETUP ==> ')
+    Project.delete_all()
+    User.delete_all()
 
 
 def test_regexp_validation():
@@ -123,6 +136,16 @@ def test_generator():
     assert task.id is not None and task.id.startswith('U')
 
 
+def test_converter():
+    user = create_and_save_a_user('test user', 'test password', 'test description')
+    print '\n{}'.format(user)
+    assert user.password.startswith('$pbkdf2-sha256')
+    hash1 = user.password
+    user.save()
+    assert user.password.startswith('$pbkdf2-sha256')
+    assert hash1 == user.password
+
+
 def test_describe_model():
     user_spec = User.get_parameter_spec()
     print User.get_paramater_spec_as_json()
@@ -135,5 +158,6 @@ def test_describe_model():
             assert validator.get('value') == '[A-Za-z0-9-_]'
     assert user_spec.get('roles').get('sub_type') == 'str'
 
-    #todo: test mappers
+    #todo: test converters
+    #todo: expose model description over rest
     #to_value_converter=to_unix_time, from_value_converter=to_time_unit

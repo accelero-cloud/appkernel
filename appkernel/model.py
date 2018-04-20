@@ -424,7 +424,7 @@ class Model(object):
 
     def finalise_and_validate(self):
         """
-        It will call the generator methods (eg. special id generator, date generators or default value generator) first,
+        Calls the generator, default value calculator and converter methods first,
         than it will validate the object;
         :raises ParameterRequiredException: in case some value property is mandatory
         :raises ValidationException: in case one of the parameter validators do not validate
@@ -442,6 +442,8 @@ class Model(object):
             if param_object.required and param_name not in obj_items:
                 raise ParameterRequiredException(
                     '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
+            if param_object.to_value_converter:
+                setattr(self, param_name, param_object.to_value_converter(getattr(self, param_name)))
             if param_object.validators is not None and isinstance(param_object.validators, list):
                 for val in param_object.validators:
                     if isinstance(val, Validator) and param_name in self.__dict__:
