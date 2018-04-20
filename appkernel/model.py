@@ -1,7 +1,6 @@
 import inspect
 from bson import ObjectId
 from enum import Enum
-import uuid
 from datetime import datetime, date
 from appkernel.validators import Validator
 
@@ -10,13 +9,6 @@ try:
 except ImportError:
     import json
 from util import default_json_serializer, OBJ_PREFIX
-
-
-def create_uui_generator(prefix=None):
-    def generate_id():
-        return '{}{}'.format(prefix, str(uuid.uuid4()))
-
-    return generate_id
 
 
 class AppKernelException(Exception):

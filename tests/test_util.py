@@ -3,25 +3,7 @@ from appkernel.model import *
 from datetime import datetime
 from appkernel.repository import AuditableRepository, Repository, MongoRepository
 from appkernel.service import link
-from appkernel.validators import NotEmpty, Regexp, Past, Future
-
-
-def uui_generator(prefix=None):
-    def generate_id():
-        return '{}{}'.format(prefix, str(uuid.uuid4()))
-
-    return generate_id
-
-
-def date_now_generator():
-    return datetime.now()
-
-
-def uuid_generator(prefix=None):
-    def generate_id():
-        return '{}{}'.format(prefix, str(uuid.uuid4()))
-
-    return generate_id
+from appkernel import NotEmpty, Regexp, Past, Future, uuid_generator, date_now_generator
 
 
 class User(Model, MongoRepository, Service):
@@ -51,7 +33,7 @@ class TestClass(Model):
 
 
 class Task(Model, AuditableRepository):
-    id = Parameter(str, required=True, generator=uui_generator('U'))
+    id = Parameter(str, required=True, generator=uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty])
     description = Parameter(str, required=True, validators=[NotEmpty])
     completed = Parameter(bool, required=True, default_value=False)

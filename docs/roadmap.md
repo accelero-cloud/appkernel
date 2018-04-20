@@ -4,15 +4,18 @@ The framework is supposed to cover all or most of the requirements of the Micros
 
 ## Model features
 - [x] validation on the data model using multiple custom validators
-- [x] serialisation support
+- [x] json serialisation support
+- [x] generators
+- [ ] converters
 
 ## Database features
+- [x] basic CRUD operations
+- [ ] easy to use active record style queries
 - [x] automatically generate prefixed database ID
-- [ ] index management on the database
+- [x] index management on the database
 - [ ] database schema validation and schema management
 - [x] builtin converters for serialising or deserialising the model to various other formats
 - [x] automated marshaling of objects to and from json
-- [x] basic CRUD operations
 - [x] audited fields (created, updated)
 - [x] Document Versioning
 - [ ] Bulk Inserts
@@ -44,10 +47,10 @@ The framework is supposed to cover all or most of the requirements of the Micros
 
 ## Microservice Interaction
 - [ ] scheduler and background task executor
-- [ ] externalized configuration
+- [x] externalized configuration
 - [ ] logging, health checks
 - [ ] CQRS
-- [ ] Even sourcing
+- [ ] Event sourcing
 - [ ] SAGA Pattern
 - [ ] circuit breakers
 - [ ] metrics
