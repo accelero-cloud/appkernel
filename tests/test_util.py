@@ -3,20 +3,23 @@ from appkernel.model import *
 from datetime import datetime
 from appkernel.repository import AuditableRepository, Repository, MongoRepository
 from appkernel.service import link
-from appkernel import NotEmpty, Regexp, Past, Future, uuid_generator, date_now_generator, password_hash_generator
+from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, create_password_hasher
+from passlib.hash import pbkdf2_sha256
+from enum import Enum
 
 
 class User(Model, MongoRepository, Service):
-    id = Parameter(str, required=True, generator=uuid_generator('U'))
+    id = Parameter(str, required=True, generator=create_uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
-    password = Parameter(str, required=True, validators=[NotEmpty], to_value_converter=password_hash_generator)
+    password = Parameter(str, required=True, validators=[NotEmpty],
+                         to_value_converter=create_password_hasher(rounds=10), omit=True)
     description = Parameter(str)
     roles = Parameter(list, sub_type=str)
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
 
     @link(rel='change_password', http_method='POST')
     def change_p(self, current_password, new_password):
-        if self.password != current_password:
+        if not pbkdf2_sha256.verify(current_password, self.password):
             raise ServiceException(403, 'Current password is not correct')
         else:
             self.password = new_password
@@ -32,13 +35,20 @@ class TestClass(Model):
     future_field = Parameter(datetime, validators=[Future])
 
 
+class Priority(Enum):
+    HIGH = 1
+    MEDIUM = 2
+    LOW = 3
+
+
 class Task(Model, AuditableRepository):
-    id = Parameter(str, required=True, generator=uuid_generator('U'))
+    id = Parameter(str, required=True, generator=create_uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty])
     description = Parameter(str, required=True, validators=[NotEmpty])
     completed = Parameter(bool, required=True, default_value=False)
     created = Parameter(datetime, required=True, generator=date_now_generator)
     closed_date = Parameter(datetime, validators=[Past])
+    priority = Parameter(Priority, required=True, default_value=Priority.MEDIUM)
 
     def __init__(self, **kwargs):
         Model.init_model(self, **kwargs)
@@ -64,7 +74,7 @@ def create_simple_project():
 
 def create_rich_project():
     p = Project().update(name='some project'). \
-        append_to(tasks=[Task(name='some_task', description='some description'),
+        append_to(tasks=[Task(name='some_task', description='some description', priority=Priority.HIGH),
                          Task(name='some_other_task', description='some other description')])
     p.undefined_parameter = 'some undefined parameter'
     return p

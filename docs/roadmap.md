@@ -5,8 +5,12 @@ The framework is supposed to cover all or most of the requirements of the Micros
 ## Model features
 - [x] validation on the data model using multiple custom validators
 - [x] json serialisation support
-- [x] generators
+- [ ] json schema generator
+- [x] value generators
 - [ ] converters
+- [x] omitted fields
+
+
 
 ## Database features
 - [x] basic CRUD operations

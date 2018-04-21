@@ -415,7 +415,7 @@ class Service(object):
         :return:
         """
         if isinstance(result_item, Model):
-            model = Model.to_dict(result_item)
+            model = Model.to_dict(result_item, skip_omitted_fields=True)
             model.update(_type=cls.__name__)
             if cls.enable_hateoas and generate_links:
                 model.update(_links=cls.__calculate_links(result_item.id))

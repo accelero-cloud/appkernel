@@ -5,6 +5,7 @@ from appkernel.validators import ValidationException
 from test_util import *
 import pytest
 from datetime import timedelta
+from jsonschema import validate
 
 def setup_module(module):
     AppKernelEngine.database = MongoClient(host='localhost')['appkernel']
@@ -138,7 +139,7 @@ def test_generator():
 
 def test_converter():
     user = create_and_save_a_user('test user', 'test password', 'test description')
-    print '\n{}'.format(user)
+    print '\n{}'.format(user.dumps(pretty_print=True))
     assert user.password.startswith('$pbkdf2-sha256')
     hash1 = user.password
     user.save()
@@ -157,6 +158,49 @@ def test_describe_model():
         if validator.get('type') == 'Regexp':
             assert validator.get('value') == '[A-Za-z0-9-_]'
     assert user_spec.get('roles').get('sub_type') == 'str'
+
+
+def test_describe_rich_model():
+    project_spec = Project.get_parameter_spec()
+    print Project.get_paramater_spec_as_json()
+
+
+def test_json_schema():
+    json_schema = Project.get_json_schema()
+    print json.dumps(json_schema, indent=2)
+    print '==========='
+    project = create_rich_project()
+    print project.dumps(pretty_print=True)
+    assert json_schema.get('title') == 'Project'
+    assert 'name' in json_schema.get('required')
+    assert 'created' in json_schema.get('required')
+    assert 'definitions' in json_schema
+    assert json_schema.get('additionalProperties')
+    definitions = json_schema.get('definitions')
+    assert 'Task' in definitions
+    assert len(definitions.get('Task').get('required')) == 5
+    closed_date = definitions.get('Task').get('properties').get('closed_date')
+    assert closed_date.get('type') == 'string'
+    assert closed_date.get('format') == 'date-time'
+    completed = definitions.get('Task').get('properties').get('completed')
+    assert completed.get('type') == 'boolean'
+
+    validate(json.loads(project.dumps()), json_schema)
+    # validator = Draft4Validator(json_schema)
+    # errors = sorted(validator.iter_errors(project.dumps()), key=lambda e: e.path)
+    # for error in errors:
+    #     print('{}'.format(error.message, list(error.path)))
+
+
+def test_json_schema_in_mongo_compat_mode():
+    json_schema = Project.get_json_schema(mongo_compatibility=True)
+    print '\n\n{}'.format(json.dumps(json_schema, indent=2))
+    print '==========='
+    project = create_rich_project()
+    print project.dumps(pretty_print=True)
+    validate(json.loads(project.dumps()), json_schema)
+    #todo: continue with assertions and mongo compatibility
+
 
     #todo: test converters
     #todo: expose model description over rest

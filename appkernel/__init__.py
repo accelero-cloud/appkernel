@@ -3,4 +3,4 @@ from model import Model, Parameter, AppKernelException, Index, TextIndex, Unique
 from validators import NotEmpty, Regexp, Past, Future, ValidationException
 from service import Service
 from repository import Repository, AuditableRepository
-from generators import uuid_generator, date_now_generator, password_hash_generator
+from generators import create_uuid_generator, date_now_generator, create_password_hasher

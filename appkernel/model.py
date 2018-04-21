@@ -71,6 +71,7 @@ def create_tagging_decorator(tag_name):
     :param tag_name:
     :return:
     """
+
     def tagging_decorator(*args, **kwargs):
         # here we can receive the parameters handed over on the decorator (@decorator(a=b))
         def wrapper(method):
@@ -135,7 +136,8 @@ class Parameter(object):
                  from_value_converter=None,
                  default_value=None,
                  generator=None,
-                 index=None):
+                 index=None,
+                 omit=False):
         # type: (type, bool, type, function, function, function, function, Index) -> ()
         """
 
@@ -143,12 +145,14 @@ class Parameter(object):
         :param required: if True, the field must be specified before validation
         :param sub_type: in case the python type is dict or list (or any other collection type), you might want to specify the element type
         :param validators: a list of validator elements which are used to validate field content
-        :param to_value_converter:
+        :param to_value_converter: comverts the value of the fields in the finalisation phase (before generating json or saving in the database)
         :param from_value_converter:
-        :param default_value:
-        :param generator:
+        :param default_value: this value is set on the field in case there's no other value there yet
+        :param generator: content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
         :param index: the type of index (if any) which needs to be added to the database;
+        :param omit: if True, the field won't be included in the json or other wire-format messages
         """
+        self.omit = omit
         self.index = index
         self.python_type = python_type
         self.required = required
@@ -281,47 +285,165 @@ class Model(object):
             raise TypeError('The Model initialisation works only with instances which inherit from Model.')
 
     @classmethod
-    def get_parameter_spec(cls):
+    def get_json_schema(cls, additional_properties=True, mongo_compatibility=False):
+        """
+        Generates a JSON Schema document from the Model
+        :param additional_properties: if True the schema will have an additional parameter called 'additionalProperties':true, which will allow extra elements
+        :param mongo_compatibility: if true, the generated json schema will be compatible with mongo
+        :return:
+        """
+        specs = cls.get_parameter_spec(convert_types_to_string=False)
+        properties, required_props, definitions = Model.__prepare_json_schema_properties(specs,
+                                                                                         mongo_compatibility=mongo_compatibility)
+        schema = {
+            '$schema': 'http://json-schema.org/draft-04/schema#',
+            'title': cls.__name__,
+            'type': 'object',
+            'properties': properties,
+            'required': required_props
+        }
+        if not mongo_compatibility:
+            schema.update(definitions=definitions)
+        if additional_properties:
+            schema.update(additionalProperties=True)
+        return schema
+
+    @staticmethod
+    def __prepare_json_schema_properties(specs, mongo_compatibility=False):
+        type_map = {
+            'str': 'string',
+            'unicode': 'string',
+            'basestring': 'string',
+            'list': 'array',
+            'int': 'number',
+            'long': 'number',
+            'float': 'number',
+            'bool': 'boolean',
+            'tuple': 'object',
+            'dictionary': 'object',
+            'date': 'string',
+            'datetime': 'string'
+        }
+
+        format_map = {
+            'datetime': 'date-time',
+            'time': 'time'
+        }
+
+        def describe_enum(enum_class):
+            return [e.name for e in enum_class]
+
+        properties = {}
+        required_props = []
+        definitions = {}
+
+        for name, spec in specs.iteritems():
+            spec_type = spec.get('type')
+            type_string = spec_type.__name__ if hasattr(spec_type, '__name__') else str(spec_type)
+            if issubclass(spec.get('type'), Enum):
+                properties[name] = {'enum': describe_enum(spec.get('type'))}
+                continue
+            else:
+                properties[name] = {'type': type_map.get(type_string, 'string')}
+            # -- define formats --
+            xtra_type = format_map.get(type_string)
+            if xtra_type:
+                properties[name].update(format=xtra_type)
+
+            # -- handle subtypes --
+            if spec.get('type') == list and spec.get('sub_type'):
+                subtype = spec.get('sub_type')
+                subtype_string = subtype.__name__ if hasattr(subtype, '__name__') else str(subtype)
+                if not isinstance(subtype, dict):
+                    properties[name].update(items={'type': type_map.get(subtype_string, subtype_string)})
+                elif isinstance(spec.get('sub_type'), dict):
+                    props, req_props, defs = Model.__prepare_json_schema_properties(spec.get('sub_type').get('props'))
+                    def_name = spec.get('sub_type').get('type').__name__
+                    definitions[def_name] = {}
+                    if not mongo_compatibility:
+                        definitions[def_name].update(required=req_props)
+                        definitions[def_name].update(properties=props)
+                        definitions.update(defs)
+                        properties[name].update(type='array')
+                        properties[name].update(items={'oneOf': [{"$ref": "#/definitions/{}".format(def_name)}]})
+                    else:
+                        # the schema needs to be generated in mongo compatible way
+                        properties[name].update(items={'type': 'object'})
+                        properties[name]['items'].update(required=req_props)
+                        properties[name]['items'].update(properties=props)
+            elif spec.get('type') == list and not spec.sub_type:
+                properties[name].update(items={'type': 'string'})
+
+            # -- build required elements --
+            if spec.get('required'):
+                required_props.append(name)
+
+            # -- process the validators --
+            # validators = spec.get('validators')
+            # if validators:
+            #     for validator in validators:
+        return properties, required_props, definitions
+
+    @classmethod
+    def get_parameter_spec(cls, convert_types_to_string=True):
         props = cls.__dict__  # or: set(dir(cls))
         # print "params: %s" % [f for f in props if cls.__is_param_field(f, cls)]
         result_dct = {}
         for field_name in props:
             attribute = getattr(cls, field_name)
             if isinstance(attribute, Parameter):
-                result_dct[field_name] = cls.__describe_attribute(attribute)
+                result_dct[field_name] = Model.__describe_attribute(cls, attribute,
+                                                                    convert_types_to_string=convert_types_to_string)
         return result_dct
 
     @classmethod
     def get_paramater_spec_as_json(cls):
         return json.dumps(cls.get_parameter_spec(), default=default_json_serializer, indent=4, sort_keys=True)
 
-    @classmethod
-    def __describe_attribute(cls, attribute):
+    @staticmethod
+    def __describe_attribute(clazz, attribute, convert_types_to_string=True):
         attr_desc = {
-            'type': attribute.python_type.__name__,
+            'type': attribute.python_type.__name__ if convert_types_to_string else attribute.python_type,
             'required': attribute.required,
         }
+        if issubclass(attribute.python_type, Model):
+            attr_desc.update(
+                props=attribute.python_type.get_parameter_spec(convert_types_to_string=convert_types_to_string))
         if attribute.default_value:
             attr_desc.update(default_value=attribute.default_value)
         if attribute.sub_type:
-            attr_desc.update(sub_type=attribute.sub_type.__name__)
+            if issubclass(attribute.sub_type, Model):
+                attr_desc.update(
+                    sub_type={
+                        'type': attribute.sub_type.__name__ if convert_types_to_string else attribute.sub_type,
+                        'props': attribute.sub_type.get_parameter_spec(convert_types_to_string=convert_types_to_string)
+                    })
+            else:
+                attr_desc.update(
+                    sub_type=attribute.sub_type.__name__ if convert_types_to_string else attribute.sub_type)
         if attribute.validators:
-            attr_desc.update(validators=[cls.__describe_validator(val) for val in attribute.validators])
+            attr_desc.update(
+                validators=[clazz.__describe_validator(val, convert_types_to_string=convert_types_to_string) for val in
+                            attribute.validators])
         return attr_desc
 
     @staticmethod
-    def __describe_validator(validator):
+    def __describe_validator(validator, convert_types_to_string=True):
+        def get_value(val):
+            return val.__name__ if convert_types_to_string else val
+
         val_desc = {
-            'type': validator.__name__ if hasattr(validator, '__name__') else validator.__class__.__name__
+            'type': get_value(validator) if hasattr(validator, '__name__') else get_value(validator.__class__)
         }
         if hasattr(validator, 'value'):
             val_desc.update(value=validator.value)
         return val_desc
 
     @staticmethod
-    def to_dict(instance, convert_id=False, validate=True):
+    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False):
         """
         Turns the python instance object into a dictionary after finalising and validating it.
+        :param skip_omitted_fields: if True, the omitted fields will be exluded
         :param validate: if false, the validation of the object will be skipped
         :param convert_id: it will convert id fields to _id for mongodb
         :param instance: the pythin instance object
@@ -334,6 +456,12 @@ class Model(object):
         result = {}
         instance_items = instance.__dict__.items() if not isinstance(instance, dict) else instance.items()
         for param, obj in instance_items:
+            if skip_omitted_fields:
+                # skip the omitted fields
+                cls_items = {k: v for k, v in instance.__class__.__dict__.iteritems() if isinstance(v, Parameter)}
+                parameter_def = cls_items.get(param)
+                if parameter_def and parameter_def.omit:
+                    continue
             if isinstance(obj, Model):
                 result[param] = Model.to_dict(obj, convert_id)
             elif isinstance(obj, Enum):
@@ -408,7 +536,7 @@ class Model(object):
         :param pretty_print:  if True (False by default) it will format the json object upon conversion;
         :return: the json object as a string
         """
-        model_as_dict = Model.to_dict(self, validate=validate)
+        model_as_dict = Model.to_dict(self, validate=validate, skip_omitted_fields=True)
         return json.dumps(model_as_dict, default=default_json_serializer, indent=4 if pretty_print else None,
                           sort_keys=True)
 

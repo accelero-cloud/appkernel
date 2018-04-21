@@ -3,6 +3,7 @@ from appkernel import AppKernelEngine
 import pytest
 from test_util import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max
 import os
+from passlib.hash import pbkdf2_sha256
 
 try:
     import simplejson as json
@@ -46,10 +47,11 @@ def test_working_action(client):
     assert 'self' in result.get('_links')
     assert 'collection' in result.get('_links')
     change_pass_included = False
+    newpass = 'new pass'
     for link_name, link_value in result.get('_links').iteritems():
         if link_name == 'change_password':
             change_pass_included = True
-            post_data = json.dumps({'current_password': 'test password', 'new_password': 'new pass'})
+            post_data = json.dumps({'current_password': 'test password', 'new_password': newpass})
             assert link_value.get('href') is not None
             rsp = client.post(link_value.get('href'), data=post_data)
             print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
@@ -60,7 +62,8 @@ def test_working_action(client):
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
-    assert result.get('password') == 'new pass'
+    assert 'password' not in result
+    assert pbkdf2_sha256.verify(newpass, User.find_by_id(result.get('id')).password)
 
 
 def test_failing_action(client):
