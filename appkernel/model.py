@@ -295,14 +295,16 @@ class Model(object):
         specs = cls.get_parameter_spec(convert_types_to_string=False)
         properties, required_props, definitions = Model.__prepare_json_schema_properties(specs,
                                                                                          mongo_compatibility=mongo_compatibility)
+        type_label = 'type' if not mongo_compatibility else 'bsonType'
+
         schema = {
-            '$schema': 'http://json-schema.org/draft-04/schema#',
             'title': cls.__name__,
-            'type': 'object',
+            type_label: 'object',
             'properties': properties,
             'required': required_props
         }
         if not mongo_compatibility:
+            schema['$schema'] = 'http://json-schema.org/draft-04/schema#'
             schema.update(definitions=definitions)
         if additional_properties:
             schema.update(additionalProperties=True)
@@ -310,6 +312,9 @@ class Model(object):
 
     @staticmethod
     def __prepare_json_schema_properties(specs, mongo_compatibility=False):
+
+        type_label = 'type' if not mongo_compatibility else 'bsonType'
+
         type_map = {
             'str': 'string',
             'unicode': 'string',
@@ -330,6 +335,17 @@ class Model(object):
             'time': 'time'
         }
 
+        bson_type_map = {
+            'date': 'date',
+            'datetime': 'timestamp',
+            'time': 'timestamp',
+            'int': 'int',
+            'long': 'long',
+            'float': 'Numbers',
+            'bool': 'bool',
+            'list': 'array'
+        }
+
         def describe_enum(enum_class):
             return [e.name for e in enum_class]
 
@@ -344,20 +360,27 @@ class Model(object):
                 properties[name] = {'enum': describe_enum(spec.get('type'))}
                 continue
             else:
-                properties[name] = {'type': type_map.get(type_string, 'string')}
+                if not mongo_compatibility:
+                    properties[name] = {type_label: type_map.get(type_string, 'string')}
+                else:
+                    properties[name] = {type_label: bson_type_map.get(type_string, 'string')}
             # -- define formats --
-            xtra_type = format_map.get(type_string)
-            if xtra_type:
-                properties[name].update(format=xtra_type)
+            if not mongo_compatibility:
+                xtra_type = format_map.get(type_string)
+                if xtra_type:
+                    properties[name].update(format=xtra_type)
 
             # -- handle subtypes --
             if spec.get('type') == list and spec.get('sub_type'):
                 subtype = spec.get('sub_type')
                 subtype_string = subtype.__name__ if hasattr(subtype, '__name__') else str(subtype)
                 if not isinstance(subtype, dict):
-                    properties[name].update(items={'type': type_map.get(subtype_string, subtype_string)})
+                    if not mongo_compatibility:
+                        properties[name].update(items={type_label: type_map.get(subtype_string, 'string')})
+                    else:
+                        properties[name].update(items={type_label: bson_type_map.get(subtype_string, 'string')})
                 elif isinstance(spec.get('sub_type'), dict):
-                    props, req_props, defs = Model.__prepare_json_schema_properties(spec.get('sub_type').get('props'))
+                    props, req_props, defs = Model.__prepare_json_schema_properties(spec.get('sub_type').get('props'), mongo_compatibility=mongo_compatibility)
                     def_name = spec.get('sub_type').get('type').__name__
                     definitions[def_name] = {}
                     if not mongo_compatibility:
@@ -368,11 +391,11 @@ class Model(object):
                         properties[name].update(items={'oneOf': [{"$ref": "#/definitions/{}".format(def_name)}]})
                     else:
                         # the schema needs to be generated in mongo compatible way
-                        properties[name].update(items={'type': 'object'})
+                        properties[name].update(items={type_label: 'object'})
                         properties[name]['items'].update(required=req_props)
                         properties[name]['items'].update(properties=props)
             elif spec.get('type') == list and not spec.sub_type:
-                properties[name].update(items={'type': 'string'})
+                properties[name].update(items={type_label: 'string'})
 
             # -- build required elements --
             if spec.get('required'):

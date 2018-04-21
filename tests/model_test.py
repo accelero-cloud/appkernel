@@ -7,6 +7,7 @@ import pytest
 from datetime import timedelta
 from jsonschema import validate
 
+
 def setup_module(module):
     AppKernelEngine.database = MongoClient(host='localhost')['appkernel']
 
@@ -52,7 +53,8 @@ def test_not_empty_validation():
 
 
 def test_past_validation():
-    project = Project().update(name='some project').append_to(tasks=Task().update(name='some task', description='some description'))
+    project = Project().update(name='some project').append_to(
+        tasks=Task().update(name='some task', description='some description'))
     project.tasks[0].complete()
     project.finalise_and_validate()
     print('{}'.format(project))
@@ -172,6 +174,8 @@ def test_json_schema():
     project = create_rich_project()
     print project.dumps(pretty_print=True)
     assert json_schema.get('title') == 'Project'
+    assert 'title' in json_schema
+    assert json_schema.get('type') == 'object'
     assert 'name' in json_schema.get('required')
     assert 'created' in json_schema.get('required')
     assert 'definitions' in json_schema
@@ -196,12 +200,24 @@ def test_json_schema_in_mongo_compat_mode():
     json_schema = Project.get_json_schema(mongo_compatibility=True)
     print '\n\n{}'.format(json.dumps(json_schema, indent=2))
     print '==========='
+    task_spec = json_schema.get('properties').get('tasks')
+    assert len(task_spec.get('items').get('required')) == 5
+    priority = task_spec.get('items').get('properties').get('priority')
+    assert len(priority.get('enum')) == 3
+    assert 'bsonType' in json_schema
+    assert '$schema' not in json_schema
+    assert 'definitions' not in json_schema
+    for prop in json_schema.get('properties').iteritems():
+        assert 'format' not in prop[1]
+        assert 'bsonType' in prop[1]
+    for prop in task_spec.get('items').get('properties').iteritems():
+        assert 'format' not in prop[1]
+        assert 'bsonType' or 'enum' in prop[1]
     project = create_rich_project()
     print project.dumps(pretty_print=True)
     validate(json.loads(project.dumps()), json_schema)
-    #todo: continue with assertions and mongo compatibility
+    # todo: continue with assertions and mongo compatibility
 
-
-    #todo: test converters
-    #todo: expose model description over rest
-    #to_value_converter=to_unix_time, from_value_converter=to_time_unit
+    # todo: test converters
+    # todo: expose model description over rest
+    # to_value_converter=to_unix_time, from_value_converter=to_time_unit
