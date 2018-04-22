@@ -182,7 +182,7 @@ def test_json_schema():
     assert json_schema.get('additionalProperties')
     definitions = json_schema.get('definitions')
     assert 'Task' in definitions
-    assert len(definitions.get('Task').get('required')) == 5
+    assert len(definitions.get('Task').get('required')) == 4
     closed_date = definitions.get('Task').get('properties').get('closed_date')
     assert closed_date.get('type') == 'string'
     assert closed_date.get('format') == 'date-time'
