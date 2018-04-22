@@ -30,6 +30,30 @@ class User(Model, MongoRepository, Service):
         return self.description
 
 
+class Stock(Model):
+    code = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]{1,4}')], index=UniqueIndex)
+    open = Parameter(float, required=True)
+    updated = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
+    history = Parameter(list, sub_type=long)
+
+
+class Portfolio(Model, Repository):
+    id = Parameter(str, required=True, generator=create_uuid_generator('P'))
+    name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
+    stocks = Parameter(list, sub_type=Stock, validators=NotEmpty)
+
+
+def create_portfolio(name):
+    msft = Stock(code='MSFT', open=123.7, updated=date_now_generator(), history=[120, 120.5, 123.9])
+    amz = Stock(code='AMZ', open=223.1, updated=date_now_generator(), history=[234, 220.5, 199.9])
+    portfolio = Portfolio(name=name, stocks=[msft, amz])
+    return portfolio
+
+
+def create_a_stock():
+    return Stock(code='MSFT', open=123.7, updated=date_now_generator(), history=[120, 120.5, 123.9])
+
+
 class TestClass(Model):
     just_numbers = Parameter(str, required=True, validators=[Regexp('^[0-9]+$')])
     future_field = Parameter(datetime, validators=[Future])

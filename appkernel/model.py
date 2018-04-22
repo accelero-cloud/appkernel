@@ -233,6 +233,9 @@ class Model(object):
         datetime: convert_date_time
     }
 
+    def __init__(self, **kwargs):
+        self.update(**kwargs)
+
     def update(self, **kwargs):
         for name in kwargs:
             setattr(self, name, kwargs[name])
@@ -337,6 +340,7 @@ class Model(object):
             'time': 'time'
         }
 
+        # mongo bson types: https://docs.mongodb.com/manual/reference/bson-types/
         bson_type_map = {
             'date': 'date',
             #'datetime': 'timestamp',
@@ -345,7 +349,7 @@ class Model(object):
             'time': 'date',
             'int': 'int',
             'long': 'long',
-            'float': 'Numbers',
+            'float': 'double',
             'bool': 'bool',
             'list': 'array'
         }
@@ -360,7 +364,7 @@ class Model(object):
         for name, spec in specs.iteritems():
             spec_type = spec.get('type')
             type_string = spec_type.__name__ if hasattr(spec_type, '__name__') else str(spec_type)
-            if name == 'id' or name == '_id':
+            if mongo_compatibility and (name == 'id' or name == '_id'):
                 continue
             if issubclass(spec.get('type'), Enum):
                 properties[name] = {'enum': describe_enum(spec.get('type'))}
@@ -381,11 +385,13 @@ class Model(object):
                 subtype = spec.get('sub_type')
                 subtype_string = subtype.__name__ if hasattr(subtype, '__name__') else str(subtype)
                 if not isinstance(subtype, dict):
+                    # subtype is a primitive
                     if not mongo_compatibility:
                         properties[name].update(items={type_label: type_map.get(subtype_string, 'string')})
                     else:
                         properties[name].update(items={type_label: bson_type_map.get(subtype_string, 'string')})
                 elif isinstance(spec.get('sub_type'), dict):
+                    # subtype is a Model
                     props, req_props, defs = Model.__prepare_json_schema_properties(spec.get('sub_type').get('props'), mongo_compatibility=mongo_compatibility)
                     def_name = spec.get('sub_type').get('type').__name__
                     definitions[def_name] = {}
@@ -451,6 +457,8 @@ class Model(object):
                 attr_desc.update(
                     sub_type=attribute.sub_type.__name__ if convert_types_to_string else attribute.sub_type)
         if attribute.validators:
+            if not isinstance(attribute.validators, list) and issubclass(attribute.validators, Validator):
+                attribute.validators = [attribute.validators]
             attr_desc.update(
                 validators=[clazz.__describe_validator(val, convert_types_to_string=convert_types_to_string) for val in
                             attribute.validators])

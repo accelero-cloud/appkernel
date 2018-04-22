@@ -3,6 +3,7 @@ from appkernel.engine import AppKernelException
 from datetime import datetime, date
 import re
 
+
 class ValidatorType(Enum):
     REGEXP = 1
     NOT_EMPTY = 2
@@ -59,10 +60,11 @@ class NotEmpty(Validator):
         super(NotEmpty, self).__init__(ValidatorType.NOT_EMPTY)
 
     def validate(self, parameter_name, validable_object):
-        if not validable_object or not isinstance(validable_object, (basestring, str, unicode)) or len(
+        if not validable_object or not isinstance(validable_object,
+                                                  (basestring, str, unicode, list, dict, tuple)) or len(
                 validable_object) == 0:
             raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is None or not String.'.format(parameter_name))
+                                      'The parameter *{}* is None or not String '.format(parameter_name))
 
 
 class Past(Validator):

@@ -169,7 +169,7 @@ def test_describe_rich_model():
 
 def test_json_schema():
     json_schema = Project.get_json_schema()
-    print json.dumps(json_schema, indent=2)
+    print '\n{}'.format(json.dumps(json_schema, indent=2))
     print '==========='
     project = create_rich_project()
     print project.dumps(pretty_print=True)
@@ -182,7 +182,8 @@ def test_json_schema():
     assert json_schema.get('additionalProperties')
     definitions = json_schema.get('definitions')
     assert 'Task' in definitions
-    assert len(definitions.get('Task').get('required')) == 4
+    assert len(definitions.get('Task').get('required')) == 5
+    assert 'id' in definitions.get('Task').get('properties')
     closed_date = definitions.get('Task').get('properties').get('closed_date')
     assert closed_date.get('type') == 'string'
     assert closed_date.get('format') == 'date-time'
@@ -195,6 +196,22 @@ def test_json_schema():
     # for error in errors:
     #     print('{}'.format(error.message, list(error.path)))
 
+
+def test_json_schema_primitives_types():
+    json_schema = Stock.get_json_schema()
+    print json.dumps(json_schema, indent=2)
+    props = json_schema.get('properties')
+    assert props.get('open').get('type') == 'number'
+    assert props.get('history').get('items').get('type') == 'number'
+    stock = create_a_stock()
+    validate(json.loads(stock.dumps()), json_schema)
+
+
+def test_json_schema_complex():
+    json_schema = Portfolio.get_json_schema()
+    print json.dumps(json_schema, indent=2)
+    portfolio = create_portfolio('My Portfolio')
+    validate(json.loads(portfolio.dumps()), json_schema)
 
 def test_json_schema_in_mongo_compat_mode():
     json_schema = Project.get_json_schema(mongo_compatibility=True)
