@@ -1,6 +1,9 @@
+from pymongo.errors import WriteError
+
 from test_util import *
 from appkernel import *
 from pymongo import MongoClient
+import pytest
 
 
 def setup_module(module):
@@ -130,6 +133,22 @@ def test_unique_index_creation():
 
 def test_find_one():
     pass
+
+
+def test_schema_validation_success():
+    print('\n{}\n'.format(json.dumps(Project.get_json_schema(mongo_compatibility=True)), indent=2, sort_keys=True))
+    Project.add_schema_validation(validation_action='error')
+    project = create_rich_project()
+    print Model.dumps(project, pretty_print=True)
+    project.save()
+
+
+def test_schema_validation_rejected():
+    Project.add_schema_validation(validation_action='error')
+    with pytest.raises(WriteError):
+        project = create_rich_project()
+        project.tasks[0].priority = 'TRICKY'
+        project.save()
 
 # def test_basic_query():
 #     print_banner('>>', 'basic query')

@@ -108,6 +108,28 @@ class MongoRepository(Repository):
                         value.index.sort_order if hasattr(value.index, 'sort_order') else SortOrder.ASC)
 
     @staticmethod
+    def version_check(required_version_tuple):
+        server_info = AppKernelEngine.database.client.server_info()
+        current_version = tuple(server_info['version'].split('.'))
+        if current_version < required_version_tuple:
+            raise AppKernelException(
+                'This feature requires a min version of: {}'.format(u'.'.join(required_version_tuple)))
+
+    @classmethod
+    def add_schema_validation(cls, validation_action='warn'):
+        """
+        :param validation_action: warn or error (MongoDB logs any violations but allows the insertion or update to proceed)
+        :return:
+        """
+        MongoRepository.version_check(tuple([3, 6, 0]))
+        AppKernelEngine.database.command(
+            'collMod', xtract(cls),
+            validator={'$jsonSchema': cls.get_json_schema(mongo_compatibility=True)},
+            validationLevel='moderate',
+            validationAction=validation_action
+        )
+
+    @staticmethod
     def create_index(collection, member_name, sort_order, unique=False):
         if member_name not in collection.index_information():
             direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING

@@ -286,11 +286,12 @@ class Model(object):
 
     @classmethod
     def get_json_schema(cls, additional_properties=True, mongo_compatibility=False):
+        # type: (bool, bool) -> dict
         """
         Generates a JSON Schema document from the Model
         :param additional_properties: if True the schema will have an additional parameter called 'additionalProperties':true, which will allow extra elements
         :param mongo_compatibility: if true, the generated json schema will be compatible with mongo
-        :return:
+        :return: the schema of the current object as a string
         """
         specs = cls.get_parameter_spec(convert_types_to_string=False)
         properties, required_props, definitions = Model.__prepare_json_schema_properties(specs,
@@ -337,8 +338,10 @@ class Model(object):
 
         bson_type_map = {
             'date': 'date',
-            'datetime': 'timestamp',
-            'time': 'timestamp',
+            #'datetime': 'timestamp',
+            #'time': 'timestamp',
+            'datetime': 'date',
+            'time': 'date',
             'int': 'int',
             'long': 'long',
             'float': 'Numbers',
@@ -356,6 +359,8 @@ class Model(object):
         for name, spec in specs.iteritems():
             spec_type = spec.get('type')
             type_string = spec_type.__name__ if hasattr(spec_type, '__name__') else str(spec_type)
+            if name == 'id' or name == '_id':
+                continue
             if issubclass(spec.get('type'), Enum):
                 properties[name] = {'enum': describe_enum(spec.get('type'))}
                 continue

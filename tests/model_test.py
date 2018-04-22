@@ -201,10 +201,11 @@ def test_json_schema_in_mongo_compat_mode():
     print '\n\n{}'.format(json.dumps(json_schema, indent=2))
     print '==========='
     task_spec = json_schema.get('properties').get('tasks')
-    assert len(task_spec.get('items').get('required')) == 5
+    assert len(task_spec.get('items').get('required')) == 4
     priority = task_spec.get('items').get('properties').get('priority')
     assert len(priority.get('enum')) == 3
     assert 'bsonType' in json_schema
+    assert 'id' not in json_schema
     assert '$schema' not in json_schema
     assert 'definitions' not in json_schema
     for prop in json_schema.get('properties').iteritems():
@@ -216,8 +217,8 @@ def test_json_schema_in_mongo_compat_mode():
     project = create_rich_project()
     print project.dumps(pretty_print=True)
     validate(json.loads(project.dumps()), json_schema)
-    # todo: continue with assertions and mongo compatibility
 
+    # todo: add meta and schema support to service
     # todo: test converters
     # todo: expose model description over rest
     # to_value_converter=to_unix_time, from_value_converter=to_time_unit
