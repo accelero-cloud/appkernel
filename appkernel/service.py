@@ -52,6 +52,14 @@ class Service(object):
         cls.http_methods = methods
         cls.enable_hateoas = enable_hateoas
         class_methods = dir(cls)
+        if issubclass(cls, Model):
+            cls.app.add_url_rule('{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
+                                 cls.create_simple_wrapper_executor(app_engine, cls.get_parameter_spec),
+                                 methods=['GET'])
+            cls.app.add_url_rule('{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
+                                 cls.create_simple_wrapper_executor(app_engine, cls.get_json_schema),
+                                 methods=['GET'])
+
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
             if 'find_by_query' in class_methods:
@@ -164,6 +172,16 @@ class Service(object):
         else:
             request_args.update(request.args)
         return request_args
+
+    @classmethod
+    def create_simple_wrapper_executor(cls, app_engine, provisioner_method):
+        def create_executor(**named_args):
+            try:
+                result = provisioner_method()
+                return jsonify(result), 200
+            except Exception as genex:
+                return app_engine.generic_error_handler(genex)
+        return create_executor
 
     @classmethod
     def execute(cls, app_engine, provisioner_method, model_class):

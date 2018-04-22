@@ -18,7 +18,6 @@ def setup_function(function):
     User.delete_all()
 
 
-
 def teardown_function(function):
     """ teardown any state that was previously setup with a setup_method
     call.
@@ -28,6 +27,8 @@ def teardown_function(function):
 
 def test_empty_collection():
     Project.delete_all()
+    projects = Project.find_by_query()
+    assert len(projects) == 0
 
 
 def test_delete():
@@ -131,6 +132,7 @@ def test_unique_index_creation():
     idx_info = AppKernelEngine.database['Users'].index_information()
     assert 'name_idx' in idx_info
 
+
 def test_find_one():
     pass
 
@@ -180,6 +182,3 @@ def test_schema_validation_rejected():
 # todo:
 # better json serialisation (eg object id)
 # escape parameters
-# create index
-# sort query result
-# db validation and unique index

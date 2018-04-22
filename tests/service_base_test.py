@@ -520,11 +520,30 @@ def test_put_user(client, user_dict):
     replacement_user_json = json.dumps(replacement_user)
     print '\nSending: {}'.format(replacement_user_json)
     rsp = client.put('/users/', data=replacement_user_json)
-    assert rsp.status_code >= 200
+    assert 200 <= rsp.status_code <300
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    rsp = client.get('/users/'.format(document_id))
+    rsp = client.get('/users/')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     returned_user = rsp.json
     assert returned_user.get('_items')[0].get('locked') is True
     assert returned_user.get('_items')[0].get('name') == 'changed user'
     assert len(returned_user.get('_items')[0].get('roles')) == 0
+
+
+def test_metadata(client):
+    rsp = client.get('/users/meta')
+    assert 200 <= rsp.status_code < 300
+    result = rsp.json
+    print '\n{}'.format(json.dumps(result, indent=2))
+    assert 'description' in result
+    assert 'roles' in result
+    assert 'created' in result
+    assert 'password' in result
+
+
+def test_schema(client):
+    rsp = client.get('/users/schema')
+    assert 200 <= rsp.status_code < 300
+    result = rsp.json
+    print '\n{}'.format(json.dumps(result, indent=2))
+    assert '$schema' in result

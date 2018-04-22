@@ -306,7 +306,8 @@ class Model(object):
         }
         if not mongo_compatibility:
             schema['$schema'] = 'http://json-schema.org/draft-04/schema#'
-            schema.update(definitions=definitions)
+            if len(definitions) > 0:
+                schema.update(definitions=definitions)
         if additional_properties:
             schema.update(additionalProperties=True)
         return schema
