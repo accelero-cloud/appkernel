@@ -175,12 +175,13 @@ class Service(object):
 
     @classmethod
     def create_simple_wrapper_executor(cls, app_engine, provisioner_method):
-        def create_executor(**named_args):
+        def create_executor(*args, **named_args):
             try:
-                result = provisioner_method()
+                result = provisioner_method(*args, **named_args)
                 return jsonify(result), 200
             except Exception as genex:
                 return app_engine.generic_error_handler(genex)
+
         return create_executor
 
     @classmethod
