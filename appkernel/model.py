@@ -2,7 +2,7 @@ import inspect
 from bson import ObjectId
 from enum import Enum
 from datetime import datetime, date
-from appkernel.validators import Validator
+from appkernel.validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
 
 try:
     import simplejson as json
@@ -343,8 +343,8 @@ class Model(object):
         # mongo bson types: https://docs.mongodb.com/manual/reference/bson-types/
         bson_type_map = {
             'date': 'date',
-            #'datetime': 'timestamp',
-            #'time': 'timestamp',
+            # 'datetime': 'timestamp',
+            # 'time': 'timestamp',
             'datetime': 'date',
             'time': 'date',
             'int': 'int',
@@ -368,17 +368,44 @@ class Model(object):
                 continue
             if issubclass(spec.get('type'), Enum):
                 properties[name] = {'enum': describe_enum(spec.get('type'))}
+                properties[name][type_label] = 'string'
                 continue
             else:
                 if not mongo_compatibility:
                     properties[name] = {type_label: type_map.get(type_string, 'string')}
                 else:
                     properties[name] = {type_label: bson_type_map.get(type_string, 'string')}
+                if type_string == 'int':
+                    properties[name].update(multipleOf=1.0)
             # -- define formats --
             if not mongo_compatibility:
                 xtra_type = format_map.get(type_string)
                 if xtra_type:
                     properties[name].update(format=xtra_type)
+
+            if 'validators' in spec:
+                for validator in spec.get('validators'):
+                    if spec.get('type') == list and validator.get('type') == NotEmpty:
+                        # checking validators for a list
+                        properties[name].update(minItems=1)
+                    elif spec.get('type') == list and validator.get('type') == Unique:
+                        properties[name].update(uniqueItems=True)
+                    elif validator.get('type') == Min:
+                        if spec.get('type') in [int, float, long]:
+                            properties[name].update(minimum=validator.get('value'))
+                        elif spec.get('type') in [str, basestring, unicode]:
+                            properties[name].update(minLength=validator.get('value'))
+                    elif validator.get('type') == Max:
+                        if spec.get('type') in [int, float, long]:
+                            properties[name].update(maximum=validator.get('value'))
+                        elif spec.get('type') in [str, basestring, unicode]:
+                            properties[name].update(maxLength=validator.get('value'))
+                    elif validator.get('type') == Regexp:
+                        properties[name].update(pattern=validator.get('value'))
+                    elif validator.get('type') == Email:
+                        properties[name].update(format='email')
+                        # todo: add formats for: hostname, ipv4, ipv6, uri
+                        # todo: build dependencies
 
             # -- handle subtypes --
             if spec.get('type') == list and spec.get('sub_type'):
@@ -392,7 +419,8 @@ class Model(object):
                         properties[name].update(items={type_label: bson_type_map.get(subtype_string, 'string')})
                 elif isinstance(spec.get('sub_type'), dict):
                     # subtype is a Model
-                    props, req_props, defs = Model.__prepare_json_schema_properties(spec.get('sub_type').get('props'), mongo_compatibility=mongo_compatibility)
+                    props, req_props, defs = Model.__prepare_json_schema_properties(spec.get('sub_type').get('props'),
+                                                                                    mongo_compatibility=mongo_compatibility)
                     def_name = spec.get('sub_type').get('type').__name__
                     definitions[def_name] = {}
                     if not mongo_compatibility:
@@ -457,7 +485,11 @@ class Model(object):
                 attr_desc.update(
                     sub_type=attribute.sub_type.__name__ if convert_types_to_string else attribute.sub_type)
         if attribute.validators:
-            if not isinstance(attribute.validators, list) and issubclass(attribute.validators, Validator):
+            if not isinstance(attribute.validators, list) and ((
+                                                                       inspect.isclass(
+                                                                           attribute.validators) and issubclass(
+                                                                   attribute.validators, Validator))
+                                                               or (isinstance(attribute.validators, Validator))):
                 attribute.validators = [attribute.validators]
             attr_desc.update(
                 validators=[clazz.__describe_validator(val, convert_types_to_string=convert_types_to_string) for val in
@@ -472,8 +504,14 @@ class Model(object):
         val_desc = {
             'type': get_value(validator) if hasattr(validator, '__name__') else get_value(validator.__class__)
         }
+
         if hasattr(validator, 'value'):
             val_desc.update(value=validator.value)
+
+        # for key, value in [(key, value) for(key, value) in validator.__dict__.iteritems() if not key.startswith('__') and not callable(value)]:
+        #     #set(dir(Cls)) - set(dir(object))
+        #     val_desc[key] = value
+
         return val_desc
 
     @staticmethod

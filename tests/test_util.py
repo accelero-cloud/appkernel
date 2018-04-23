@@ -31,10 +31,11 @@ class User(Model, MongoRepository, Service):
 
 
 class Stock(Model):
-    code = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]{1,4}')], index=UniqueIndex)
-    open = Parameter(float, required=True)
+    code = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]'), Max(4)], index=UniqueIndex)
+    open = Parameter(float, required=True, validators=[Min(0)])
     updated = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
     history = Parameter(list, sub_type=long)
+    sequence = Parameter(int, validators=[Min(1), Max(100)])
 
 
 class Portfolio(Model, Repository):

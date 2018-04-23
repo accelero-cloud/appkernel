@@ -191,6 +191,7 @@ def test_json_schema():
     assert completed.get('type') == 'boolean'
 
     validate(json.loads(project.dumps()), json_schema)
+    # todo: check the enum / make a negative test
     # validator = Draft4Validator(json_schema)
     # errors = sorted(validator.iter_errors(project.dumps()), key=lambda e: e.path)
     # for error in errors:
@@ -208,10 +209,23 @@ def test_json_schema_primitives_types():
 
 
 def test_json_schema_complex():
+    # print json.dumps(Portfolio.get_parameter_spec(True), indent=2)
     json_schema = Portfolio.get_json_schema()
     print json.dumps(json_schema, indent=2)
+    stock_definition = json_schema.get('definitions').get('Stock')
+    assert stock_definition.get('properties').get('updated').get('format') == 'date-time'
+    assert stock_definition.get('properties').get('code').get('pattern') == '[A-Za-z0-9-_]'
+    assert stock_definition.get('properties').get('code').get('maxLength') == 4
+    assert stock_definition.get('properties').get('open').get('minimum') == 0
+    assert stock_definition.get('properties').get('open').get('type') == 'number'
+    assert stock_definition.get('properties').get('sequence').get('type') == 'number'
+    assert stock_definition.get('properties').get('sequence').get('minimum') == 1
+    assert stock_definition.get('properties').get('sequence').get('maximum') == 100
+    assert stock_definition.get('properties').get('sequence').get('multipleOf') == 1.0
+    assert stock_definition.get('properties').get('history').get('type') == 'array'
     portfolio = create_portfolio('My Portfolio')
     validate(json.loads(portfolio.dumps()), json_schema)
+
 
 def test_json_schema_in_mongo_compat_mode():
     json_schema = Project.get_json_schema(mongo_compatibility=True)
