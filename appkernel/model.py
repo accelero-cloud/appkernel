@@ -43,6 +43,10 @@ class Expression(object):
         AND='$and',
         EQ='$eq',
         OR='$or',
+        GT='$gt',
+        GTE='$gte',
+        LT='$lt',
+        LTE='$lte',
         IS='@'
     )
 
@@ -83,11 +87,18 @@ def create_tagging_decorator(tag_name):
     return tagging_decorator
 
 
+class BackReference(object):
+    def __init__(self, class_name, parameter_name):
+        self.class_name = class_name
+        self.parameter_name = parameter_name
+
+
 class _TaggingMetaClass(type):
-    def __new__(mcs, name, bases, dct):
+    def __new__(mcs, class_name, bases, dct):
         tags = {}
-        for member in dct.itervalues():
+        for member_name, member in dct.iteritems():
             if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
+                # if it is a tagged member
                 if member.member_tag[0] not in tags:
                     tags[member.member_tag[0]] = []
                 tags[member.member_tag[0]].append({'function_name': member.__name__,
@@ -102,8 +113,11 @@ class _TaggingMetaClass(type):
                 #   'decorator_args': [],
                 #   'decorator_kwargs': {'http_method': ['POST']},
                 # }
+            if isinstance(member, Parameter):
+                # adding the name of the implementing class and the parameter name
+                member.backreference = BackReference(class_name=class_name, parameter_name=member_name)
         dct.update(tags)
-        return type.__new__(mcs, name, bases, dct)
+        return type.__new__(mcs, class_name, bases, dct)
 
 
 class SortOrder(Enum):
@@ -163,58 +177,57 @@ class Parameter(object):
         self.default_value = default_value
         self.generator = generator
 
-    # def __eq__(self, right_hand_side):
-    #     if right_hand_side is None:
-    #         return Expression(self, Expression.OPS.IS, None)
-    #     return Expression(self, Expression.OPS.EQ, right_hand_side)
-    #
-    # def __ne__(self, rhs):
-    #     if rhs is None:
-    #         return Expression(self, Expression.OPS.IS_NOT, None)
-    #     return Expression(self, Expression.OPS.NE, rhs)
+    def __eq__(self, right_hand_side):
+        if right_hand_side is None:
+            return Expression(self, Expression.OPS.IS, None)
+        return Expression(self, Expression.OPS.EQ, right_hand_side)
 
-    # @staticmethod
-    # def _e(ops, inv=False):
-    #     """
-    #     Returns a method that builds an Expression
-    #     consisting of the left-hand and right-hand operands, using `OPS`.
-    #     """
-    #
-    #     def inner(self, rhs):
-    #         if inv:
-    #             return Expression(rhs, ops, self)
-    #         return Expression(self, ops, rhs)
-    #
-    #     return inner
-    # __and__ = _e(Expression.OPS.AND)
-    # __or__ = _e(Expression.OPS.OR)
-    #
-    # __add__ = _e(Expression.OPS.ADD)
-    # __sub__ = _e(Expression.OPS.SUB)
-    # __mul__ = _e(Expression.OPS.MUL)
-    # __div__ = __truediv__ = _e(Expression.OPS.DIV)
-    # __xor__ = _e(Expression.OPS.XOR)
-    # __radd__ = _e(Expression.OPS.ADD, inv=True)
-    # __rsub__ = _e(Expression.OPS.SUB, inv=True)
-    # __rmul__ = _e(Expression.OPS.MUL, inv=True)
-    # __rdiv__ = __rtruediv__ = _e(Expression.OPS.DIV, inv=True)
-    # __rand__ = _e(Expression.OPS.AND, inv=True)
-    # __ror__ = _e(Expression.OPS.OR, inv=True)
-    # __rxor__ = _e(Expression.OPS.XOR, inv=True)
-    # __lt__ = _e(Expression.OPS.LT)
-    # __le__ = _e(Expression.OPS.LTE)
-    # __gt__ = _e(Expression.OPS.GT)
-    # __ge__ = _e(Expression.OPS.GTE)
-    # __lshift__ = _e(Expression.OPS.IN)
-    # __rshift__ = _e(Expression.OPS.IS)
-    # __mod__ = _e(Expression.OPS.LIKE)
-    # __pow__ = _e(Expression.OPS.ILIKE)
-    #
-    # bin_and = _e(Expression.OPS.BIN_AND)
-    # bin_or = _e(Expression.OPS.BIN_OR)
-    #
-    # def contains(self, rhs):
-    #     return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
+    def __ne__(self, rhs):
+        if rhs is None:
+            return Expression(self, Expression.OPS.IS_NOT, None)
+        return Expression(self, Expression.OPS.NE, rhs)
+
+    def create_expression(ops, inv=False):
+        """
+        Returns a method that builds an Expression
+        consisting of the left-hand and right-hand operands, using `OPS`.
+        """
+
+        def inner(self, rhs, *args):
+            if inv:
+                return Expression(rhs, ops, self)
+            return Expression(self, ops, rhs)
+
+        return inner
+
+    __and__ = create_expression(Expression.OPS.AND)
+    __or__ = create_expression(Expression.OPS.OR)
+    __lt__ = create_expression(Expression.OPS.LT)
+    __le__ = create_expression(Expression.OPS.LTE)
+    __gt__ = create_expression(Expression.OPS.GT)
+    __ge__ = create_expression(Expression.OPS.GTE)
+
+    # __rshift__ = create_expression(Expression.OPS.IS)
+    # __add__ = create_expression(Expression.OPS.ADD)
+    # __sub__ = create_expression(Expression.OPS.SUB)
+    # __mul__ = create_expression(Expression.OPS.MUL)
+    # __div__ = __truediv__ = create_expression(Expression.OPS.DIV)
+    # __xor__ = create_expression(Expression.OPS.XOR)
+    # __radd__ = create_expression(Expression.OPS.ADD, inv=True)
+    # __rsub__ = create_expression(Expression.OPS.SUB, inv=True)
+    # __rmul__ = create_expression(Expression.OPS.MUL, inv=True)
+    # __rdiv__ = __rtruediv__ = create_expression(Expression.OPS.DIV, inv=True)
+    # __rand__ = create_expression(Expression.OPS.AND, inv=True)
+    # __ror__ = create_expression(Expression.OPS.OR, inv=True)
+    # __rxor__ = create_expression(Expression.OPS.XOR, inv=True)
+    # __lshift__ = create_expression(Expression.OPS.IN)
+    # __mod__ = create_expression(Expression.OPS.LIKE)
+    # __pow__ = create_expression(Expression.OPS.ILIKE)
+    # bin_and = create_expression(Expression.OPS.BIN_AND)
+    # bin_or = create_expression(Expression.OPS.BIN_OR)
+
+    def contains(self, rhs):
+        return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
 
 
 def convert_date_time(string):

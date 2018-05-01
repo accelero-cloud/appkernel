@@ -55,7 +55,7 @@ def create_a_stock():
     return Stock(code='MSFT', open=123.7, updated=date_now_generator(), history=[120, 120.5, 123.9])
 
 
-class TestClass(Model):
+class ExampleClass(Model):
     just_numbers = Parameter(str, required=True, validators=[Regexp('^[0-9]+$')])
     future_field = Parameter(datetime, validators=[Future])
 
@@ -121,6 +121,7 @@ def create_and_save_some_users(range=51):
 
 
 def create_and_save_john_jane_and_max():
+    # type: () -> (User, User, User)
     john = create_and_save_a_user('John', 'a password', 'John is a random guy')
     jane = create_and_save_a_user('Jane', 'a password', 'Jane is a random girl')
     maxx = create_and_save_a_user('Max', 'a password', 'Jane is a random girl')

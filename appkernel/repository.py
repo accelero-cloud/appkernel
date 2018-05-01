@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import pymongo
-
+import operator
 from appkernel import AppKernelEngine
 from model import Model, Expression, AppKernelException, SortOrder, Parameter, Index, TextIndex, UniqueIndex, \
     _TaggingMetaClass
@@ -214,7 +214,12 @@ class MongoRepository(Repository):
 
     @classmethod
     def find(cls, *expressions):
-        cls.get_collection().find()
+        where = reduce(operator.and_, expressions)
+        print(where)
+        # if self._where is not None:
+        #     expressions = (self._where,) + expressions
+        # self._where = reduce(operator.and_, expressions)
+        #cls.get_collection().find()
 
     @classmethod
     def _parse_expressions(cls, expressions):

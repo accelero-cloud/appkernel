@@ -21,17 +21,17 @@ def setup_function(function):
 
 
 def test_regexp_validation():
-    test_model_correct_format = TestClass()
+    test_model_correct_format = ExampleClass()
     test_model_correct_format.just_numbers = '123456'
     test_model_correct_format.finalise_and_validate()
 
     with pytest.raises(ValidationException):
-        test_model_correct_format = TestClass()
+        test_model_correct_format = ExampleClass()
         test_model_correct_format.just_numbers = 'pppppp1234566p3455pppp'
         test_model_correct_format.finalise_and_validate()
 
     with pytest.raises(ValidationException):
-        test_model_correct_format = TestClass()
+        test_model_correct_format = ExampleClass()
         test_model_correct_format.just_numbers = '1234566p3455pppp'
         test_model_correct_format.finalise_and_validate()
 
@@ -68,7 +68,7 @@ def test_past_validation():
 
 
 def test_future_validation():
-    test_model = TestClass()
+    test_model = ExampleClass()
     test_model.just_numbers = 123
     test_model.finalise_and_validate()
     test_model.future_field = (datetime.now() + timedelta(days=1))

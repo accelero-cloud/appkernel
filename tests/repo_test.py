@@ -152,6 +152,11 @@ def test_schema_validation_rejected():
         project.tasks[0].priority = 'TRICKY'
         project.save()
 
+def test_basic_query():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.name == 'John')
+    print user_iterator
+
 # def test_basic_query():
 #     print_banner('>>', 'basic query')
 #     User.delete_all()
@@ -161,7 +166,7 @@ def test_schema_validation_rejected():
 #     print '-> saved object id: {}'.format(obj_id)
 #
 #     # select queries
-#     # user_iterator = User.select().where(User.name == 'some_unique_name').execute()
+#     #
 #     # user_iterator = User.select().where(User.name == 'some_unique_name').sort_by(User.created).execute()
 #     # user_iterator = User.select().where(User.name == 'some_unique_name').sort_by(User.created).execute(limit=5)
 #     # user_count = User.select().where(User.name == 'some_unique_name').count()
