@@ -49,23 +49,31 @@ class Query(object):
         else:
             return right_hand_side_value
 
-    def execute(self):
+    def sort_by(self, *sorting_tuples):
+        self.sorting_expr = list(sorting_tuples)
+        return self
+
+    def find(self):
         pass
 
-
 class MongoQuery(Query):
-    def __init__(self, connection_object, *expressions):
+    def __init__(self, connection_object, user_class, *expressions):
         super(MongoQuery, self).__init__(*expressions)
         self.connection = connection_object
+        self.user_class = user_class
 
-    def execute(self, skip=0, limit=100):
+    def find(self, page=0, page_size=100):
         if len(self.sorting_expr) == 0:
-            return self.connection.find(self.filter_expr).skip(skip).limit(limit)
+            cursor = self.connection.find(self.filter_expr).skip(page*page_size).limit(page_size)
         else:
-            return self.connection.find(self.filter_expr).sort(self.sorting_expr).skip(skip).limit(limit)
+            cursor = self.connection.find(self.filter_expr).sort(self.sorting_expr).skip(page*page_size).limit(page_size)
+        if cursor:
+            for item in cursor:
+                yield Model.from_dict(item, self.user_class, convert_ids=True)
 
     def get_one(self):
-        return self.connection.find_one(self.filter_expr)
+        hit = self.connection.find_one(self.filter_expr)
+        return Model.from_dict(hit, self.user_class, convert_ids=True) if hit else None
 
 
 class RepositoryException(AppKernelException):
@@ -257,21 +265,15 @@ class MongoRepository(Repository):
 
     @classmethod
     def find(cls, *expressions):
-        for item in MongoQuery(cls.get_collection(), *expressions).execute():
-            yield Model.from_dict(item, cls, convert_ids=True)
+        return MongoQuery(cls.get_collection(), cls, *expressions).find()
 
     @classmethod
     def find_one(cls, *expressions):
-        hit = MongoQuery(cls.get_collection(), *expressions).get_one()
-        return Model.from_dict(hit, cls, convert_ids=True) if hit else None
+        return MongoQuery(cls.get_collection(), cls, *expressions).get_one()
 
     @classmethod
-    def _parse_expressions(cls, expressions):
-        raise NotImplemented
-        # assert isinstance(expressions, list), 'The converter lists only'
-        # if len(expressions) < 2:
-        # for expr in expressions:
-        #     assert isinstance(expr, Expression), 'Queries can only be built using {}.'.format(Expression.__class__.__name__)
+    def where(cls, *expressions):
+        return MongoQuery(cls.get_collection(), cls, *expressions)
 
     @classmethod
     def find_by_query(cls, query={}, page=1, page_size=50, sort_by=None, sort_order=SortOrder.ASC):
@@ -289,6 +291,7 @@ class MongoRepository(Repository):
             py_direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
             cursor.sort(sort_by, direction=py_direction)
         return [Model.from_dict(result, cls, convert_ids=True) for result in cursor]
+
 
     @classmethod
     def create_cursor_by_query(cls, query):

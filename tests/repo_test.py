@@ -236,6 +236,7 @@ def test_empty_array():
     print '\n>fetched: {}'.format(len(results))
     assert len(results) == 1
 
+
 # todo: test starts with ends with
 
 
@@ -305,7 +306,8 @@ def test_bigger_than_date_negative():
 
 def test_between_date():
     john, jane, max = create_and_save_john_jane_and_max()
-    user_iterator = User.find((User.created > (datetime.now() - timedelta(days=1))) & (User.created < (datetime.now() + timedelta(days=1))))
+    user_iterator = User.find(
+        (User.created > (datetime.now() - timedelta(days=1))) & (User.created < (datetime.now() + timedelta(days=1))))
     results = [user for user in user_iterator]
     print '\n>fetched: {}'.format(len(results))
     assert len(results) == 3
@@ -384,11 +386,42 @@ def test_between_int_negative():
     assert len(results) == 0
 
 
+def test_sort_by():
+    create_and_save_some_users()
+    user_iterator = User.where((User.sequence > 0) & (User.sequence <= 5)).sort_by(User.sequence.desc()).find()
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 5
+    this_seq = 6
+    for user in results:
+        print(user.dumps(pretty_print=True))
+        assert user.sequence < this_seq
+        this_seq = user.sequence
+
+
+def test_limit():
+    create_and_save_some_users()
+    this_seq = 1
+    for page in range(0, 5):
+        user_iterator = User.where(User.sequence < 51).sort_by(User.sequence.asc()).find(page, 10)
+        results = [user for user in user_iterator]
+        print '\n>fetched: {}'.format(len(results))
+        assert len(results) == 10
+        for user in results:
+            print(user.dumps(pretty_print=True))
+            print('** user seq: {} ** this seq: {} **'.format(user.sequence, this_seq))
+            assert user.sequence == this_seq
+            this_seq += 1
+            print('--------------------------')
+
+# todo: bulk insert
+
 # def test_empty_collection():
 #     create_and_save_some_users()
 #     user_iterator = User.find(User.roles.empty())
 #     results = [user for user in user_iterator]
 #     print '\n>fetched: {}'.format(len(results))
+
 
 def test_find_one():
     john, jane, max = create_and_save_john_jane_and_max()

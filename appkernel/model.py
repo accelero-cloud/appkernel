@@ -252,6 +252,12 @@ class Parameter(DslBase):
         self.default_value = default_value
         self.generator = generator
 
+    def asc(self):
+        return (self.backreference.parameter_name, 1)
+
+    def desc(self):
+        return (self.backreference.parameter_name, -1)
+
 
 def convert_date_time(string):
     return datetime.strptime(string, '%Y-%m-%dT%H:%M:%S.%f')
