@@ -3,10 +3,8 @@ from datetime import datetime
 import pymongo
 import operator
 from appkernel import AppKernelEngine
-from model import Model, Expression, AppKernelException, SortOrder, Parameter, Index, TextIndex, UniqueIndex, \
-    _TaggingMetaClass, OPS
+from model import Model, Expression, AppKernelException, SortOrder, Parameter, Index, TextIndex, UniqueIndex
 from pymongo.collection import Collection
-from enum import Enum
 
 
 def xtract(cls):
@@ -54,7 +52,17 @@ class Query(object):
         return self
 
     def find(self):
-        pass
+        raise NotImplemented('abstract method')
+
+    def find_one(self):
+        raise NotImplemented('abstract method')
+
+    def count(self):
+        raise NotImplemented('abstract method')
+
+    def delete(self):
+        raise NotImplemented('abstract method')
+
 
 class MongoQuery(Query):
     def __init__(self, connection_object, user_class, *expressions):
@@ -64,16 +72,23 @@ class MongoQuery(Query):
 
     def find(self, page=0, page_size=100):
         if len(self.sorting_expr) == 0:
-            cursor = self.connection.find(self.filter_expr).skip(page*page_size).limit(page_size)
+            cursor = self.connection.find(self.filter_expr).skip(page * page_size).limit(page_size)
         else:
-            cursor = self.connection.find(self.filter_expr).sort(self.sorting_expr).skip(page*page_size).limit(page_size)
+            cursor = self.connection.find(self.filter_expr).sort(self.sorting_expr).skip(page * page_size).limit(
+                page_size)
         if cursor:
             for item in cursor:
                 yield Model.from_dict(item, self.user_class, convert_ids=True)
 
-    def get_one(self):
+    def find_one(self):
         hit = self.connection.find_one(self.filter_expr)
         return Model.from_dict(hit, self.user_class, convert_ids=True) if hit else None
+
+    def delete(self):
+        return self.connection.delete_many(self.filter_expr).deleted_count
+
+    def count(self):
+        return self.connection.count(self.filter_expr)
 
 
 class RepositoryException(AppKernelException):
@@ -232,7 +247,7 @@ class MongoRepository(Repository):
         return delete_result.deleted_count
 
     @staticmethod
-    def prepare_document(document, object_id):
+    def prepare_document(document, object_id=None):
         if isinstance(document, Model):
             document_id = document.id
             has_id = document_id is not None
@@ -264,12 +279,17 @@ class MongoRepository(Repository):
         return update_result.upserted_id or document_id
 
     @classmethod
+    def bulk_insert(cls, list_of_model_instances):
+        return cls.get_collection().insert_many(
+            [Model.to_dict(model, convert_id=True) for model in list_of_model_instances]).inserted_ids
+
+    @classmethod
     def find(cls, *expressions):
         return MongoQuery(cls.get_collection(), cls, *expressions).find()
 
     @classmethod
     def find_one(cls, *expressions):
-        return MongoQuery(cls.get_collection(), cls, *expressions).get_one()
+        return MongoQuery(cls.get_collection(), cls, *expressions).find_one()
 
     @classmethod
     def where(cls, *expressions):
@@ -291,7 +311,6 @@ class MongoRepository(Repository):
             py_direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
             cursor.sort(sort_by, direction=py_direction)
         return [Model.from_dict(result, cls, convert_ids=True) for result in cursor]
-
 
     @classmethod
     def create_cursor_by_query(cls, query):

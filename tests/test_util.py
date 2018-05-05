@@ -127,6 +127,13 @@ def create_and_save_some_users(range=51):
     assert User.count() == range - 1
 
 
+def create_user_batch(range=51):
+    users = []
+    for i in xrange(1, range):
+        users.append(User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
+            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i))
+    return users
+
 def create_and_save_john_jane_and_max():
     # type: () -> (User, User, User)
     john = create_and_save_a_user('John', 'a password', 'John is a random guy')

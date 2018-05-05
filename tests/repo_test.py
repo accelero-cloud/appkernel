@@ -399,7 +399,7 @@ def test_sort_by():
         this_seq = user.sequence
 
 
-def test_limit():
+def test_pagination():
     create_and_save_some_users()
     this_seq = 1
     for page in range(0, 5):
@@ -409,12 +409,20 @@ def test_limit():
         assert len(results) == 10
         for user in results:
             print(user.dumps(pretty_print=True))
-            print('** user seq: {} ** this seq: {} **'.format(user.sequence, this_seq))
             assert user.sequence == this_seq
             this_seq += 1
-            print('--------------------------')
 
-# todo: bulk insert
+
+def test_count():
+    create_and_save_some_users()
+    assert User.where(User.sequence < 51).count() == 50
+
+
+def test_delete_many():
+    create_and_save_some_users()
+    assert User.count() == 50
+    print('\n\n deleted count: {}'.format(User.where((User.sequence > 0) & (User.sequence <= 5)).delete()))
+    assert User.count() == 45
 
 # def test_empty_collection():
 #     create_and_save_some_users()
@@ -432,18 +440,17 @@ def test_find_one_negative():
     john, jane, max = create_and_save_john_jane_and_max()
     assert User.find_one(User.name == 'Kylie') is None
 
+
+def test_bulk_insert():
+    ids = User.bulk_insert(create_user_batch())
+    print ids
+    assert User.count() == 50
+
+
 # todo: find distinct
-# todo: test get one  User.get(User.id == 1).username
-# todo: test .where(User.username == 'charlie')
-# ...  .order_by(Tweet.created_date.desc())
-# ...  .get()
-# def test_basic_query():
-#     print_banner('>>', 'basic query')
-#     User.delete_all()
-#     obj_id = User().update(name='some_unique_name').update(undefined_parameter='something undefined'). \
-#         append_to(groups='some group name').append_to(groups='some other group name').save()
-#     assert obj_id is not None, 'at this stahe an object must be available in the database'
-#     print '-> saved object id: {}'.format(obj_id)
+# todo: test nested queries
+# todo: test collections
+
 #
 #     # select queries
 #     #
