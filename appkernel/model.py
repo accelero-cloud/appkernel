@@ -35,7 +35,7 @@ class AttrDict(dict):
             raise AttributeError(attr)
 
 
-class Opex():
+class Opex(object):
     def __init__(self, name=None, lmbda=None):
         self.name = name
         self.lmbda = lmbda
@@ -47,7 +47,7 @@ class Opex():
         return self.__str__()
 
 
-OPS = AttrDict(
+OPS = AttrDict( # pylint: disable=C0103
     AND=Opex('$and', lambda exp: {'$and': exp}),
     EQ=Opex('$eq', lambda exp: {'$eq': exp}),
     OR=Opex('$or', lambda exp: {'$or': exp}),
@@ -60,7 +60,6 @@ OPS = AttrDict(
     LIKE=Opex('like', lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}),
     NE=Opex('$ne', lambda exp: {'$ne': exp}),
 )
-
 
 class DslBase(object):
     # https://rszalski.github.io/magicmethods/#comparisons
