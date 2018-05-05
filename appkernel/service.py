@@ -1,13 +1,13 @@
 from types import NoneType
 
 from enum import Enum
-from flask import Flask, jsonify, current_app, request, abort, url_for
+from flask import jsonify, current_app, request, abort, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
 from appkernel.query import QueryProcessor
 from appkernel.validators import ValidationException
 from model import Model, ParameterRequiredException, create_tagging_decorator, _TaggingMetaClass, \
-    get_argument_spec, ServiceException
+    get_argument_spec, ServiceException, OPS
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract, MongoRepository
 from reflection import *
@@ -352,7 +352,7 @@ class Service(object):
             # the dictionary has 0 or 1 elements
             return expression_list[0]
         else:
-            logic = Expression.OPS.__getattr__(request_args.get('logic', 'and').upper())
+            logic = str(OPS.__getattr__(request_args.get('logic', 'and').upper()))
             return {logic: expression_list}
 
     @staticmethod
@@ -429,7 +429,7 @@ class Service(object):
     def xvert(cls, result_item, generate_links=True):
         """
         converts the response object into Json
-        :param model_class: the name of the class of teh model
+        :param generate_links: if True, it will add the HATEOAS links to the response
         :param result_item: the actual item which will get converted
         :return:
         """

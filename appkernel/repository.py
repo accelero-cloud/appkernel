@@ -4,7 +4,7 @@ import pymongo
 import operator
 from appkernel import AppKernelEngine
 from model import Model, Expression, AppKernelException, SortOrder, Parameter, Index, TextIndex, UniqueIndex, \
-    _TaggingMetaClass
+    _TaggingMetaClass, OPS
 from pymongo.collection import Collection
 from enum import Enum
 
@@ -212,14 +212,33 @@ class MongoRepository(Repository):
         update_result = cls.get_collection().replace_one({'_id': document_id}, document, upsert=False)
         return update_result.upserted_id or document_id
 
+    @staticmethod
+    def __extract_rhs(right_hand_side_value):
+        if isinstance(right_hand_side_value, Parameter):
+            return right_hand_side_value.backreference.parameter_name
+        else:
+            return right_hand_side_value
+
     @classmethod
     def find(cls, *expressions):
         where = reduce(operator.and_, expressions)
-        print(where)
-        # if self._where is not None:
-        #     expressions = (self._where,) + expressions
-        # self._where = reduce(operator.and_, expressions)
-        #cls.get_collection().find()
+        query = {}
+        if isinstance(where, Expression):
+            if isinstance(where.lhs, Parameter):
+                # its only parameter to parameter comparison
+                query[str(where.lhs.backreference.parameter_name)] = where.ops.lmbda(
+                    MongoRepository.__extract_rhs(where.rhs))
+            elif isinstance(where.lhs, Expression) and isinstance(where.rhs, Expression):
+                # two expressions are compared to each other
+                expressions = []
+                expressions.append({where.lhs.lhs.backreference.parameter_name:
+                                        where.lhs.ops.lmbda(MongoRepository.__extract_rhs(where.lhs.rhs))})
+                expressions.append({where.rhs.lhs.backreference.parameter_name:
+                                        where.rhs.ops.lmbda(MongoRepository.__extract_rhs(where.rhs.rhs))})
+                query[str(where.ops)] = [expression for expression in expressions]
+
+        for item in cls.get_collection().find(query):
+            yield Model.from_dict(item, cls, convert_ids=True)
 
     @classmethod
     def _parse_expressions(cls, expressions):

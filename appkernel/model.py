@@ -35,20 +35,94 @@ class AttrDict(dict):
             raise AttributeError(attr)
 
 
-class Expression(object):
+class Opex():
+    def __init__(self, name=None, lmbda=None):
+        self.name = name
+        self.lmbda = lmbda
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.__str__()
+
+
+OPS = AttrDict(
+    AND=Opex('$and', lambda exp: {'$and': exp}),
+    EQ=Opex('$eq', lambda exp: {'$eq': exp}),
+    OR=Opex('$or', lambda exp: {'$or': exp}),
+    GT=Opex('$gt', lambda exp: {'$gt': exp}),
+    GTE=Opex('$gte', lambda exp: {'$gte': exp}),
+    LT=Opex('$lt', lambda exp: {'$lt': exp}),
+    LTE=Opex('$lte', lambda exp: {'$lte': exp}),
+    IS=Opex('$eq', lambda exp: {'$eq': exp}),
+    IS_NOT=Opex('is_not', lambda exp: {'$ne': exp}),
+    LIKE=Opex('like', lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}),
+    NE=Opex('$ne', lambda exp: {'$ne': exp}),
+)
+
+
+class DslBase(object):
+    # https://rszalski.github.io/magicmethods/#comparisons
+    def __eq__(self, right_hand_side):
+        if right_hand_side is None:
+            return Expression(self, OPS.IS, None)
+        return Expression(self, OPS.EQ, right_hand_side)
+
+    def __ne__(self, rhs):
+        if rhs is None:
+            return Expression(self, OPS.IS_NOT, None)
+        return Expression(self, OPS.NE, rhs)
+
+    def __create_expression(ops, inv=False):
+        """
+        Returns a method that builds an Expression
+        consisting of the left-hand and right-hand operands, using `OPS`.
+        """
+
+        def inner(self, rhs):
+            if inv:
+                return Expression(rhs, ops, self)
+            return Expression(self, ops, rhs)
+
+        return inner
+
+    __and__ = __create_expression(OPS.AND)
+    __or__ = __create_expression(OPS.OR)
+    __lt__ = __create_expression(OPS.LT)
+    __le__ = __create_expression(OPS.LTE)
+    __gt__ = __create_expression(OPS.GT)
+    __ge__ = __create_expression(OPS.GTE)
+    __mod__ = __create_expression(OPS.LIKE)
+
+    # __div__ = __truediv__ = __create_expression(OPS.DIV)
+
+    # __rshift__ = create_expression(Expression.OPS.IS)
+    # __add__ = create_expression(Expression.OPS.ADD)
+    # __sub__ = create_expression(Expression.OPS.SUB)
+    # __mul__ = create_expression(Expression.OPS.MUL)
+    # __xor__ = create_expression(Expression.OPS.XOR)
+    # __radd__ = create_expression(Expression.OPS.ADD, inv=True)
+    # __rsub__ = create_expression(Expression.OPS.SUB, inv=True)
+    # __rmul__ = create_expression(Expression.OPS.MUL, inv=True)
+    # __rdiv__ = __rtruediv__ = create_expression(Expression.OPS.DIV, inv=True)
+    # __rand__ = create_expression(Expression.OPS.AND, inv=True)
+    # __ror__ = create_expression(Expression.OPS.OR, inv=True)
+    # __rxor__ = create_expression(Expression.OPS.XOR, inv=True)
+    # __lshift__ = create_expression(Expression.OPS.IN)
+    # __mod__ = create_expression(Expression.OPS.LIKE)
+    # __pow__ = create_expression(Expression.OPS.ILIKE)
+    # bin_and = create_expression(Expression.OPS.BIN_AND)
+    # bin_or = create_expression(Expression.OPS.BIN_OR)
+
+    def contains(self, rhs):
+        return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
+
+
+class Expression(DslBase):
     """
     a binary expression, eg. foo < bar, foo == bar, foo.contains(bar)
     """
-    OPS = AttrDict(
-        AND='$and',
-        EQ='$eq',
-        OR='$or',
-        GT='$gt',
-        GTE='$gte',
-        LT='$lt',
-        LTE='$lte',
-        IS='@'
-    )
 
     def __init__(self, lhs, ops, rhs):
         self.lhs = lhs
@@ -141,7 +215,7 @@ class UniqueIndex(Index):
         super(UniqueIndex, self).__init__(SortOrder.ASC)
 
 
-class Parameter(object):
+class Parameter(DslBase):
     def __init__(self, python_type,
                  required=False,
                  sub_type=None,
@@ -176,58 +250,6 @@ class Parameter(object):
         self.from_value_converter = from_value_converter
         self.default_value = default_value
         self.generator = generator
-
-    def __eq__(self, right_hand_side):
-        if right_hand_side is None:
-            return Expression(self, Expression.OPS.IS, None)
-        return Expression(self, Expression.OPS.EQ, right_hand_side)
-
-    def __ne__(self, rhs):
-        if rhs is None:
-            return Expression(self, Expression.OPS.IS_NOT, None)
-        return Expression(self, Expression.OPS.NE, rhs)
-
-    def create_expression(ops, inv=False):
-        """
-        Returns a method that builds an Expression
-        consisting of the left-hand and right-hand operands, using `OPS`.
-        """
-
-        def inner(self, rhs, *args):
-            if inv:
-                return Expression(rhs, ops, self)
-            return Expression(self, ops, rhs)
-
-        return inner
-
-    __and__ = create_expression(Expression.OPS.AND)
-    __or__ = create_expression(Expression.OPS.OR)
-    __lt__ = create_expression(Expression.OPS.LT)
-    __le__ = create_expression(Expression.OPS.LTE)
-    __gt__ = create_expression(Expression.OPS.GT)
-    __ge__ = create_expression(Expression.OPS.GTE)
-
-    # __rshift__ = create_expression(Expression.OPS.IS)
-    # __add__ = create_expression(Expression.OPS.ADD)
-    # __sub__ = create_expression(Expression.OPS.SUB)
-    # __mul__ = create_expression(Expression.OPS.MUL)
-    # __div__ = __truediv__ = create_expression(Expression.OPS.DIV)
-    # __xor__ = create_expression(Expression.OPS.XOR)
-    # __radd__ = create_expression(Expression.OPS.ADD, inv=True)
-    # __rsub__ = create_expression(Expression.OPS.SUB, inv=True)
-    # __rmul__ = create_expression(Expression.OPS.MUL, inv=True)
-    # __rdiv__ = __rtruediv__ = create_expression(Expression.OPS.DIV, inv=True)
-    # __rand__ = create_expression(Expression.OPS.AND, inv=True)
-    # __ror__ = create_expression(Expression.OPS.OR, inv=True)
-    # __rxor__ = create_expression(Expression.OPS.XOR, inv=True)
-    # __lshift__ = create_expression(Expression.OPS.IN)
-    # __mod__ = create_expression(Expression.OPS.LIKE)
-    # __pow__ = create_expression(Expression.OPS.ILIKE)
-    # bin_and = create_expression(Expression.OPS.BIN_AND)
-    # bin_or = create_expression(Expression.OPS.BIN_OR)
-
-    def contains(self, rhs):
-        return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
 
 
 def convert_date_time(string):

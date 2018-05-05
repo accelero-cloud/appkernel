@@ -16,6 +16,7 @@ class User(Model, MongoRepository, Service):
     description = Parameter(str)
     roles = Parameter(list, sub_type=str)
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
+    sequence = Parameter(int)
 
     @link(rel='change_password', http_method='POST')
     def change_p(self, current_password, new_password):
@@ -105,7 +106,7 @@ def create_rich_project():
     return p
 
 
-def create_and_save_a_user(name, password, description):
+def create_and_save_a_user(name, password, description=None):
     u = User().update(name=name).update(password=password). \
         append_to(roles=['Admin', 'User', 'Operator']).update(description=description)
     u.save()

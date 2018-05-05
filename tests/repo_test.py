@@ -4,6 +4,7 @@ from test_util import *
 from appkernel import *
 from pymongo import MongoClient
 import pytest
+from datetime import timedelta
 
 
 def setup_module(module):
@@ -152,11 +153,191 @@ def test_schema_validation_rejected():
         project.tasks[0].priority = 'TRICKY'
         project.save()
 
+
 def test_basic_query():
     john, jane, max = create_and_save_john_jane_and_max()
     user_iterator = User.find(User.name == 'John')
-    print user_iterator
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    for user in results:
+        print(user.dumps(pretty_print=True))
+    assert len(results) == 1
+    assert isinstance(results[0], User)
+    assert results[0].name == 'John'
 
+
+def test_basic_negative_query():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.name == 'Milord')
+    results = [user for user in user_iterator]
+    for user in results:
+        print(user)
+    assert len(results) == 0
+
+
+def test_multiple_or_requests():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find((User.name == 'John') | (User.name == 'Jane'))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    for user in results:
+        print(user.dumps(pretty_print=True))
+
+    assert len(results) == 2
+    assert isinstance(results[0], User)
+    for result in results:
+        assert result.name in ['John', 'Jane']
+
+
+def test_multiple_and_requests():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find((User.name == 'John') & (User.description == 'John is a random guy'))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    for user in results:
+        print(user.dumps(pretty_print=True))
+    assert len(results) == 1
+    assert isinstance(results[0], User)
+    assert results[0].name == 'John'
+
+
+def test_negative_multiple_and_requests():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find((User.name == 'John') & (User.description == 'Jane is a random girl'))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 0
+
+
+def test_contains():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.description % 'John')
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    for user in results:
+        print(user.dumps(pretty_print=True))
+    assert len(results) == 1
+    assert isinstance(results[0], User)
+    assert results[0].name == 'John'
+
+
+def test_not_equal():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.name != 'Max')
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 2
+    for user in results:
+        print(user.dumps(pretty_print=True))
+        assert user.name in ['John', 'Jane']
+
+
+def test_is_none():
+    john, jane, max = create_and_save_john_jane_and_max()
+    no_desc_user = create_and_save_a_user('Erika', 'a password')
+    user_iterator = User.find(User.description == None)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 1
+    assert results[0].name == 'Erika'
+    for user in results:
+        print(user.dumps(pretty_print=True))
+
+
+def test_is_not_none():
+    john, jane, max = create_and_save_john_jane_and_max()
+    no_desc_user = create_and_save_a_user('Erika', 'a password')
+    user_iterator = User.find(User.description != None)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 3
+
+
+def test_smaller_than_date():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.created < datetime.now())
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 3
+
+
+def test_smaller_than_date_negative():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.created < (datetime.now() - timedelta(days=1)))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 0
+
+
+def test_bigger_than_date():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.created > (datetime.now() - timedelta(days=1)))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 3
+
+
+def test_bigger_than_date_negative():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(User.created > datetime.now())
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 0
+
+
+def test_smaller_than_int():
+    create_and_save_some_users()
+    user_iterator = User.find(User.sequence < 25)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 24
+
+
+def test_smaller_or_equal_than_int():
+    create_and_save_some_users()
+    user_iterator = User.find(User.sequence <= 25)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 25
+
+
+def test_smaller_than_int_negative():
+    create_and_save_some_users()
+    user_iterator = User.find(User.sequence < 1)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 0
+
+
+def test_bigger_than_int():
+    create_and_save_some_users()
+    user_iterator = User.find(User.sequence > 25)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 25
+
+
+def test_bigger_or_equal_than_int():
+    create_and_save_some_users()
+    user_iterator = User.find(User.sequence >= 25)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 26
+
+
+def test_bigger_than_int_negative():
+    create_and_save_some_users()
+    user_iterator = User.find(User.sequence > 50)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 0
+
+
+
+# todo: test get one  User.get(User.id == 1).username
+# todo: test .where(User.username == 'charlie')
+# ...  .order_by(Tweet.created_date.desc())
+# ...  .get()
 # def test_basic_query():
 #     print_banner('>>', 'basic query')
 #     User.delete_all()
