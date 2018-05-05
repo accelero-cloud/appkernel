@@ -113,6 +113,12 @@ def create_and_save_a_user(name, password, description=None):
     return u
 
 
+def create_and_save_a_user_with_no_roles(name, password, description=None):
+    u = User(name=name, password=password, description=description)
+    u.save()
+    return u
+
+
 def create_and_save_some_users(range=51):
     for i in xrange(1, range):
         u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \

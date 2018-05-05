@@ -59,7 +59,9 @@ OPS = AttrDict( # pylint: disable=C0103
     IS_NOT=Opex('is_not', lambda exp: {'$ne': exp}),
     LIKE=Opex('like', lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}),
     NE=Opex('$ne', lambda exp: {'$ne': exp}),
+    #ARRAY_GTW=('array_gte', lambda  exp: { '$exists: true', "this.{}.length > {}".format(exp) }),
 )
+
 
 class DslBase(object):
     # https://rszalski.github.io/magicmethods/#comparisons

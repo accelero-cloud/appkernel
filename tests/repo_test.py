@@ -134,10 +134,6 @@ def test_unique_index_creation():
     assert 'name_idx' in idx_info
 
 
-def test_find_one():
-    pass
-
-
 def test_schema_validation_success():
     print('\n{}\n'.format(json.dumps(Project.get_json_schema(mongo_compatibility=True)), indent=2, sort_keys=True))
     Project.add_schema_validation(validation_action='error')
@@ -221,6 +217,28 @@ def test_contains():
     assert results[0].name == 'John'
 
 
+def test_contains_array():
+    john, jane, max = create_and_save_john_jane_and_max()
+    no_role_user = create_and_save_a_user_with_no_roles('no role', 'some pass')
+    user_iterator = User.find(User.roles % ['Admin', 'Operator'])
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    for user in results:
+        print(user.dumps(pretty_print=True))
+        assert user.name in ['John', 'Jane', 'Max']
+
+
+def test_empty_array():
+    john, jane, max = create_and_save_john_jane_and_max()
+    no_role_user = create_and_save_a_user_with_no_roles('no role', 'some pass')
+    user_iterator = User.find(User.roles == None)
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 1
+
+# todo: test starts with ends with
+
+
 def test_not_equal():
     john, jane, max = create_and_save_john_jane_and_max()
     user_iterator = User.find(User.name != 'Max')
@@ -285,6 +303,23 @@ def test_bigger_than_date_negative():
     assert len(results) == 0
 
 
+def test_between_date():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find((User.created > (datetime.now() - timedelta(days=1))) & (User.created < (datetime.now() + timedelta(days=1))))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 3
+
+
+def test_between_date_negative():
+    john, jane, max = create_and_save_john_jane_and_max()
+    user_iterator = User.find(
+        (User.created > (datetime.now() - timedelta(days=2))) & (User.created < (datetime.now() - timedelta(days=1))))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 0
+
+
 def test_smaller_than_int():
     create_and_save_some_users()
     user_iterator = User.find(User.sequence < 25)
@@ -333,7 +368,38 @@ def test_bigger_than_int_negative():
     assert len(results) == 0
 
 
+def test_between_int():
+    create_and_save_some_users()
+    user_iterator = User.find((User.sequence > 25) & (User.sequence < 27))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 1
 
+
+def test_between_int_negative():
+    create_and_save_some_users()
+    user_iterator = User.find((User.sequence > 25) & (User.sequence < 26))
+    results = [user for user in user_iterator]
+    print '\n>fetched: {}'.format(len(results))
+    assert len(results) == 0
+
+
+# def test_empty_collection():
+#     create_and_save_some_users()
+#     user_iterator = User.find(User.roles.empty())
+#     results = [user for user in user_iterator]
+#     print '\n>fetched: {}'.format(len(results))
+
+def test_find_one():
+    john, jane, max = create_and_save_john_jane_and_max()
+    assert User.find_one(User.name == 'John').name == 'John'
+
+
+def test_find_one_negative():
+    john, jane, max = create_and_save_john_jane_and_max()
+    assert User.find_one(User.name == 'Kylie') is None
+
+# todo: find distinct
 # todo: test get one  User.get(User.id == 1).username
 # todo: test .where(User.username == 'charlie')
 # ...  .order_by(Tweet.created_date.desc())

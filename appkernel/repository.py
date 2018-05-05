@@ -19,10 +19,53 @@ def xtract(cls):
 
 
 class Query(object):
-    """a class representin the query"""
+    """a class representing the query"""
 
-    def __init__(self):
+    def __init__(self, *expressions):
+        self.filter_expr = {}
+        self.sorting_expr = {}
+        self.__prep_expressions(*expressions)
+
+    def __prep_expressions(self, *expressions):
+        where = reduce(operator.and_, expressions)
+
+        if isinstance(where, Expression):
+            if isinstance(where.lhs, Parameter):
+                # its only parameter to parameter comparison
+                self.filter_expr[str(where.lhs.backreference.parameter_name)] = where.ops.lmbda(
+                    Query.__extract_rhs(where.rhs))
+            elif isinstance(where.lhs, Expression) and isinstance(where.rhs, Expression):
+                # two expressions are compared to each other
+                expressions = [{where.lhs.lhs.backreference.parameter_name:
+                                    where.lhs.ops.lmbda(Query.__extract_rhs(where.lhs.rhs))},
+                               {where.rhs.lhs.backreference.parameter_name:
+                                    where.rhs.ops.lmbda(Query.__extract_rhs(where.rhs.rhs))}]
+                self.filter_expr[str(where.ops)] = [expression for expression in expressions]
+
+    @staticmethod
+    def __extract_rhs(right_hand_side_value):
+        if isinstance(right_hand_side_value, Parameter):
+            return right_hand_side_value.backreference.parameter_name
+        else:
+            return right_hand_side_value
+
+    def execute(self):
         pass
+
+
+class MongoQuery(Query):
+    def __init__(self, connection_object, *expressions):
+        super(MongoQuery, self).__init__(*expressions)
+        self.connection = connection_object
+
+    def execute(self, skip=0, limit=100):
+        if len(self.sorting_expr) == 0:
+            return self.connection.find(self.filter_expr).skip(skip).limit(limit)
+        else:
+            return self.connection.find(self.filter_expr).sort(self.sorting_expr).skip(skip).limit(limit)
+
+    def get_one(self):
+        return self.connection.find_one(self.filter_expr)
 
 
 class RepositoryException(AppKernelException):
@@ -212,33 +255,15 @@ class MongoRepository(Repository):
         update_result = cls.get_collection().replace_one({'_id': document_id}, document, upsert=False)
         return update_result.upserted_id or document_id
 
-    @staticmethod
-    def __extract_rhs(right_hand_side_value):
-        if isinstance(right_hand_side_value, Parameter):
-            return right_hand_side_value.backreference.parameter_name
-        else:
-            return right_hand_side_value
-
     @classmethod
     def find(cls, *expressions):
-        where = reduce(operator.and_, expressions)
-        query = {}
-        if isinstance(where, Expression):
-            if isinstance(where.lhs, Parameter):
-                # its only parameter to parameter comparison
-                query[str(where.lhs.backreference.parameter_name)] = where.ops.lmbda(
-                    MongoRepository.__extract_rhs(where.rhs))
-            elif isinstance(where.lhs, Expression) and isinstance(where.rhs, Expression):
-                # two expressions are compared to each other
-                expressions = []
-                expressions.append({where.lhs.lhs.backreference.parameter_name:
-                                        where.lhs.ops.lmbda(MongoRepository.__extract_rhs(where.lhs.rhs))})
-                expressions.append({where.rhs.lhs.backreference.parameter_name:
-                                        where.rhs.ops.lmbda(MongoRepository.__extract_rhs(where.rhs.rhs))})
-                query[str(where.ops)] = [expression for expression in expressions]
-
-        for item in cls.get_collection().find(query):
+        for item in MongoQuery(cls.get_collection(), *expressions).execute():
             yield Model.from_dict(item, cls, convert_ids=True)
+
+    @classmethod
+    def find_one(cls, *expressions):
+        hit = MongoQuery(cls.get_collection(), *expressions).get_one()
+        return Model.from_dict(hit, cls, convert_ids=True) if hit else None
 
     @classmethod
     def _parse_expressions(cls, expressions):
