@@ -1,7 +1,7 @@
 # appkernel - microservices made easy
 License: [Apache 2](docs/license.md)
 
-**Work in progress / documentation is a progress**
+**Work in progress / documentation in progress**
 
 **Python micro-services made easy**: a beautiful micro-service framework ("for humans") enabling you
 to deliver a REST enabled micro-service from zero to production within minutes (literally within minutes).
@@ -9,13 +9,13 @@ to deliver a REST enabled micro-service from zero to production within minutes (
 ```python
 class User(Model, MongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty])
-    email = Parameter(str, required=True, validators=[Email, NotEmpty])
+    name = Parameter(str, required=True, validators=[NotEmpty], index=UniqueIndex)
+    email = Parameter(str, required=True, validators=[Email, NotEmpty], index=UniqueIndex)
     password = Parameter(str, required=True, validators=[NotEmpty],
                          to_value_converter=create_password_hasher(rounds=10), omit=True)
     roles = Parameter(list, sub_type=str, default_value=['Login'])
 
-application_id = 'task_management_app'
+application_id = 'identity management app'
 app = Flask(__name__)
 kernel = AppKernelEngine(application_id, app=app)
 
@@ -25,10 +25,11 @@ if __name__ == '__main__':
     user.save()
     kernel.run()
 ```
-That's all folks, our user service is ready to roll, the entity is saved, we can load the saved object, as well we can request its json schema :)
+That's all folks, our user service is ready to roll, the entity is saved, we can load the saved object, as well we can request its json schema, metadata.
+Of course validation and some more goodies are built-in as well :)
 
-The result of the Mongo query: db.getCollection('Users').find({})
-```json
+**The result of the Mongo query**: *db.getCollection('Users').find({})*
+```bash
 ﻿{
     "_id" : "Ucf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
     "email" : "test@accelero.cloud",
@@ -42,7 +43,7 @@ The result of the Mongo query: db.getCollection('Users').find({})
     "version" : 1
 }
 ```
-### Let's try to retrieve it via REST
+### Let's try to retrieve it via HTTP
 
 **Rest request**:
 ```bash
@@ -67,8 +68,7 @@ curl -i -X GET \
     "self": {
       "href": "/users/"
     }
-  },
-  "_type": "User"
+  }
 }
 ```
 ### Features of the REST endpoint
@@ -89,13 +89,28 @@ Additionally the following HTTP methods are supported:
 - PATCH: add or updates some fields on the User object
 - PUT: replaces a User object
 
-### A few features of the built-in ORM functions
-- user = User.where(name=='Some username').find_one() - find one single user matching the query parameter;
-- user = User.where(User.roles % 'Admin').find(page=0, page_size=5) - return the first 5 users which have the role "Admin"
-- user_generator = Project.find_by_query({'name': 'user name'}) -use native Mongo Query
+### A few features of the built-in ORM function
+Find one single user matching the query parameter:
+```python
+user = User.where(name=='Some username').find_one()
+```
+Return the first 5 users which have the role "Admin":
+```python
+user = User.where(User.roles % 'Admin').find(page=0, page_size=5)
+```
+Or use native Mongo Query:
+```python
+user_generator = Project.find_by_query({'name': 'user name'})
+```
 
-## Implicit features
-- user.finalise_and_validate()
+## Some more extras
+- id = Parameter(..., generator=uuid_generator('U')) - generate the ID value automatically using a uuid generator and a prefix 'U';
+- name = Parameter(..., index=UniqueIndex) - add Unique index to the User's name property;
+- email = Parameter(..., validators=[Email, NotEmpty]) - validate the e-mail property, using the NotEmpty and Email validators;
+- User.add_schema_validation(validation_action='error') - add to the database a schema validation;
+- password = Parameter(..., to_value_converter=create_password_hasher(rounds=10), omit=True) - hash the password and omit this attribute from the json representation;
+- user.finalise_and_validate() - run the generators and validate the object;
+
 
 For more details feel free to check out the documentation :)
 
