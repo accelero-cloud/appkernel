@@ -244,12 +244,12 @@ class Parameter(DslBase):
         # type: (type, bool, type, function, function, function, function, Index) -> ()
         """
 
-        :param python_type: the python type object (str, datetime or anything else)
-        :param required: if True, the field must be specified before validation
-        :param sub_type: in case the python type is dict or list (or any other collection type), you might want to specify the element type
+        :param python_type: the primary python type of the attribute (eg. str, datetime or anything else);
+        :param required: if True, the field must be specified before validation;
+        :param sub_type: in case the python type is a dict or a list (or any other collection type), one needs to specify the element types
         :param validators: a list of validator elements which are used to validate field content
-        :param to_value_converter: comverts the value of the fields in the finalisation phase (before generating json or saving in the database)
-        :param from_value_converter:
+        :param to_value_converter: converts the value of the field in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
+        :param from_value_converter: used to decrypt (or convert) content loaded from the database before presenting it to the user;
         :param default_value: this value is set on the field in case there's no other value there yet
         :param generator: content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
         :param index: the type of index (if any) which needs to be added to the database;
@@ -305,10 +305,18 @@ class Parameter(DslBase):
             raise TypeError('Only list type have length')
 
     def asc(self):
-        return (self.backreference.parameter_name, 1)
+        """
+        Adds ASCENDING sorting order to the query.
+        :return:
+        """
+        return self.backreference.parameter_name, 1
 
     def desc(self):
-        return (self.backreference.parameter_name, -1)
+        """
+        Adds DESCENDING sorting order to the query
+        :return:
+        """
+        return self.backreference.parameter_name, -1
 
 
 def convert_date_time(string):
@@ -320,6 +328,9 @@ def default_convert(string):
 
 
 class Model(object):
+    """
+    The base class of all Model objects which are intended to be persisted in the database or served via REST;
+    """
     __metaclass__ = _TaggingMetaClass
 
     type_converters = {
@@ -331,15 +342,23 @@ class Model(object):
         self.update(**kwargs)
 
     def update(self, **kwargs):
+        """
+        Updates an existing attribute. The only difference compared to standard attribute value assignment is that it accepts multiple assignments in one line
+        and returns the object instance, enabling further method calls;
+        :param kwargs: key value pairs which will be set on the instance
+        :return: the Model instance
+        :rtype: Model
+        """
         for name in kwargs:
             setattr(self, name, kwargs[name])
         return self
 
     def append_to(self, **kwargs):
         """
-        appends one or more objects to a list
-        :param kwargs:
+        Appends one or more objects to a list (eg. User(name='user name').append(roles=['Admin'])
+        :param kwargs: named arguments, representing a list object
         :return: the current object itself
+        :rtype: Model
         """
         for name in kwargs:
             if name not in self.__dict__:
@@ -355,9 +374,11 @@ class Model(object):
 
     def remove_from(self, **kwargs):
         """
-        delete one or more elements from a list
-        :param kwargs:
-        :return:
+        Delete one or more elements from a parameter of list type (eg. roles='Admin';
+        :param kwargs: the name of the list parameter and the value
+        :raises AttributeError: when the named attribute cannot be found on the object
+        :return: the self object
+        :rtype: Model
         """
         for name in kwargs:
             if name in self.__dict__:
@@ -370,6 +391,7 @@ class Model(object):
             else:
                 raise AttributeError(
                     'The attribute {} is missing from the {} class.'.format(name, self.__class__.__name__))
+        return self
 
     def __str__(self):
         return "<{}> {}".format(self.__class__.__name__, Model.dumps(self, validate=False))
@@ -543,6 +565,12 @@ class Model(object):
 
     @classmethod
     def get_parameter_spec(cls, convert_types_to_string=True):
+        """
+        Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
+        :param convert_types_to_string: when true (default behaviour) the definition will contain the string representation of the python types;
+        :return: a dict object, defining all parameters found on the Model instance;
+        :rtype: dict
+        """
         props = cls.__dict__  # or: set(dir(cls))
         # print "params: %s" % [f for f in props if cls.__is_param_field(f, cls)]
         result_dct = {}
@@ -555,6 +583,11 @@ class Model(object):
 
     @classmethod
     def get_paramater_spec_as_json(cls):
+        """
+        Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
+        :return: json parameter specification description
+        :rtype: str
+        """
         return json.dumps(cls.get_parameter_spec(), default=default_json_serializer, indent=4, sort_keys=True)
 
     @staticmethod
@@ -612,11 +645,16 @@ class Model(object):
     def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False):
         """
         Turns the python instance object into a dictionary after finalising and validating it.
-        :param skip_omitted_fields: if True, the omitted fields will be exluded
-        :param validate: if false, the validation of the object will be skipped
+        :param skip_omitted_fields: if True, the fields marked with ommitted=True will be excluded from the result;
+        :type skip_omitted_fields: bool
+        :param validate: if False (default: True), the validation of the object will be skipped
+        :type validate: bool
         :param convert_id: it will convert id fields to _id for mongodb
-        :param instance: the pythin instance object
-        :return: a dictionary representing the python object
+        :type convert_id: bool
+        :param instance: the python instance object
+        :type instance: Model
+        :return: a dictionary representing the python Model object
+        :rtype: dict
         """
         if validate and isinstance(instance, Model):
             instance.finalise_and_validate()
@@ -650,9 +688,13 @@ class Model(object):
         """
         Reads a dictionary representation of the model and turns it into a python object model.
         :param set_unmanaged_parameters: if False, key-value pairs from the dict object which are not class variables on the Model (there is no Parameter object for them) will not be set
+        :type set_unmanaged_parameters: bool
         :param convert_ids: strip the underscore prefix from object id parameter is exists ( _id -> id )
+        :type convert_ids: bool
         :param dict_obj: the dictionary to be converted to object
+        :type dict_obj: dict
         :param cls: the type of the object needs to be returned
+        :type cls: type
         :return: returns an instantiated object from the dict
         """
         instance = cls()
@@ -687,6 +729,17 @@ class Model(object):
 
     @staticmethod
     def from_list(list_obj, item_cls, convert_ids=False):
+        """
+        Converts a list of dict structures to a list of Model instances. It is mainly used from the Model.from_dict method;
+        :param list_obj: a list of dict objects representing a model;
+        :type list_obj: list
+        :param item_cls: the class of the Model to which the dict is loaded
+        :type item_cls: type
+        :param convert_ids: if true, it will convert ids with underscore prefix (from '_id' to 'id')
+        :type convert_ids: bool
+        :return: the list of Model objects
+        :rtype: list
+        """
         return_list = []
         if list_obj and not isinstance(list_obj, list):
             return_list.append(list_obj)
@@ -702,7 +755,9 @@ class Model(object):
         """
         Returns the json representation of the object.
         :param validate: if True (default), will validate the object before converting it to Json;
+        :type validate: bool
         :param pretty_print:  if True (False by default) it will format the json object upon conversion;
+        :type pretty_print: bool
         :return: the json object as a string
         """
         model_as_dict = Model.to_dict(self, validate=validate, skip_omitted_fields=True)
@@ -714,6 +769,7 @@ class Model(object):
         """
         Takes a json string and creates a python object from it.
         :param json_string: the Json string to be converted into an object
+        :type json_string: str
         :return: the generated object (it won't run validation on it)
         """
         # type: (basestring, cls) -> Model
@@ -722,7 +778,7 @@ class Model(object):
     def finalise_and_validate(self):
         """
         Calls the generator, default value calculator and converter methods first,
-        than it will validate the object;
+        than it validates the object;
         :raises ParameterRequiredException: in case some value property is mandatory
         :raises ValidationException: in case one of the parameter validators do not validate
         """
@@ -753,7 +809,7 @@ class Model(object):
 
     def dump_spec(self):
         """
-        prints the parameter specification of the model
+        Prints the parameter specification of the model
         """
         props = set(dir(self))
         # print '(P): %s' % dir(self)

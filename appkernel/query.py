@@ -4,6 +4,9 @@ from appkernel.model import get_argument_spec
 
 
 class QueryProcessor(object):
+    """
+    The query processor is used by the Service implementation.
+    """
     def __init__(self):
         # self.query_pattern = re.compile('^(\w+:[\[\],\<\>A-Za-z0-9_\s-]+)(,\w+:[\[\],\<\>A-Za-z0-9_\s-]+)*$')
         self.csv_pattern = re.compile('^.*,.*$')

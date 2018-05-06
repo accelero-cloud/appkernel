@@ -43,7 +43,7 @@ class AppKernelEngine(object):
                  cfg_dir=None,
                  development=None):
         """
-        Initialising the rest engine with Flask Engine.
+        Initialiser of Flask Engine.
         :param app: the Flask App
         :type app: Flask
         :param root_url: the url where the service are exposed to.
