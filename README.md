@@ -11,6 +11,7 @@ We've spent the time on analysing the stack, made the hard choices for you in te
 you don't have to. You can focus entirely on delivering the business value on day one and enjoy being the rockstar of your project.
 
 ## Crash Course
+Let's build a mini identity service:
 ```python
 class User(Model, MongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
