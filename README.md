@@ -117,7 +117,7 @@ Validate the e-mail property, using the NotEmpty and Email validators
 ```python
 email = Parameter(..., validators=[Email, NotEmpty])
 ```
-Add to the database a schema validation:
+Add schema validation to the database:
 ```python
 User.add_schema_validation(validation_action='error')
 ```
@@ -125,7 +125,7 @@ Hash the password and omit this attribute from the json representation:
 ```python
 password = Parameter(..., to_value_converter=create_password_hasher(rounds=10), omit=True)
 ```
-Run the generators and validate the object:
+Run the generators and validate the object (usually not needed, since it is implicitly called by save and dumps methods):
 ```python
 user.finalise_and_validate()
 ```
