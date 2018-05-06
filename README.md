@@ -107,7 +107,7 @@ user_generator = Project.find_by_query({'name': 'user name'})
 ## Some more extras
 Generate the ID value automatically using a uuid generator and a prefix 'U':
 ```python
-- id = Parameter(..., generator=uuid_generator('U'))
+id = Parameter(..., generator=uuid_generator('U'))
 ```
 Add a Unique index to the User's name property:
 ```python
