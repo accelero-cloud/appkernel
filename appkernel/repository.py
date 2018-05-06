@@ -141,18 +141,39 @@ class Repository(object):
 
     @classmethod
     def find_by_id(cls, object_id):
+        """
+        Find an object identified by the unique database id
+        :param object_id: the database id
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
     def delete_by_id(cls, object_id):
+        """
+        Delete the object identified by ID
+        :param object_id: the unique object ID
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
     def create_object(cls, document):
+        """
+        Insert a new object in the database
+        :param document:
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
     def replace_object(cls, object_id, document):
+        """
+        Replace the object in the database.
+        :param object_id:
+        :param document:
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -161,10 +182,23 @@ class Repository(object):
 
     @classmethod
     def find(cls, *expressions):
+        """
+
+        :param expressions:
+        :type expressions: Expression
+        :return: a Model Generator
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
     def find_one(cls, *expressions):
+        """
+        Returns one single instance of the Model.
+        :param expressions:
+        :type expressions: Expression
+        :return: one Model object
+        :rtype: Model
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -179,6 +213,18 @@ class Repository(object):
 
     @classmethod
     def find_by_query(cls, query={}, page=1, page_size=50, sort_by=None, sort_order=SortOrder.ASC):
+        """
+
+        :param query:
+        :type query: dict
+        :param page:
+        :type page: int
+        :param page_size:
+        :type page_size: int
+        :param sort_by:
+        :param sort_order:
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
@@ -187,18 +233,39 @@ class Repository(object):
 
     @classmethod
     def update_many(cls, match_query_dict, update_expression_dict):
+        """
+
+        :param match_query_dict:
+        :param update_expression_dict:
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
     def delete_many(cls, match_query_dict):
+        """
+
+        :param match_query_dict:
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
     def delete_all(cls):
+        """
+
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     @classmethod
     def count(cls, query_filter={}):
+        """
+        Return the number of items matching the query filter
+        :param query_filter: the raw query type as a dict (using the mongo syntax)
+        :type query_filter: dict
+        :return:
+        """
         raise NotImplemented('abstract method')
 
     def save(self):
@@ -209,6 +276,10 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     def delete(self):
+        """
+        Delete the current instance.
+        :return:
+        """
         raise NotImplemented('abstract method')
 
 

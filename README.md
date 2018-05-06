@@ -1,10 +1,105 @@
-# appkernel - a microservice framework
+# appkernel - microservices made easy
 License: [Apache 2](docs/license.md)
 
 **Work in progress / documentation is a progress**
 
-**Python micro-services made easy**: a beautiful and opinionated micro-service framework which enables you
-to deliver a REST application from zero to production within minutes (no kiddin' literally within minutes).
+**Python micro-services made easy**: a beautiful micro-service framework ("for humans") enabling you
+to deliver a REST enabled micro-service from zero to production within minutes (literally within minutes).
+
+```python
+class User(Model, MongoRepository, Service):
+    id = Parameter(str, required=True, generator=uuid_generator('U'))
+    name = Parameter(str, required=True, validators=[NotEmpty])
+    email = Parameter(str, required=True, validators=[Email, NotEmpty])
+    password = Parameter(str, required=True, validators=[NotEmpty],
+                         to_value_converter=create_password_hasher(rounds=10), omit=True)
+    roles = Parameter(list, sub_type=str, default_value=['Login'])
+
+application_id = 'task_management_app'
+app = Flask(__name__)
+kernel = AppKernelEngine(application_id, app=app)
+
+if __name__ == '__main__':
+    kernel.register(User)
+    user = User(name='Test User', email='test@accelero.cloud', password='some pass')
+    user.save()
+    kernel.run()
+```
+That's all folks, our user service is ready to roll, the entity is saved, we can load the saved object, as well we can request its json schema :)
+
+The result of the Mongo query: db.getCollection('Users').find({})
+```json
+﻿{
+    "_id" : "Ucf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
+    "email" : "test@accelero.cloud",
+    "inserted" : ISODate("2018-05-06T22:57:11.742Z"),
+    "name" : "Test User",
+    "password" : "$pbkdf2-sha256$10$k5ISAqD0Xotxbg3hPCckBA$Kqssb.bTTHWj0clZZZavJBqWttHq0ePsYdGEJYXWyDk",
+    "roles" : [
+        "Login"
+    ],
+    "updated" : ISODate("2018-05-06T22:57:11.742Z"),
+    "version" : 1
+}
+```
+### Let's try to retrieve it via REST
+
+**Rest request**:
+```bash
+curl -i -X GET \
+ 'http://127.0.0.1:5000/users/'
+```
+**And the result**:
+```json
+{
+  "_items": [
+    {
+      "_type": "User",
+      "email": "test@accelero.cloud",
+      "id": "U0590e790-46cf-42a0-bdca-07b0694d08e2",
+      "name": "Test User",
+      "roles": [
+        "Login"
+      ]
+    }
+  ],
+  "_links": {
+    "self": {
+      "href": "/users/"
+    }
+  },
+  "_type": "User"
+}
+```
+### Features of the REST endpoint
+
+- GET /users/12345 - retrieve a User object by its database ID
+- GET /users/?name=Jane&email=jane@accelero.cloud - retrieve the User object by attribute query
+- GET /users/?name=Jane&name=John&logic=OR - retrieve the User object using an OR query
+- GET /users/?roles=~Admin - retrieve all users which have the role Admin
+- GET /users/?name=[Jane,John] - retrieve all user with the name Jane or John
+- GET /users/?inserted=>2018-01-01&inserted=<2018-12-31 - return all users created in 2018
+- GET /users/?page=1&page_size=5&sort_by=inserted&sort_order=DESC - return the first page of 5 elements
+- GET /users/?query={"$or":[{"name":", {"name":"Jona"}]} - return users filtered by native Mongo Query
+- GET /users/meta - retrieve the metadata of the User class
+- GET /users/schema - return the Json Schema of the User class
+
+Additionally the following HTTP methods are supported:
+- POST: create a new user (or updates existing one by replacing it) using a json payload or multipart form data
+- PATCH: add or updates some fields on the User object
+- PUT: replaces a User object
+
+### A few features of the built-in ORM functions
+- user = User.where(name=='Some username').find_one() - find one single user matching the query parameter;
+- user = User.where(User.roles % 'Admin').find(page=0, page_size=5) - return the first 5 users which have the role "Admin"
+- user_generator = Project.find_by_query({'name': 'user name'}) -use native Mongo Query
+
+## Implicit features
+- user.finalise_and_validate()
+
+For more details feel free to check out the documentation :)
+
+## Where are we gonna go?
 The vision of the project is to provide you with a full-fledged [microservice chassis](http://microservices.io/microservices/news/2016/02/21/microservice-chassis.html),
 as defined by Chris Richardson.
 

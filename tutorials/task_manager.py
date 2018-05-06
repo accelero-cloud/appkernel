@@ -12,11 +12,12 @@ kernel = AppKernelEngine(application_id, app=app)
 def uuid_generator(prefix=None):
     def generate_id():
         return '{}{}'.format(prefix, str(uuid.uuid4()))
+
     return generate_id
 
 
 class Task(Model, AuditableRepository, Service):
-    id = Parameter(str, required=True, generator=uuid_generator('U'))
+    id = Parameter(str, required=True, generator=uuid_generator('T'))
     name = Parameter(str, required=True, validators=[NotEmpty])
     description = Parameter(str)
     tags = Parameter(list, sub_type=str)
