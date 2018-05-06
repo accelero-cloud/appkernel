@@ -8,7 +8,7 @@ A beautiful micro-service framework \"for humans\", enabling you to deliver a RE
 
 ## What's in it for you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
-you don't have to. You can focus entirely on delivering the business value on day one and enjoy being the rockstar of your project.
+you don't have to. You can focus entirely on delivering business value on day one and enjoy being the rockstar of your project.
 
 ## Crash Course
 Let's build a mini identity service:
