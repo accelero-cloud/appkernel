@@ -27,8 +27,11 @@ kernel = AppKernelEngine(application_id, app=app)
 
 if __name__ == '__main__':
     kernel.register(User)
+
+    # let's create a sample user
     user = User(name='Test User', email='test@accelero.cloud', password='some pass')
     user.save()
+
     kernel.run()
 ```
 That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json schema, metadata.
@@ -114,7 +117,7 @@ Or use native Mongo Query:
 user_generator = Project.find_by_query({'name': 'user name'})
 ```
 
-## Some more extras
+## Some more extras baked into the Model
 Generate the ID value automatically using a uuid generator and a prefix 'U':
 ```python
 id = Parameter(..., generator=uuid_generator('U'))
@@ -135,7 +138,7 @@ Hash the password and omit this attribute from the json representation:
 ```python
 password = Parameter(..., to_value_converter=create_password_hasher(rounds=10), omit=True)
 ```
-Run the generators and validate the object (usually not needed, since it is implicitly called by save and dumps methods):
+Run the generators on the attributes and validate the object (usually not needed, since it is implicitly called by save and dumps methods):
 ```python
 user.finalise_and_validate()
 ```
