@@ -8,9 +8,9 @@ A beautiful micro-service framework ("for humans"), enabling you to deliver a RE
 
 ## What's in it for you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
-you don't have to. You can focus entirely on delivering the business value on day one to your project and enjoy being a rockstar.
+you don't have to. You can focus entirely on delivering the business value on day one and enjoy being the rockstar of your project.
 
-##
+## Crash Course
 ```python
 class User(Model, MongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
