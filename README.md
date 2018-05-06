@@ -13,7 +13,7 @@ you don't have to. You can focus entirely on delivering the business value on da
 ## Crash Course
 Let's build a mini identity service:
 ```python
-class User(Model, MongoRepository, Service):
+class User(Model, AuditedMongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty], index=UniqueIndex)
     email = Parameter(str, required=True, validators=[Email, NotEmpty], index=UniqueIndex)
@@ -31,11 +31,10 @@ if __name__ == '__main__':
     user.save()
     kernel.run()
 ```
-That's all folks, our user service is ready to roll, the entity is saved, we can load the saved object, as well we can request its json schema, metadata.
+That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json schema, metadata.
 Of course validation and some more goodies are built-in as well :)
 
-**Let's issue a Mongo query**: *db.getCollection('Users').find({})*
-**...and the result:**
+**Let's issue a Mongo query**: *db.getCollection('Users').find({})* ...**and checkout the result:**
 ```bash
 ﻿{
     "_id" : "Ucf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
@@ -50,6 +49,11 @@ Of course validation and some more goodies are built-in as well :)
     "version" : 1
 }
 ```
+Due to the AuditedMongoRepository mixin we added to the user model, we have 3 additional fields:
+- inserted: the date-time of insertion;
+- updated: the date-time of the last update;
+- version: the number of versions stored for this document;
+
 ### Let's try to retrieve our User, using an HTTP request
 
 **Rest request**:
