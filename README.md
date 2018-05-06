@@ -3,9 +3,15 @@ License: [Apache 2](docs/license.md)
 
 **Work in progress / documentation in progress**
 
+## What is Appkernel?
 **Python micro-services made easy**: a beautiful micro-service framework ("for humans") enabling you
 to deliver a REST enabled micro-service from zero to production within minutes (literally within minutes).
 
+## What's in it for you?
+We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
+you don't have to. You can focus entirely on delivering the business value on day one to your project and enjoy being a rockstar.
+
+##
 ```python
 class User(Model, MongoRepository, Service):
     id = Parameter(str, required=True, generator=uuid_generator('U'))
@@ -153,11 +159,6 @@ Currently supported (and fully tested) features:
 - Custom ID Fields
 - MongoDB Aggregation Framework
 - Powered by Flask
-
-## Why Appkernel?
-We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
-you don't have to. You can focus entirely on your logic and become the rockstar hero delivering business value on day one of your project.
-
 
 ### Why did we built this?
 * We had the need to build a myriad of small services in our daily business, ranging from data-aggregation pipelines, to housekeeping services and
