@@ -28,7 +28,8 @@ if __name__ == '__main__':
 That's all folks, our user service is ready to roll, the entity is saved, we can load the saved object, as well we can request its json schema, metadata.
 Of course validation and some more goodies are built-in as well :)
 
-**The result of the Mongo query**: *db.getCollection('Users').find({})*
+**Let's issue a Mongo query**: *db.getCollection('Users').find({})*
+**...and the result:**
 ```bash
 ﻿{
     "_id" : "Ucf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
@@ -43,7 +44,7 @@ Of course validation and some more goodies are built-in as well :)
     "version" : 1
 }
 ```
-### Let's try to retrieve it via HTTP
+### Let's try to retrieve our User, using an HTTP request
 
 **Rest request**:
 ```bash
@@ -71,7 +72,7 @@ curl -i -X GET \
   }
 }
 ```
-### Features of the REST endpoint
+### Some features of the REST endpoint
 
 - GET /users/12345 - retrieve a User object by its database ID
 - GET /users/?name=Jane&email=jane@accelero.cloud - retrieve the User object by attribute query
@@ -104,13 +105,30 @@ user_generator = Project.find_by_query({'name': 'user name'})
 ```
 
 ## Some more extras
-- id = Parameter(..., generator=uuid_generator('U')) - generate the ID value automatically using a uuid generator and a prefix 'U';
-- name = Parameter(..., index=UniqueIndex) - add Unique index to the User's name property;
-- email = Parameter(..., validators=[Email, NotEmpty]) - validate the e-mail property, using the NotEmpty and Email validators;
-- User.add_schema_validation(validation_action='error') - add to the database a schema validation;
-- password = Parameter(..., to_value_converter=create_password_hasher(rounds=10), omit=True) - hash the password and omit this attribute from the json representation;
-- user.finalise_and_validate() - run the generators and validate the object;
-
+Generate the ID value automatically using a uuid generator and a prefix 'U':
+```python
+- id = Parameter(..., generator=uuid_generator('U'))
+```
+Add a Unique index to the User's name property:
+```python
+name = Parameter(..., index=UniqueIndex)
+```
+Validate the e-mail property, using the NotEmpty and Email validators
+```python
+email = Parameter(..., validators=[Email, NotEmpty])
+```
+Add to the database a schema validation:
+```python
+User.add_schema_validation(validation_action='error')
+```
+Hash the password and omit this attribute from the json representation:
+```python
+password = Parameter(..., to_value_converter=create_password_hasher(rounds=10), omit=True)
+```
+Run the generators and validate the object:
+```python
+user.finalise_and_validate()
+```
 
 For more details feel free to check out the documentation :)
 
