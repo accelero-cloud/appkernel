@@ -4,7 +4,7 @@ License: [Apache 2](docs/license.md)
 **Work in progress / documentation in progress**
 
 ## What is Appkernel?
-A beautiful micro-service framework ("for humans"), enabling you to deliver a REST enabled micro-service from zero to production within minutes (literally within minutes).
+A beautiful micro-service framework \"for humans\", enabling you to deliver a REST enabled micro-service from zero to production within minutes (literally within minutes).
 
 ## What's in it for you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
