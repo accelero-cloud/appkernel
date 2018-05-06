@@ -107,7 +107,7 @@ user = User.where(name=='Some username').find_one()
 ```
 Return the first 5 users which have the role "Admin":
 ```python
-user = User.where(User.roles % 'Admin').find(page=0, page_size=5)
+user_generator = User.where(User.roles % 'Admin').find(page=0, page_size=5)
 ```
 Or use native Mongo Query:
 ```python
