@@ -47,7 +47,7 @@ class Opex(object):
         return self.__str__()
 
 
-OPS = AttrDict( # pylint: disable=C0103
+OPS = AttrDict(  # pylint: disable=C0103
     AND=Opex('$and', lambda exp: {'$and': exp}),
     EQ=Opex('$eq', lambda exp: {'$eq': exp}),
     OR=Opex('$or', lambda exp: {'$or': exp}),
@@ -58,22 +58,35 @@ OPS = AttrDict( # pylint: disable=C0103
     IS=Opex('$eq', lambda exp: {'$eq': exp}),
     IS_NOT=Opex('is_not', lambda exp: {'$ne': exp}),
     LIKE=Opex('like', lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}),
+    ELEM_MATCH=Opex('$elemMatch', lambda exp: {'$elemMatch': {exp[0]: exp[1]}}),
+    ELEM_DOES_NOT_MATCH=Opex('$elemMatchNot', lambda exp: {'$not': {'$elemMatch': {exp[0]: exp[1]}}}),
+    ELEM_LIKE=Opex('$elemMatch',
+                   lambda exp: {'$elemMatch': {exp[0]: {'$regex': '.*{}.*'.format(exp[1]), '$options': 'i'}}}),
     NE=Opex('$ne', lambda exp: {'$ne': exp}),
-    #ARRAY_GTW=('array_gte', lambda  exp: { '$exists: true', "this.{}.length > {}".format(exp) }),
+    # ARRAY_GTW=('array_gte', lambda  exp: { '$exists: true', "this.{}.length > {}".format(exp) }),
 )
 
 
 class DslBase(object):
     # https://rszalski.github.io/magicmethods/#comparisons
     def __eq__(self, right_hand_side):
+        if self.backreference.within_an_array:
+            return Expression(self, OPS.ELEM_MATCH, right_hand_side)
         if right_hand_side is None:
             return Expression(self, OPS.IS, None)
         return Expression(self, OPS.EQ, right_hand_side)
 
-    def __ne__(self, rhs):
-        if rhs is None:
+    def __ne__(self, right_hand_side):
+        if self.backreference.within_an_array:
+            return Expression(self, OPS.ELEM_DOES_NOT_MATCH, right_hand_side)
+        if right_hand_side is None:
             return Expression(self, OPS.IS_NOT, None)
-        return Expression(self, OPS.NE, rhs)
+        return Expression(self, OPS.NE, right_hand_side)
+
+    def __mod__(self, right_hand_side):
+        if self.backreference.within_an_array:
+            return Expression(self, OPS.ELEM_LIKE, right_hand_side)
+        return Expression(self, OPS.LIKE, right_hand_side)
 
     def __create_expression(ops, inv=False):
         """
@@ -94,7 +107,6 @@ class DslBase(object):
     __le__ = __create_expression(OPS.LTE)
     __gt__ = __create_expression(OPS.GT)
     __ge__ = __create_expression(OPS.GTE)
-    __mod__ = __create_expression(OPS.LIKE)
 
     # __div__ = __truediv__ = __create_expression(OPS.DIV)
 
@@ -102,7 +114,7 @@ class DslBase(object):
     # __add__ = create_expression(Expression.OPS.ADD)
     # __sub__ = create_expression(Expression.OPS.SUB)
     # __mul__ = create_expression(Expression.OPS.MUL)
-    # __xor__ = create_expression(Expression.OPS.XOR)
+    # __xor__ = create_expression(Expression.OPS.XOR) # ^
     # __radd__ = create_expression(Expression.OPS.ADD, inv=True)
     # __rsub__ = create_expression(Expression.OPS.SUB, inv=True)
     # __rmul__ = create_expression(Expression.OPS.MUL, inv=True)
@@ -166,6 +178,8 @@ class BackReference(object):
     def __init__(self, class_name, parameter_name):
         self.class_name = class_name
         self.parameter_name = parameter_name
+        self.within_an_array = False
+        self.array_parameter_name = None
 
 
 class _TaggingMetaClass(type):
@@ -251,6 +265,44 @@ class Parameter(DslBase):
         self.from_value_converter = from_value_converter
         self.default_value = default_value
         self.generator = generator
+
+    def __getattr__(self, attribute):
+        if self.python_type == list and issubclass(self.sub_type, Model):
+            if hasattr(self.sub_type, attribute):
+                nested_parameter = getattr(self.sub_type, attribute)
+                nested_parameter.backreference.array_parameter_name = self.backreference.parameter_name
+                nested_parameter.backreference.within_an_array = True
+                return nested_parameter
+        elif issubclass(self.python_type, Model):
+            if hasattr(self.python_type, attribute):
+                nested_parameter = getattr(self.python_type, attribute)
+                nested_parameter.backreference.parameter_name = '{}.{}'.format(self.backreference.parameter_name,
+                                                                               nested_parameter.backreference.parameter_name)
+                return nested_parameter
+        raise AttributeError(attribute)
+
+    def __getitem__(self, item_expression):
+        # used when an item is accessed, using the notation self[key]
+        if self.python_type == list and issubclass(self.sub_type,
+                                                   Model) and self.sub_type.__name__ == item_expression.lhs.backreference.class_name:
+            item_expression.lhs.backreference.within_an_array = True
+            item_expression.lhs.backreference.array_parameter_name = self.backreference.parameter_name
+            if item_expression.ops == OPS.EQ:
+                item_expression.ops = OPS.ELEM_MATCH
+            elif item_expression.ops == OPS.NE:
+                item_expression.ops = OPS.ELEM_DOES_NOT_MATCH
+        else:
+            raise TypeError(
+                'The subtype {} of the parameter is not {}'.format(self.sub_type,
+                                                                   item_expression.lhs.backreference.class_name))  # if the type of the key is wrong
+            # raise KeyError()  # if there is no corresponding value for the key
+        return item_expression
+
+    def length(self):
+        if self.python_type in (list):
+            raise NotImplemented('Not yet implemented.')
+        else:
+            raise TypeError('Only list type have length')
 
     def asc(self):
         return (self.backreference.parameter_name, 1)
@@ -613,9 +665,9 @@ class Model(object):
                     parameter = getattr(cls, key)
                     if isinstance(parameter, Parameter):
                         if issubclass(parameter.python_type, Model):
-                            setattr(instance, key, Model.from_dict(val, parameter.python_type))
+                            setattr(instance, key, Model.from_dict(val, parameter.python_type, convert_ids=convert_ids))
                         elif issubclass(parameter.python_type, list):
-                            setattr(instance, key, Model.from_list(val, parameter.sub_type))
+                            setattr(instance, key, Model.from_list(val, parameter.sub_type, convert_ids=convert_ids))
                         elif issubclass(parameter.python_type, Enum):
                             setattr(instance, key, parameter.python_type[val])
                         elif (key == '_id' or key == 'id') and isinstance(val, (str, basestring)) and val.startswith(
@@ -634,16 +686,16 @@ class Model(object):
         return instance
 
     @staticmethod
-    def from_list(list_obj, item_cls):
+    def from_list(list_obj, item_cls, convert_ids=False):
         return_list = []
         if list_obj and not isinstance(list_obj, list):
             return_list.append(list_obj)
         elif list_obj:
             for item in list_obj:
-                if issubclass(item_cls, str):
-                    return_list.append(item)
+                if issubclass(item_cls, Model):
+                    return_list.append(Model.from_dict(item, item_cls, convert_ids=convert_ids))
                 else:
-                    return_list.append(Model.from_dict(item, item_cls))
+                    return_list.append(item)
         return return_list
 
     def dumps(self, validate=True, pretty_print=False):
@@ -675,7 +727,8 @@ class Model(object):
         :raises ValidationException: in case one of the parameter validators do not validate
         """
         obj_items = self.__dict__
-        cls_items = {k: v for k, v in self.__class__.__dict__.iteritems() if isinstance(v, Parameter)}
+        class_items = self.__class__.__dict__
+        cls_items = {k: v for k, v in class_items.iteritems() if isinstance(v, Parameter)}
         for param_name, param_object in cls_items.items():
             # initialise default values and generators for parameters which were not defined by the user
             if param_name not in obj_items:
@@ -691,12 +744,12 @@ class Model(object):
                 setattr(self, param_name, param_object.to_value_converter(getattr(self, param_name)))
             if param_object.validators is not None and isinstance(param_object.validators, list):
                 for val in param_object.validators:
-                    if isinstance(val, Validator) and param_name in self.__dict__:
-                        val.validate(param_name, self.__dict__[param_name])
-                    elif isinstance(val, type) and issubclass(val, Validator) and param_name in self.__dict__:
-                        val().validate(param_name, self.__dict__.get(param_name))
-            if issubclass(param_object.python_type, Model):
-                self.__dict__[param_name].finalise_and_validate()
+                    if isinstance(val, Validator) and param_name in obj_items:
+                        val.validate(param_name, obj_items[param_name])
+                    elif isinstance(val, type) and issubclass(val, Validator) and param_name in obj_items:
+                        val().validate(param_name, obj_items.get(param_name))
+            if issubclass(param_object.python_type, Model) and param_name in obj_items:
+                obj_items[param_name].finalise_and_validate()
 
     def dump_spec(self):
         """

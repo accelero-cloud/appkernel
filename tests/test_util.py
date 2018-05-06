@@ -39,10 +39,11 @@ class Stock(Model):
     sequence = Parameter(int, validators=[Min(1), Max(100)])
 
 
-class Portfolio(Model, Repository):
+class Portfolio(Model, MongoRepository):
     id = Parameter(str, required=True, generator=create_uuid_generator('P'))
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     stocks = Parameter(list, sub_type=Stock, validators=NotEmpty)
+    owner = Parameter(User, required=False)
 
 
 def create_portfolio(name):
@@ -54,6 +55,18 @@ def create_portfolio(name):
 
 def create_a_stock():
     return Stock(code='MSFT', open=123.7, updated=date_now_generator(), history=[120, 120.5, 123.9])
+
+
+def create_a_portfolion_with_owner():
+    portfolio = create_portfolio('Portfolio with owner')
+    portfolio.owner = User(name='Owner User', password='some password')
+    return portfolio
+
+
+def create_and_save_portfolio_with_owner():
+    portfolio = create_a_portfolion_with_owner()
+    portfolio.save()
+    return portfolio
 
 
 class ExampleClass(Model):
@@ -106,6 +119,30 @@ def create_rich_project():
     return p
 
 
+def create_five_tasks(seed='A'):
+    tasks = []
+    for i in xrange(0, 5):
+        tasks.append(
+            Task(name='sequential tasks {}-{}'.format(seed, i), description='some tasks description {}'.format(i),
+                 priority=Priority.MEDIUM))
+    return tasks
+
+
+def create_and_save_a_project(project_name='Default project name', tasks=None):
+    p = Project(name=project_name).append_to(tasks=tasks)
+    p.save()
+    return p
+
+
+def create_and_save_some_projects():
+    projects = []
+    for i in xrange(0, 50):
+        p = create_and_save_a_project('Project {}'.format(i), tasks=create_five_tasks(seed='{}'.format(i)))
+        p.save()
+        projects.append(p)
+    return projects
+
+
 def create_and_save_a_user(name, password, description=None):
     u = User().update(name=name).update(password=password). \
         append_to(roles=['Admin', 'User', 'Operator']).update(description=description)
@@ -131,8 +168,10 @@ def create_user_batch(range=51):
     users = []
     for i in xrange(1, range):
         users.append(User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
-            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i))
+            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(
+            sequence=i))
     return users
+
 
 def create_and_save_john_jane_and_max():
     # type: () -> (User, User, User)
@@ -140,3 +179,20 @@ def create_and_save_john_jane_and_max():
     jane = create_and_save_a_user('Jane', 'a password', 'Jane is a random girl')
     maxx = create_and_save_a_user('Max', 'a password', 'Jane is a random girl')
     return john, jane, maxx
+
+
+def check_portfolio(portfolio):
+    portfolio_dict = Model.to_dict(portfolio, convert_id=True)
+    stocks = portfolio_dict.get('stocks')
+    assert len(stocks) == 2
+    msft_stock = list(filter(lambda stock: stock.get('code') == 'MSFT', stocks))[0]
+    msft_stock_history = msft_stock.get('history')
+    assert len(msft_stock_history)
+    assert 120 in msft_stock_history
+    assert 120.5 in msft_stock_history
+    assert 123.9 in msft_stock_history
+    assert msft_stock.get('open') == 123.7
+    assert '_id' in portfolio_dict
+    assert 'id' not in portfolio_dict
+    assert '_id' in portfolio_dict.get('owner')
+    assert 'id' not in portfolio_dict.get('owner')

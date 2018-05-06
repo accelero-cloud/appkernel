@@ -29,9 +29,14 @@ class Query(object):
 
         if isinstance(where, Expression):
             if isinstance(where.lhs, Parameter):
-                # its only parameter to parameter comparison
-                self.filter_expr[str(where.lhs.backreference.parameter_name)] = where.ops.lmbda(
-                    Query.__extract_rhs(where.rhs))
+                if where.lhs.backreference.within_an_array:
+                    # this query is part of an array
+                    self.filter_expr[str(where.lhs.backreference.array_parameter_name)] = where.ops.lmbda(
+                        (where.lhs.backreference.parameter_name, Query.__extract_rhs(where.rhs)))
+                else:
+                    # its only parameter to parameter comparison
+                    self.filter_expr[str(where.lhs.backreference.parameter_name)] = where.ops.lmbda(
+                        Query.__extract_rhs(where.rhs))
             elif isinstance(where.lhs, Expression) and isinstance(where.rhs, Expression):
                 # two expressions are compared to each other
                 expressions = [{where.lhs.lhs.backreference.parameter_name:
@@ -41,26 +46,55 @@ class Query(object):
                 self.filter_expr[str(where.ops)] = [expression for expression in expressions]
 
     @staticmethod
-    def __extract_rhs(right_hand_side_value):
-        if isinstance(right_hand_side_value, Parameter):
-            return right_hand_side_value.backreference.parameter_name
+    def __extract_rhs(right_hand_side):
+        if isinstance(right_hand_side, Parameter):
+            return right_hand_side.backreference.parameter_name
         else:
-            return right_hand_side_value
+            return right_hand_side
 
     def sort_by(self, *sorting_tuples):
+        """
+        Defines sorting criteria (eg. .sort_by(User.name.desc())
+        :param sorting_tuples: desc() or asc() on the Model parameter
+        :return: self for calling further methods on the class
+        :rtype: Query
+        """
         self.sorting_expr = list(sorting_tuples)
         return self
 
     def find(self):
+        """
+        Creates a cursor based on the filter and sorting criteria and yields the results;
+        :return: a generator object which yields found instances of Model class
+        """
         raise NotImplemented('abstract method')
 
     def find_one(self):
+        """
+        :return: One or none instances of the Model, depending on the query criteria
+        """
         raise NotImplemented('abstract method')
 
     def count(self):
+        """
+        :return: the number of items in the repository matching the filter expression;
+        """
         raise NotImplemented('abstract method')
 
     def delete(self):
+        """
+        Delete all elements which fulfill the filter criteria (defined in the where method);
+        :return: the deleted item count
+        """
+        raise NotImplemented('abstract method')
+
+    def get(self, page=0, page_size=100):
+        """
+        Returns the list of found Model instances;
+        :param page: the current page requested
+        :param page_size: the size of the page (number of elements requested
+        :return: the result of the query as a list of Model instance objects
+        """
         raise NotImplemented('abstract method')
 
 
@@ -80,7 +114,14 @@ class MongoQuery(Query):
             for item in cursor:
                 yield Model.from_dict(item, self.user_class, convert_ids=True)
 
+    def get(self, page=0, page_size=100):
+        return [item for item in self.find(page=page, page_size=page_size)]
+
     def find_one(self):
+        """
+        :return: one instance of the Model or None
+        :rtype: Model
+        """
         hit = self.connection.find_one(self.filter_expr)
         return Model.from_dict(hit, self.user_class, convert_ids=True) if hit else None
 
@@ -123,6 +164,20 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     @classmethod
+    def find_one(cls, *expressions):
+        raise NotImplemented('abstract method')
+
+    @classmethod
+    def where(cls, *expressions):
+        """
+        Creates and returns a query object, used for further chaining functions like sorting and pagination;
+        :param expressions: the query filter expressions used to narrow the result-set
+        :return: a query object preconfigured with the
+        :rtype: Query
+        """
+        raise NotImplemented('abstract method')
+
+    @classmethod
     def find_by_query(cls, query={}, page=1, page_size=50, sort_by=None, sort_order=SortOrder.ASC):
         raise NotImplemented('abstract method')
 
@@ -148,7 +203,7 @@ class Repository(object):
 
     def save(self):
         """
-        Saves or updates a document in the database
+        Saves or updates a model instance in the database
         :return: the id of the inserted or updated document
         """
         raise NotImplemented('abstract method')
@@ -293,6 +348,12 @@ class MongoRepository(Repository):
 
     @classmethod
     def where(cls, *expressions):
+        """
+        Creates and returns a query object, used for further chaining functions like sorting and pagination;
+        :param expressions: the query filter expressions used to narrow the result-set
+        :return: a query object precofigured with the
+        :rtype: MongoQuery
+        """
         return MongoQuery(cls.get_collection(), cls, *expressions)
 
     @classmethod
@@ -350,10 +411,6 @@ class MongoRepository(Repository):
         return [result for result in cursor]
 
     def save(self):
-        """
-        Saves or updates a document in the database
-        :return: the id of the inserted or upserted document
-        """
         document = Model.to_dict(self, convert_id=True)
         self.id = self.__class__.save_object(document)  # pylint: disable=C0103
         return self.id

@@ -424,6 +424,7 @@ def test_delete_many():
     print('\n\n deleted count: {}'.format(User.where((User.sequence > 0) & (User.sequence <= 5)).delete()))
     assert User.count() == 45
 
+
 # def test_empty_collection():
 #     create_and_save_some_users()
 #     user_iterator = User.find(User.roles.empty())
@@ -447,30 +448,121 @@ def test_bulk_insert():
     assert User.count() == 50
 
 
-# todo: find distinct
-# todo: test nested queries
-# todo: test collections
+def test_nested_queries():
+    create_and_save_portfolio_with_owner()
+    portfolio = Portfolio.where(Portfolio.owner.name == 'Owner User').find_one()
+    assert isinstance(portfolio.stocks[0], Stock)
+    assert isinstance(portfolio.owner, User)
+    assert portfolio.name == 'Portfolio with owner'
+    print(portfolio.dumps(pretty_print=True))
+    check_portfolio(portfolio)
 
+
+def test_nested_query_negative():
+    create_and_save_portfolio_with_owner()
+    portfolio = Portfolio.where(Portfolio.owner.name == 'Some other user').find_one()
+    assert portfolio is None
+
+
+def test_query_in_array_simple():
+    create_and_save_some_projects()
+    project = Project.where(Project.tasks.name == 'sequential tasks 6-1').find_one()
+    print(project.dumps(pretty_print=True))
+    assert project.name == 'Project 6'
+    assert len(project.tasks) == 5
+
+
+def test_query_in_array_simple_negative():
+    create_and_save_some_projects()
+    project = Project.where(Project.tasks.name == 'some text').find_one()
+    assert project is None
+
+
+def test_query_in_empty_array():
+    project = Project.where(Project.tasks.name == 'sequential tasks 6-1').find_one()
+    assert project is None
+
+
+def test_query_in_array_does_not_contain():
+    create_and_save_some_projects()
+    project_generator = Project.where(Project.tasks.name != 'sequential tasks 6-1').find()
+    proj_counter = 0
+    for project in project_generator:
+        print('======={}======='.format(project.name))
+        print(project.dumps(pretty_print=True))
+        assert project.name != 'Project 6'
+        proj_counter += 1
+    assert proj_counter == 49
+
+
+# def test_query_in_array_lte():
+#     assert True is False
 #
-#     # select queries
-#     #
-#     # user_iterator = User.select().where(User.name == 'some_unique_name').sort_by(User.created).execute()
-#     # user_iterator = User.select().where(User.name == 'some_unique_name').sort_by(User.created).execute(limit=5)
-#     # user_count = User.select().where(User.name == 'some_unique_name').count()
-#     # user_count = User.select().where((User.name == 'some_unique_name') | (User.name == 'some_other_name'))
-#     # today = date.today()
-#     #Project.update('ssss'=True).where(Task.creation_date < today).execute()
 #
-#     # u2 = User.find(User.name == 'some_unique_name') # {name:'some_unique_name'}
-#     # u2 = User.find(User.name == 'some_unique_name', u2.undefined_parameter == 'something else')  # {name:'some_unique_name'}
-#     # u2 = User.find(User.name.contains('some'))
+# def test_query_in_array_gte():
+#     assert True is False
+
+
+def test_query_in_array():
+    create_and_save_some_projects()
+    project = Project.where(Project.tasks[Task.name == 'sequential tasks 6-1']).find_one()
+    print(project.dumps(pretty_print=True))
+    assert project.name == 'Project 6'
+    assert len(project.tasks) == 5
+
+
+def test_negative_query_in_an_array():
+    create_and_save_some_projects()
+    project_generator = Project.where(Project.tasks[Task.name != 'sequential tasks 6-1']).find()
+    proj_counter = 0
+    for project in project_generator:
+        print('======={}======='.format(project.name))
+        print(project.dumps(pretty_print=True))
+        assert project.name != 'Project 6'
+        proj_counter += 1
+    assert proj_counter == 49
+
+
+def test_query_simple_array_in_simple_way():
+    # when the array contains a string
+    create_and_save_some_users()
+    special_user = User(name='Special User', password='some pass', roles=['Special', 'SuperAdmin'])
+    special_user.save()
+    user = User.where(User.roles % 'Special').find_one()
+    assert user.name == 'Special User'
+
+
+def test_query_simple_array_in_simple_way_negative():
+    # when the array contains a string
+    create_and_save_some_users()
+    special_user = User(name='Special User', password='some pass', roles=['Special', 'SuperAdmin'])
+    special_user.save()
+    user = User.where(User.roles % 'NonExisting').find_one()
+    assert user is None
+
+
+def test_query_simple_array_contains():
+    create_and_save_some_projects()
+    project = Project.where(Project.tasks.name % 'sequential tasks 6-1').find_one()
+    print(project.dumps(pretty_print=True))
+    assert project.name == 'Project 6'
+    assert len(project.tasks) == 5
+
+
+# def test_array_size():
+#     create_and_save_some_projects()
+#     projects = Project.where(Project.tasks.length() >= 5).get()
+#     assert len(projects) == 50
 #
+#
+# def test_array_size_negative():
+#     create_and_save_some_projects()
+#     projects = Project.where(Project.tasks.length() > 5).get()
+#     assert len(projects) == 0
+
+# todo: test multiple sort criteria
+# todo: find distinct
+#     # u2 = User.find(User.name == 'some_unique_name', u2.undefined_parameter == 'something else')  # {name:'some_unique_name'}#
 #     # { $ and: [{price: { $ne: 1.99}}, {price: { $exists: true}}]}
 #     # { price: { $ne: 1.99, $exists: true } }
-#     print_banner('<<', 'basic query', '\n')
 #
-
-
-# todo:
-# better json serialisation (eg object id)
-# escape parameters
