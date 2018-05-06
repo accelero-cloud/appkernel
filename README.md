@@ -49,10 +49,10 @@ Of course validation and some more goodies are built-in as well :)
     "version" : 1
 }
 ```
-Due to the AuditedMongoRepository mixin we added to the user model, we have 3 additional fields:
-- inserted: the date-time of insertion;
-- updated: the date-time of the last update;
-- version: the number of versions stored for this document;
+Due to the AuditedMongoRepository mixin, which we've added to the User model, we ended up with 3 extra fields:
+- **inserted**: the date-time of insertion;
+- **updated**: the date-time of the last update;
+- **version**: the number of versions stored for this document;
 
 ### Let's try to retrieve our User, using an HTTP request
 
