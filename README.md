@@ -4,11 +4,11 @@ License: [Apache 2](docs/license.md)
 **Work in progress / documentation in progress**
 
 ## What is Appkernel?
-A beautiful micro-service framework \"for humans\", enabling you to deliver a REST enabled micro-service from zero to production within minutes (not joking: literally within minutes).
+A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
 
 ## What's in it for you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
-you don't have to. You can focus entirely on delivering business value on day one and enjoy being the rockstar of your project.
+you don't have to. You can focus entirely on delivering business value on day one and being the rockstar of your project.
 
 ## Crash Course
 Let's build a mini identity service:
@@ -37,7 +37,7 @@ if __name__ == '__main__':
 That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json schema for validation, or metadata to generate an SPA (Single Page Application).
 Of course validation and some more goodies are built-in as well :)
 
-**Let's issue a Mongo query**: *db.getCollection('Users').find({})* ...**and checkout the result:**
+**Let's issue a Mongo query**: *db.getCollection('Users').find({})* ...**and check the result:**
 ```bash
 ﻿{
     "_id" : "Ucf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
@@ -52,7 +52,7 @@ Of course validation and some more goodies are built-in as well :)
     "version" : 1
 }
 ```
-Due to the AuditedMongoRepository mixin, which we've added to the User model, we ended up with 3 extra fields:
+Due to the AuditedMongoRepository mixin added to the User model, we ended up with 3 extra fields:
 - **inserted**: the date-time of insertion;
 - **updated**: the date-time of the last update;
 - **version**: the number of versions stored for this document;
@@ -70,7 +70,7 @@ curl -i -X GET \
   "_items": [
     {
       "_type": "User",
-      "email": "test@accelero.cloud",
+      "email": "test@appkernel.cloud",
       "id": "U0590e790-46cf-42a0-bdca-07b0694d08e2",
       "name": "Test User",
       "roles": [
@@ -87,16 +87,16 @@ curl -i -X GET \
 ```
 ### Some features of the REST endpoint
 
-- GET /users/12345 - retrieve a User object by its database ID
-- GET /users/?name=Jane&email=jane@accelero.cloud - retrieve the User object by attribute query
-- GET /users/?name=Jane&name=John&logic=OR - retrieve the User object using an OR query
-- GET /users/?roles=~Admin - retrieve all users which have the role Admin
-- GET /users/?name=[Jane,John] - retrieve all user with the name Jane or John
-- GET /users/?inserted=>2018-01-01&inserted=<2018-12-31 - return all users created in 2018
-- GET /users/?page=1&page_size=5&sort_by=inserted&sort_order=DESC - return the first page of 5 elements
-- GET /users/?query={"$or":[{"name":", {"name":"Jona"}]} - return users filtered by native Mongo Query
-- GET /users/meta - retrieve the metadata of the User class
-- GET /users/schema - return the Json Schema of the User class
+- GET /users/12345 - retrieve a User object by its database ID;
+- GET /users/?name=Jane&email=jane@appkernel.cloud - retrieve the User named Jane with e-mail address jane@appkernel.cloud;
+- GET /users/?name=Jane&name=John&logic=OR - retrieve Jane or John;
+- GET /users/?roles=~Admin - retrieve all users which have the role Admin;
+- GET /users/?name=[Jane,John] - retrieve all user with the name Jane or John;
+- GET /users/?inserted=>2018-01-01&inserted=<2018-12-31 - return all users created in 2018;
+- GET /users/?page=1&page_size=5&sort_by=inserted&sort_order=DESC - return the first page of 5 elements;
+- GET /users/?query={"$or":[{"name": "Jane"}, {"name":"John"}]} - return users filtered with a native Mongo Query;
+- GET /users/meta - retrieve the metadata of the User class for constructing self-generating SPAs;
+- GET /users/schema - return the Json Schema of the User class used for validating objects;
 
 Additionally the following HTTP methods are supported:
 - POST: create a new user (or updates existing one by replacing it) using a json payload or multipart form data
@@ -146,7 +146,7 @@ user.finalise_and_validate()
 
 For more details feel free to check out the documentation :)
 
-## What is getting built here?
+## What are we building here?
 The vision of the project is to provide you with a full-fledged [microservice chassis](http://microservices.io/microservices/news/2016/02/21/microservice-chassis.html),
 as defined by Chris Richardson.
 
