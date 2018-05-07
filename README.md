@@ -1,6 +1,8 @@
 # appkernel - microservices made easy
 License: [Apache 2](docs/license.md)
 
+![doc status](http://appkernel.readthedocs.io/en/latest/?badge=latest)
+
 **Work in progress / documentation in progress**
 
 ## What is Appkernel?
