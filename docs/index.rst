@@ -32,25 +32,27 @@ You can focus entirely on delivering business value on day one and being the roc
 Crash Course
 -----------
 
-```
-class User(Model, AuditedMongoRepository, Service):
-    id = Parameter(str, required=True, generator=uuid_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty], index=UniqueIndex)
-    email = Parameter(str, required=True, validators=[Email, NotEmpty], index=UniqueIndex)
-    password = Parameter(str, required=True, validators=[NotEmpty],
-                         to_value_converter=create_password_hasher(rounds=10), omit=True)
-    roles = Parameter(list, sub_type=str, default_value=['Login'])
+::
+    class User(Model, AuditedMongoRepository, Service):
+        id = Parameter(str, required=True, generator=uuid_generator('U'))
+        name = Parameter(str, required=True, validators=[NotEmpty], index=UniqueIndex)
+        email = Parameter(str, required=True, validators=[Email, NotEmpty], index=UniqueIndex)
+        password = Parameter(str, required=True, validators=[NotEmpty],
+                             to_value_converter=create_password_hasher(rounds=10), omit=True)
+        roles = Parameter(list, sub_type=str, default_value=['Login'])
 
-application_id = 'identity management app'
-app = Flask(__name__)
-kernel = AppKernelEngine(application_id, app=app)
+    application_id = 'identity management app'
+    app = Flask(__name__)
+    kernel = AppKernelEngine(application_id, app=app)
 
-if __name__ == '__main__':
-    kernel.register(User)
+    if __name__ == '__main__':
+        kernel.register(User)
 
-    # let's create a sample user
-    user = User(name='Test User', email='test@accelero.cloud', password='some pass')
-    user.save()
+        # let's create a sample user
+        user = User(name='Test User', email='test@accelero.cloud', password='some pass')
+        user.save()
 
-    kernel.run()
-```
+        kernel.run()
+
+That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json
+schema for validation, or metadata to generate an SPA (Single Page Application). Of course validation and some more goodies are built-in as well :)
