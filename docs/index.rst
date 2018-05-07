@@ -31,8 +31,8 @@ You can focus entirely on delivering business value on day one and being the roc
 
 Crash Course
 -----------
-
 Let's build a mini identity service: ::
+
     class User(Model, AuditedMongoRepository, Service):
         id = Parameter(str, required=True, generator=uuid_generator('U'))
         name = Parameter(str, required=True, validators=[NotEmpty], index=UniqueIndex)
