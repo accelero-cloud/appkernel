@@ -20,6 +20,9 @@ You can focus entirely on delivering business value on day one and being the roc
 
 Quick overview
 ==============
+.. readthedocs-embed::
+    :doc: index
+    :section: User Guide
 
 * :ref:`genindex`
 * :ref:`modindex`
