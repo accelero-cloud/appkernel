@@ -6,12 +6,17 @@
 Welcome to Appkernel- microservices made easy!
 =====================================
 
-Contents:
+What is Appkernel?
+------------------
+A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
+It is powered by Flask and it offers native support for MongoDB data stores.
 
-.. toctree::
-   :maxdepth: 2
+The codebase is thoroughly tested under Python 2.7 (3.4+ and PyPy are planned for the release 1.0).
 
-
+What's in it for you?
+---------------------
+We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
+You can focus entirely on delivering business value on day one and being the rockstar of your project.
 
 Quick overview
 ==============
@@ -20,14 +25,7 @@ Quick overview
 * :ref:`modindex`
 * :ref:`search`
 
-What is Appkernel?
-------------------
-A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
-
-What's in it for you?
----------------------
-We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
-You can focus entirely on delivering business value on day one and being the rockstar of your project.
+.. include:: contents.rst.inc
 
 Crash Course
 -----------
@@ -41,9 +39,8 @@ Let's build a mini identity service: ::
                              to_value_converter=create_password_hasher(rounds=10), omit=True)
         roles = Parameter(list, sub_type=str, default_value=['Login'])
 
-    application_id = 'identity management app'
     app = Flask(__name__)
-    kernel = AppKernelEngine(application_id, app=app)
+    kernel = AppKernelEngine('demo app', app=app)
 
     if __name__ == '__main__':
         kernel.register(User)
@@ -56,3 +53,27 @@ Let's build a mini identity service: ::
 
 That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json
 schema for validation, or metadata to generate an SPA (Single Page Application). Of course validation and some more goodies are built-in as well :)
+
+Now we can test it by using curl: ::
+
+   curl -i -X GET 'http://127.0.0.1:5000/users/'
+**And check out the result** ::
+
+   {
+     "_items": [
+       {
+         "_type": "User",
+         "email": "test@appkernel.cloud",
+         "id": "U0590e790-46cf-42a0-bdca-07b0694d08e2",
+         "name": "Test User",
+         "roles": [
+           "Login"
+         ]
+       }
+     ],
+     "_links": {
+       "self": {
+         "href": "/users/"
+       }
+     }
+   }
