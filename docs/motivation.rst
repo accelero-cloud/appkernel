@@ -2,7 +2,7 @@ What are we building here?
 --------------------------
 The vision of the project is to provide you with a full-fledged microservice chassis, as defined by Chris Richardson.
 
-Currently supported (and fully tested) features:
+Currently supported (and fully tested) features
 ------------------------------------------------
 
 * REST endpoints over HTTP

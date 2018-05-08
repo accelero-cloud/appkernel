@@ -15,12 +15,12 @@ you don't have to. You can focus entirely on delivering business value from day 
 ## Crash Course
 Let's build a mini identity service:
 ```python
-class User(Model, AuditedMongoRepository, Service):
+class User(Model, MongoRepository, Service):
     id = Parameter(str)
     name = Parameter(str, validators=[NotEmpty], index=UniqueIndex)
     email = Parameter(str, validators=[Email, NotEmpty], index=UniqueIndex)
     password = Parameter(str, validators=[NotEmpty],
-                         to_value_converter=create_password_hasher(rounds=10), omit=True)
+                         to_value_converter=password_hasher(rounds=10), omit=True)
     roles = Parameter(list, sub_type=str, default_value=['Login'])
 
 application_id = 'identity management app'
@@ -42,19 +42,17 @@ Of course validation and some more goodies are built-in as well :)
 **Let's issue a Mongo query**: *db.getCollection('Users').find({})* ...**and check the result:**
 ```bash
 ﻿{
-    "_id" : "Ucf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
+    "_id" : "cf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
     "email" : "test@accelero.cloud",
-    "inserted" : ISODate("2018-05-06T22:57:11.742Z"),
     "name" : "Test User",
     "password" : "$pbkdf2-sha256$10$k5ISAqD0Xotxbg3hPCckBA$Kqssb.bTTHWj0clZZZavJBqWttHq0ePsYdGEJYXWyDk",
     "roles" : [
         "Login"
-    ],
-    "updated" : ISODate("2018-05-06T22:57:11.742Z"),
-    "version" : 1
+    ]
 }
 ```
-Due to the AuditedMongoRepository mixin added to the User model, we ended up with 3 extra fields:
+
+One could add the AuditedMongoRepository mixin instead of the MongoRepository to the User model, and we would end up with 3 extra fields:
 - **inserted**: the date-time of insertion;
 - **updated**: the date-time of the last update;
 - **version**: the number of versions stored for this document;
@@ -138,7 +136,7 @@ User.add_schema_validation(validation_action='error')
 ```
 Hash the password and omit this attribute from the json representation:
 ```python
-password = Parameter(..., to_value_converter=create_password_hasher(rounds=10), omit=True)
+password = Parameter(..., to_value_converter=password_hasher(rounds=10), omit=True)
 ```
 Run the generators on the attributes and validate the object (usually not needed, since it is implicitly called by save and dumps methods):
 ```python

@@ -14,7 +14,7 @@ def date_now_generator():
     return datetime.now()
 
 
-def create_password_hasher(rounds=20000, salt_size=16):
+def password_hasher(rounds=20000, salt_size=16):
     def password_hasher(password):
         # type: (str) -> str
         if password.startswith('$pbkdf2-sha256'):
