@@ -1,3 +1,5 @@
+.. _api:
+
 API
 ---
 .. module:: appkernel
@@ -5,5 +7,5 @@ API
 Model
 ------------------
 .. autoclass:: Model
-   :members:
-   :inherited-members:
+    :members:
+    :inherited-members:
