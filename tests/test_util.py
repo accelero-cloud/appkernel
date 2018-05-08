@@ -1,5 +1,5 @@
 from appkernel import Service
-from appkernel.model import *
+from appkernel.model import Model, Parameter, UniqueIndex
 from datetime import datetime
 from appkernel.repository import AuditableRepository, Repository, MongoRepository
 from appkernel.service import link

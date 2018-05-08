@@ -1,7 +1,7 @@
 from pymongo.errors import WriteError
 
 from test_util import *
-from appkernel import *
+from appkernel import AppKernelEngine
 from pymongo import MongoClient
 import pytest
 from datetime import timedelta
