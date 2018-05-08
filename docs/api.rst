@@ -15,6 +15,7 @@ The main application class, which exposes the services.
 Model
 -----
 The main class providing
+
 .. autoclass:: Model
     :members:
     :inherited-members:
