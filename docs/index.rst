@@ -66,7 +66,7 @@ Now we can test it by using curl: ::
        {
          "_type": "User",
          "email": "test@appkernel.cloud",
-         "id": "U0590e790-46cf-42a0-bdca-07b0694d08e2",
+         "id": "0590e790-46cf-42a0-bdca-07b0694d08e2",
          "name": "Test User",
          "roles": [
            "Login"
@@ -79,3 +79,38 @@ Now we can test it by using curl: ::
        }
      }
    }
+
+A few features of the built-in ORM function
+-------------------------------------------
+
+Find one single user matching the query parameter: ::
+
+   user = User.where(name=='Some username').find_one()
+Return the first 5 users which have the role "Admin": ::
+
+   user_generator = User.where(User.roles % 'Admin').find(page=0, page_size=5)
+Or use native Mongo Query: ::
+
+   user_generator = Project.find_by_query({'name': 'user name'})
+
+Some more extras baked into the Model
+-------------------------------------
+Generate the ID value automatically using a uuid generator and a prefix 'U': ::
+
+   id = Parameter(..., generator=uuid_generator('U-'))
+I will generate an ID which gives a hint about the object type: *U-0590e790-46cf-42a0-bdca-07b0694d08e2*
+Add a Unique index to the User's name property: ::
+
+   name = Parameter(..., index=UniqueIndex)
+Validate the e-mail property, using the NotEmpty and Email validators ::
+
+   email = Parameter(..., validators=[Email, NotEmpty])
+Add schema validation to the database: ::
+
+   User.add_schema_validation(validation_action='error')
+Hash the password and omit this attribute from the json representation: ::
+
+   password = Parameter(..., to_value_converter=create_password_hasher(rounds=10), omit=True)
+Run the generators on the attributes and validate the object (usually not needed, since it is implicitly called by save and dumps methods): ::
+
+   user.finalise_and_validate()

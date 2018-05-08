@@ -1,5 +1,6 @@
 .. toctree::
    :maxdepth: 2
-    installation
-    quickstart
-    api
+      motivation
+      installation
+      quickstart
+      api
