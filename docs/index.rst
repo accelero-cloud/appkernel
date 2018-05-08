@@ -25,9 +25,9 @@ Quick overview
 * :ref:`modindex`
 * :ref:`search`
 
-****
-
 .. include:: contents.rst.inc
+
+****
 
 Crash Course
 -----------
