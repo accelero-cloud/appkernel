@@ -16,10 +16,10 @@ you don't have to. You can focus entirely on delivering business value from day 
 Let's build a mini identity service:
 ```python
 class User(Model, AuditedMongoRepository, Service):
-    id = Parameter(str, required=True, generator=uuid_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty], index=UniqueIndex)
-    email = Parameter(str, required=True, validators=[Email, NotEmpty], index=UniqueIndex)
-    password = Parameter(str, required=True, validators=[NotEmpty],
+    id = Parameter(str)
+    name = Parameter(str, validators=[NotEmpty], index=UniqueIndex)
+    email = Parameter(str, validators=[Email, NotEmpty], index=UniqueIndex)
+    password = Parameter(str, validators=[NotEmpty],
                          to_value_converter=create_password_hasher(rounds=10), omit=True)
     roles = Parameter(list, sub_type=str, default_value=['Login'])
 
