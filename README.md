@@ -20,7 +20,7 @@ class User(Model, MongoRepository, Service):
     name = Parameter(str, validators=[NotEmpty], index=UniqueIndex)
     email = Parameter(str, validators=[Email, NotEmpty], index=UniqueIndex)
     password = Parameter(str, validators=[NotEmpty],
-                         to_value_converter=password_hasher(rounds=10), omit=True)
+                         to_value_converter=password_hasher(), omit=True)
     roles = Parameter(list, sub_type=str, default_value=['Login'])
 
 application_id = 'identity management app'
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json schema for validation, or metadata to generate an SPA (Single Page Application).
 Of course validation and some more goodies are built-in as well :)
 
-**Let's issue a Mongo query**: *db.getCollection('Users').find({})* ...**and check the result:**
+**Let's issue a MongoDB query**: *db.getCollection('Users').find({})* ...**and check the result:**
 ```bash
 ﻿{
     "_id" : "cf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
@@ -52,7 +52,7 @@ Of course validation and some more goodies are built-in as well :)
 }
 ```
 
-One could add the AuditedMongoRepository mixin instead of the MongoRepository to the User model, and we would end up with 3 extra fields:
+One could add the *AuditedMongoRepository* mixin instead of the *MongoRepository* to the *User* model and we would end up with 3 extra fields:
 - **inserted**: the date-time of insertion;
 - **updated**: the date-time of the last update;
 - **version**: the number of versions stored for this document;

@@ -1,7 +1,7 @@
 from appkernel import Service
-from appkernel.model import Model, Parameter, UniqueIndex, ServiceException
+from appkernel import Model, Parameter, UniqueIndex, ServiceException
 from datetime import datetime
-from appkernel.repository import AuditableRepository, Repository, MongoRepository
+from appkernel import AuditableRepository, Repository, MongoRepository
 from appkernel.service import link
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, password_hasher
 from passlib.hash import pbkdf2_sha256

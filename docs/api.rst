@@ -1,10 +1,9 @@
 API
 ---
-.. module:: appkernel.model
+.. module:: appkernel
 
 Model
 ------------------
-
 .. autoclass:: Model
    :members:
    :inherited-members:

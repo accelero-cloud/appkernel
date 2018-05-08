@@ -33,12 +33,12 @@ Crash Course
 -----------
 Let's build a mini identity service: ::
 
-    class User(Model, AuditedMongoRepository, Service):
-        id = Parameter(str, required=True)
+    class User(Model, MongoRepository, Service):
+        id = Parameter(str)
         name = Parameter(str, required=True, index=UniqueIndex)
         email = Parameter(str, validators=[Email, NotEmpty], index=UniqueIndex)
         password = Parameter(str, validators=[NotEmpty],
-                             to_value_converter=password_hasher(rounds=10), omit=True)
+                             to_value_converter=password_hasher(), omit=True)
         roles = Parameter(list, sub_type=str, default_value=['Login'])
 
     app = Flask(__name__)
