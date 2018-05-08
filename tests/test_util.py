@@ -1,11 +1,13 @@
 from appkernel import Service
-from appkernel.model import Model, Parameter, UniqueIndex
+from appkernel.model import Model, Parameter, UniqueIndex, ServiceException
 from datetime import datetime
 from appkernel.repository import AuditableRepository, Repository, MongoRepository
 from appkernel.service import link
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, create_password_hasher
 from passlib.hash import pbkdf2_sha256
 from enum import Enum
+
+from appkernel.validators import Max, Min
 
 
 class User(Model, MongoRepository, Service):
