@@ -28,7 +28,13 @@ version = u''
 # The full version, including alpha/beta/rc tags
 release = u'1.0'
 
-
+html_context = {
+    "display_github": True, # Integrate GitHub
+    "github_user": "thingsplode", # Username
+    "github_repo": "/accelero-cloud/appkernel", # Repo name
+    "github_version": "master", # Version
+    "conf_py_path": "/source/", # Path in the checkout to the docs root
+}
 # -- General configuration ---------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.

@@ -5,6 +5,11 @@
 
 Welcome to Appkernel- microservices made easy!
 =====================================
+{% if display_github %}
+    <li><a href="https://github.com/{{ github_user }}/{{ github_repo }}
+    /blob/{{ github_version }}{{ conf_py_path }}{{ pagename }}.rst">
+    Show on GitHub</a></li>
+{% endif %}
 
 What is Appkernel?
 ------------------
