@@ -13,7 +13,7 @@ It is powered by Flask and it offers native support for MongoDB data stores.
 
 The codebase is thoroughly tested under Python 2.7 (3.4+ and PyPy are planned for the release 1.0).
 
-What's in it for you?
+How does it helps you?
 ---------------------
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
 You can focus entirely on delivering business value on day one and being the rockstar of your project.
@@ -92,7 +92,8 @@ Generate the ID value automatically using a uuid generator and a prefix 'U': ::
 
    id = Parameter(..., generator=uuid_generator('U-'))
 
-I will generate an ID which gives a hint about the object type: *U-0590e790-46cf-42a0-bdca-07b0694d08e2*
+It will generate an ID which gives a hint about the object type: *U-0590e790-46cf-42a0-bdca-07b0694d08e2*
+
 Add a Unique index to the User's name property: ::
 
    name = Parameter(..., index=UniqueIndex)
@@ -109,7 +110,7 @@ Hash the password and omit this attribute from the json representation: ::
 
    password = Parameter(..., to_value_converter=password_hasher(rounds=10), omit=True)
 
-Run the generators on the attributes and validate the object (usually not needed, since it is implicitly called by save and dumps methods): ::
+Run the generators on the attributes and validate the resulting object (usually not needed, since it is implicitly called by save and dumps methods): ::
 
    user.finalise_and_validate()
 
