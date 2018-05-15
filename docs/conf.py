@@ -12,20 +12,16 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+#sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../appkernel'))
 
 
 # -- Project information -----------------------------------------------------
-import os
-import sys
-
 project = u'Appkernel'
 copyright = u'2018, Csaba Tamas'
 author = u'Csaba Tamas'
-
-sys.path.insert(0, os.path.abspath('../appkernel'))
 
 # The short X.Y version
 version = u''

@@ -18,14 +18,6 @@ What's in it for you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
 You can focus entirely on delivering business value on day one and being the rockstar of your project.
 
-Quick overview
-==============
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-.. include:: contents.rst.inc
-
 ****
 
 Crash Course
@@ -120,3 +112,7 @@ Hash the password and omit this attribute from the json representation: ::
 Run the generators on the attributes and validate the object (usually not needed, since it is implicitly called by save and dumps methods): ::
 
    user.finalise_and_validate()
+
+Quick overview
+==============
+.. include:: contents.rst.inc
