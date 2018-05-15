@@ -7,6 +7,10 @@ API
 Some module
 -----------
 .. automodule:: appkernel
+    :members:
+    :undoc-members:
+    :inherited-members:
+    :show-inheritance:
 
 
 App Kernel Engine
@@ -19,8 +23,6 @@ The main application class, which exposes the services.
 
 Model
 -----
-The main class providing
-
 .. autoclass:: Model
     :members:
     :inherited-members:
