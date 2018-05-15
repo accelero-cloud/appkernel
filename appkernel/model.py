@@ -736,7 +736,8 @@ class Model(object):
     @staticmethod
     def from_list(list_obj, item_cls, convert_ids=False):
         """
-        Converts a list of dict structures to a list of Model instances. It is mainly used from the Model.from_dict method;
+        Converts a list of dict structures to a list of Model instances. It is mainly used from the Model.from_dict method.
+
         Args:
             list_obj(list): a list of dict objects representing a model;
             item_cls(type): the class of the Model to which the dict is loaded
