@@ -345,9 +345,11 @@ class Model(object):
         """
         Updates an existing attribute. The only difference compared to standard attribute value assignment is that it accepts multiple assignments in one line
         and returns the object instance, enabling further method calls;
-        :param kwargs: key value pairs which will be set on the instance
-        :return: the Model instance
-        :rtype: Model
+        Args:
+            kwargs (object): key value pairs which will be set on the instance
+
+        Returns:
+            Model: the Model instance
         """
         for name in kwargs:
             setattr(self, name, kwargs[name])
