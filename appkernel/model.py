@@ -355,10 +355,10 @@ class Model(object):
 
     def append_to(self, **kwargs):
         """
-        Appends one or more objects to a list (eg. User(name='user name').append(roles=['Admin'])
+        Appends one or more objects to a list (eg. User(name='user name').append(roles=['Admin']).
         :param kwargs: named arguments, representing a list object
-        :return: the current object itself
         :rtype: Model
+        :return: the current object itself
         """
         for name in kwargs:
             if name not in self.__dict__:
