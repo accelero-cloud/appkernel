@@ -1,9 +1,4 @@
 .. _api:
-.. readthedocs-embed::
-    :project: myproject
-    :version: latest
-    :doc: index
-    :section: User Guide
 
 App Kernel Engine
 -----------------
