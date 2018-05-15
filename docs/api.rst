@@ -2,6 +2,8 @@
 
 App Kernel Engine
 -----------------
+.. module:: appkernel
+
 The main application class, which exposes the services.
 
 .. autoclass:: AppKernelEngine
