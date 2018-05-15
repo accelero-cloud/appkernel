@@ -231,6 +231,9 @@ class UniqueIndex(Index):
 
 
 class Parameter(DslBase):
+    """
+    Metadata holder used by the Model classes.
+    """
     def __init__(self, python_type,
                  required=False,
                  sub_type=None,
@@ -243,7 +246,6 @@ class Parameter(DslBase):
                  omit=False):
         # type: (type, bool, type, function, function, function, function, Index) -> ()
         """
-        Metadata holder used by the Model classes.
         Args:
             python_type(type): the primary python type of the attribute (eg. str, datetime or anything else);
             required(bool): if True, the field must be specified before validation;
@@ -308,6 +310,7 @@ class Parameter(DslBase):
     def asc(self):
         """
         Adds ASCENDING sorting order to the query.
+
         Returns:
             Model: reference to self
         """
@@ -315,7 +318,8 @@ class Parameter(DslBase):
 
     def desc(self):
         """
-        Adds DESCENDING sorting order to the query
+        Adds DESCENDING sorting order to the query.
+
         Returns:
             Model: reference to self
         """
@@ -348,6 +352,7 @@ class Model(object):
         """
         Updates an existing attribute. The only difference compared to standard attribute value assignment is that it accepts multiple assignments in one line
         and returns the object instance, enabling further method calls;
+
         Args:
             kwargs (object): key value pairs which will be set on the instance
 
@@ -361,6 +366,7 @@ class Model(object):
     def append_to(self, **kwargs):
         """
         Appends one or more objects to a list (eg. User(name='user name').append(roles=['Admin']).
+
         Args:
             kwargs(objects): named arguments, representing a list object
         Returns:
@@ -380,6 +386,7 @@ class Model(object):
     def remove_from(self, **kwargs):
         """
         Deletes one or more elements from a parameter of list type (eg. roles='Admin').
+
         Args:
             kwargs (object): the name of the list parameter and the value;
         Raises:
@@ -415,6 +422,7 @@ class Model(object):
         # type: (bool, bool) -> dict
         """
         Generates a JSON Schema document from the Model.
+
         Args:
             additional_properties(bool): if True the schema will have an additional parameter called 'additionalProperties':true (this will allow to have extra elements in the json schema)
             mongo_compatibility(bool): if true, the generated json schema will be compatible with mongo
@@ -576,6 +584,7 @@ class Model(object):
     def get_parameter_spec(cls, convert_types_to_string=True):
         """
         Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
+
         Args:
             convert_types_to_string(bool): when true (default behaviour) the definition will contain the string representation of the python types;
         Returns:
@@ -595,6 +604,7 @@ class Model(object):
     def get_paramater_spec_as_json(cls):
         """
         Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
+
         Returns:
             str: json parameter specification description
         """
@@ -655,6 +665,7 @@ class Model(object):
     def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False):
         """
         Turns the python instance object into a dictionary after finalising and validating it.
+
         Args:
             skip_omitted_fields(bool): if True, the fields marked with ommitted=True will be excluded from the result;
             validate(bool): if False (default: True), the validation of the object will be skipped
@@ -759,6 +770,7 @@ class Model(object):
     def dumps(self, validate=True, pretty_print=False):
         """
         Returns the json representation of the object.
+
         Args:
             validate(bool): if True (default), will validate the object before converting it to Json;
             pretty_print(bool):  if True (False by default) it will format the json object upon conversion;
@@ -773,6 +785,7 @@ class Model(object):
     def loads(cls, json_string):
         """
         Takes a json string and creates a python object from it.
+
         Args:
             json_string(str): the Json string to be converted into an object
         Returns:
@@ -785,6 +798,7 @@ class Model(object):
         """
         Calls the generator, default value calculator and converter methods first,
         than it validates the object;
+
         Raises:
             ParameterRequiredException: in case some value property is mandatory
             ValidationException: in case one of the parameter validators do not validate

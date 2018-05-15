@@ -27,7 +27,8 @@ Example: ::
 .. autoclass:: Model
     :members:
     :inherited-members:
-
+Parameter
+-----
 .. autoclass:: Parameter
     :members:
     :inherited-members:
