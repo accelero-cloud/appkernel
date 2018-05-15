@@ -1,5 +1,8 @@
 .. _api:
 
+API
+===
+
 App Kernel Engine
 -----------------
 .. module:: appkernel
