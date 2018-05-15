@@ -243,17 +243,18 @@ class Parameter(DslBase):
                  omit=False):
         # type: (type, bool, type, function, function, function, function, Index) -> ()
         """
-
-        :param python_type: the primary python type of the attribute (eg. str, datetime or anything else);
-        :param required: if True, the field must be specified before validation;
-        :param sub_type: in case the python type is a dict or a list (or any other collection type), one needs to specify the element types
-        :param validators: a list of validator elements which are used to validate field content
-        :param to_value_converter: converts the value of the field in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
-        :param from_value_converter: used to decrypt (or convert) content loaded from the database before presenting it to the user;
-        :param default_value: this value is set on the field in case there's no other value there yet
-        :param generator: content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
-        :param index: the type of index (if any) which needs to be added to the database;
-        :param omit: if True, the field won't be included in the json or other wire-format messages
+        Metadata holder used by the Model classes.
+        Args:
+            python_type(type): the primary python type of the attribute (eg. str, datetime or anything else);
+            required(bool): if True, the field must be specified before validation;
+            sub_type(type): in case the python type is a dict or a list (or any other collection type), one needs to specify the element types
+            validators(Validator): a list of validator elements which are used to validate field content
+            to_value_converter: converts the value of the field in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
+            from_value_converter: used to decrypt (or convert) content loaded from the database before presenting it to the user;
+            default_value(object): this value is set on the field in case there's no other value there yet
+            generator: content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
+            index(Index): the type of index (if any) which needs to be added to the database;
+            omit(bool): if True, the field won't be included in the json or other wire-format messages
         """
         self.omit = omit
         self.index = index
@@ -307,14 +308,16 @@ class Parameter(DslBase):
     def asc(self):
         """
         Adds ASCENDING sorting order to the query.
-        :return:
+        Returns:
+            Model: reference to self
         """
         return self.backreference.parameter_name, 1
 
     def desc(self):
         """
         Adds DESCENDING sorting order to the query
-        :return:
+        Returns:
+            Model: reference to self
         """
         return self.backreference.parameter_name, -1
 
@@ -734,14 +737,12 @@ class Model(object):
     def from_list(list_obj, item_cls, convert_ids=False):
         """
         Converts a list of dict structures to a list of Model instances. It is mainly used from the Model.from_dict method;
-        :param list_obj: a list of dict objects representing a model;
-        :type list_obj: list
-        :param item_cls: the class of the Model to which the dict is loaded
-        :type item_cls: type
-        :param convert_ids: if true, it will convert ids with underscore prefix (from '_id' to 'id')
-        :type convert_ids: bool
-        :return: the list of Model objects
-        :rtype: list
+        Args:
+            list_obj(list): a list of dict objects representing a model;
+            item_cls(type): the class of the Model to which the dict is loaded
+            convert_ids(bool): if true, it will convert ids with underscore prefix (from '_id' to 'id')
+        Returns:
+            list: the list of Model objects
         """
         return_list = []
         if list_obj and not isinstance(list_obj, list):
@@ -757,11 +758,11 @@ class Model(object):
     def dumps(self, validate=True, pretty_print=False):
         """
         Returns the json representation of the object.
-        :param validate: if True (default), will validate the object before converting it to Json;
-        :type validate: bool
-        :param pretty_print:  if True (False by default) it will format the json object upon conversion;
-        :type pretty_print: bool
-        :return: the json object as a string
+        Args:
+            validate(bool): if True (default), will validate the object before converting it to Json;
+            pretty_print(bool):  if True (False by default) it will format the json object upon conversion;
+        Returns:
+            str: the json object as a string
         """
         model_as_dict = Model.to_dict(self, validate=validate, skip_omitted_fields=True)
         return json.dumps(model_as_dict, default=default_json_serializer, indent=4 if pretty_print else None,
@@ -771,9 +772,10 @@ class Model(object):
     def loads(cls, json_string):
         """
         Takes a json string and creates a python object from it.
-        :param json_string: the Json string to be converted into an object
-        :type json_string: str
-        :return: the generated object (it won't run validation on it)
+        Args:
+            json_string(str): the Json string to be converted into an object
+        Returns:
+            Model: the generated object (it won't run validation on it)
         """
         # type: (basestring, cls) -> Model
         return Model.from_dict(json.loads(json_string), cls)
@@ -782,8 +784,9 @@ class Model(object):
         """
         Calls the generator, default value calculator and converter methods first,
         than it validates the object;
-        :raises ParameterRequiredException: in case some value property is mandatory
-        :raises ValidationException: in case one of the parameter validators do not validate
+        Raises:
+            ParameterRequiredException: in case some value property is mandatory
+            ValidationException: in case one of the parameter validators do not validate
         """
         obj_items = self.__dict__
         class_items = self.__class__.__dict__
