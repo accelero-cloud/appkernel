@@ -18,10 +18,14 @@
 
 
 # -- Project information -----------------------------------------------------
+import os
+import sys
 
 project = u'Appkernel'
 copyright = u'2018, Csaba Tamas'
 author = u'Csaba Tamas'
+
+sys.path.insert(0, os.path.abspath('../appkernel'))
 
 # The short X.Y version
 version = u''
@@ -29,11 +33,11 @@ version = u''
 release = u'1.0'
 
 html_context = {
-    "display_github": True, # Integrate GitHub
-    "github_user": "thingsplode", # Username
-    "github_repo": "/accelero-cloud/appkernel", # Repo name
-    "github_version": "master", # Version
-    "conf_py_path": "/source/", # Path in the checkout to the docs root
+    "display_github": True,  # Integrate GitHub
+    "github_user": "thingsplode",  # Username
+    "github_repo": "/accelero-cloud/appkernel",  # Repo name
+    "github_version": "master",  # Version
+    "conf_py_path": "/source/",  # Path in the checkout to the docs root
 }
 # -- General configuration ---------------------------------------------------
 
@@ -78,7 +82,6 @@ exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -113,7 +116,6 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Appkerneldoc'
 
-
 # -- Options for LaTeX output ------------------------------------------------
 
 latex_elements = {
@@ -142,7 +144,6 @@ latex_documents = [
      u'Csaba Tamas', 'manual'),
 ]
 
-
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
@@ -151,7 +152,6 @@ man_pages = [
     (master_doc, 'appkernel', u'Appkernel Documentation',
      [author], 1)
 ]
-
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -163,6 +163,5 @@ texinfo_documents = [
      author, 'Appkernel', 'One line description of project.',
      'Miscellaneous'),
 ]
-
 
 # -- Extension configuration -------------------------------------------------

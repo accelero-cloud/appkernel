@@ -374,11 +374,11 @@ class Model(object):
 
     def remove_from(self, **kwargs):
         """
-        Delete one or more elements from a parameter of list type (eg. roles='Admin';
-        :param kwargs: the name of the list parameter and the value
-        :raises AttributeError: when the named attribute cannot be found on the object
-        :return: the self object
+        Deletes one or more elements from a parameter of list type (eg. roles='Admin').
+        :param kwargs: the name of the list parameter and the value;
+        :raises AttributeError: when the named attribute cannot be found on the object.
         :rtype: Model
+        :return: the self object
         """
         for name in kwargs:
             if name in self.__dict__:
@@ -521,7 +521,7 @@ class Model(object):
                     elif validator.get('type') == Email:
                         properties[name].update(format='email')
                         # todo: add formats for: hostname, ipv4, ipv6, uri
-                        # todo: build dependencies
+                        #   todo: build dependencies
 
             # -- handle subtypes --
             if spec.get('type') == list and spec.get('sub_type'):
@@ -695,7 +695,7 @@ class Model(object):
         :type dict_obj: dict
         :param cls: the type of the object needs to be returned
         :type cls: type
-        :return: returns an instantiated object from the dict
+        :return: an instantiated object from the dict
         """
         instance = cls()
         class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]

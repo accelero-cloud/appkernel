@@ -2,7 +2,12 @@
 
 API
 ---
-.. module:: ../appkernel
+.. module:: appkernel
+
+Some module
+-----------
+.. automodule:: appkernel
+
 
 App Kernel Engine
 -----------------
