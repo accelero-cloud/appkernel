@@ -358,9 +358,10 @@ class Model(object):
     def append_to(self, **kwargs):
         """
         Appends one or more objects to a list (eg. User(name='user name').append(roles=['Admin']).
-        :param kwargs: named arguments, representing a list object
-        :rtype: Model
-        :return: the current object itself
+        Args:
+            kwargs(objects): named arguments, representing a list object
+        Returns:
+            Model: the current object itself.
         """
         for name in kwargs:
             if name not in self.__dict__:
@@ -371,7 +372,6 @@ class Model(object):
                     attr.extend(kwargs[name])
                 else:
                     attr.append(kwargs[name])
-
         return self
 
     def remove_from(self, **kwargs):
@@ -382,7 +382,7 @@ class Model(object):
         Raises:
              AttributeError: when the named attribute cannot be found on the object.
         Returns:
-            Model: the self object
+            Model: the self object for chaining further method calls
         """
         for name in kwargs:
             if name in self.__dict__:
@@ -411,10 +411,12 @@ class Model(object):
     def get_json_schema(cls, additional_properties=True, mongo_compatibility=False):
         # type: (bool, bool) -> dict
         """
-        Generates a JSON Schema document from the Model
-        :param additional_properties: if True the schema will have an additional parameter called 'additionalProperties':true, which will allow extra elements
-        :param mongo_compatibility: if true, the generated json schema will be compatible with mongo
-        :return: the schema of the current object as a string
+        Generates a JSON Schema document from the Model.
+        Args:
+            additional_properties(bool): if True the schema will have an additional parameter called 'additionalProperties':true (this will allow to have extra elements in the json schema)
+            mongo_compatibility(bool): if true, the generated json schema will be compatible with mongo
+        Returns:
+             str: the schema of the current object as a string
         """
         specs = cls.get_parameter_spec(convert_types_to_string=False)
         properties, required_props, definitions = Model.__prepare_json_schema_properties(specs,
@@ -571,9 +573,10 @@ class Model(object):
     def get_parameter_spec(cls, convert_types_to_string=True):
         """
         Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
-        :param convert_types_to_string: when true (default behaviour) the definition will contain the string representation of the python types;
-        :return: a dict object, defining all parameters found on the Model instance;
-        :rtype: dict
+        Args:
+            convert_types_to_string(bool): when true (default behaviour) the definition will contain the string representation of the python types;
+        Returns:
+            dict: a dict object, defining all parameters found on the Model instance;
         """
         props = cls.__dict__  # or: set(dir(cls))
         # print "params: %s" % [f for f in props if cls.__is_param_field(f, cls)]
@@ -589,8 +592,8 @@ class Model(object):
     def get_paramater_spec_as_json(cls):
         """
         Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
-        :return: json parameter specification description
-        :rtype: str
+        Returns:
+            str: json parameter specification description
         """
         return json.dumps(cls.get_parameter_spec(), default=default_json_serializer, indent=4, sort_keys=True)
 
@@ -649,16 +652,13 @@ class Model(object):
     def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False):
         """
         Turns the python instance object into a dictionary after finalising and validating it.
-        :param skip_omitted_fields: if True, the fields marked with ommitted=True will be excluded from the result;
-        :type skip_omitted_fields: bool
-        :param validate: if False (default: True), the validation of the object will be skipped
-        :type validate: bool
-        :param convert_id: it will convert id fields to _id for mongodb
-        :type convert_id: bool
-        :param instance: the python instance object
-        :type instance: Model
-        :return: a dictionary representing the python Model object
-        :rtype: dict
+        Args:
+            skip_omitted_fields(bool): if True, the fields marked with ommitted=True will be excluded from the result;
+            validate(bool): if False (default: True), the validation of the object will be skipped
+            convert_id(bool): it will convert id fields to _id representation for fitting Mongodb's requirements
+            instance(Model): the python instance object
+        Returns:
+            dict: a dictionary representing the python Model object
         """
         if validate and isinstance(instance, Model):
             instance.finalise_and_validate()
