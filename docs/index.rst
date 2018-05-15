@@ -66,6 +66,8 @@ Now we can test it by using curl: ::
      }
    }
 
+Quick overview
+==============
 A few features of the built-in ORM function
 -------------------------------------------
 
@@ -109,6 +111,6 @@ Run the generators on the attributes and validate the resulting object (usually 
 
    user.finalise_and_validate()
 
-Quick overview
-==============
+Read the docs :)
+================
 .. include:: contents.rst.inc

@@ -691,15 +691,14 @@ class Model(object):
         # type: (dict, cls) -> Model
         """
         Reads a dictionary representation of the model and turns it into a python object model.
-        :param set_unmanaged_parameters: if False, key-value pairs from the dict object which are not class variables on the Model (there is no Parameter object for them) will not be set
-        :type set_unmanaged_parameters: bool
-        :param convert_ids: strip the underscore prefix from object id parameter is exists ( _id -> id )
-        :type convert_ids: bool
-        :param dict_obj: the dictionary to be converted to object
-        :type dict_obj: dict
-        :param cls: the type of the object needs to be returned
-        :type cls: type
-        :return: an instantiated object from the dict
+
+        Args:
+            set_unmanaged_parameters(bool): if False, key-value pairs from the dict object which are not class variables on the Model (there is no Parameter object for them) will not be set
+            convert_ids(bool): strip the underscore prefix from object id parameter is exists ( _id -> id )
+            dict_obj(dict): the dictionary to be converted to object
+            cls(type): the type of the object needs to be returned
+        Returns:
+            Model: an instantiated object from the dict
         """
         instance = cls()
         class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]
