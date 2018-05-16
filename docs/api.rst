@@ -35,6 +35,75 @@ Parameter
     :members:
     :inherited-members:
 
+Validators
+----------
+
+The base Validator class
+`````````````````````````
+.. autoclass:: Validator
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Not Empty Validator
+````````````````````````````
+.. autoclass:: NotEmpty
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+
+Regular Expression Validator
+````````````````````````````
+.. autoclass:: Regexp
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Email Validator
+````````````````````````````
+.. autoclass:: Email
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Minimum Validator
+````````````````````````````
+.. autoclass:: Min
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Maximum Validator
+````````````````````````````
+.. autoclass:: Max
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Past Validator
+````````````````````````````
+.. autoclass:: Past
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Future Validator
+````````````````````````````
+.. autoclass:: Future
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+
+Unique Value Validator
+````````````````````````````
+.. autoclass:: Unique
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+
 Repository
 ----------
 The current implementation is the MongoRepository.
@@ -62,16 +131,12 @@ Auditable Repository
     :members:
     :inherited-members:
 
-
 MongoQuery
 ----------
 .. autoclass:: MongoQuery
     :special-members: __init__
     :members:
     :inherited-members:
-
-
-
 
 Service
 -------

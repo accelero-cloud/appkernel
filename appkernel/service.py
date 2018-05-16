@@ -11,7 +11,6 @@ from model import Model, ParameterRequiredException, create_tagging_decorator, _
 from appkernel import AppKernelEngine
 from appkernel.repository import Repository, xtract, MongoRepository
 from reflection import *
-from model import Expression
 from collections import defaultdict
 from datetime import datetime
 
@@ -360,6 +359,7 @@ class Service(object):
         """
         Takes a query expression such as >1994-12-02 and turns into a {'$gte':'1994-12-02'}.
         Additionally converts the date string into datetime object;
+
         :param expression:
         :return:
         """
@@ -373,6 +373,7 @@ class Service(object):
     def __convert_expressions(expression):
         """
         converts strings containing numbers to int, string containing a date to datetime, string containing a boolean expression to boolean
+
         :param arguments:
         :return:
         """
@@ -429,6 +430,7 @@ class Service(object):
     def xvert(cls, result_item, generate_links=True):
         """
         converts the response object into Json
+
         :param generate_links: if True, it will add the HATEOAS links to the response
         :param result_item: the actual item which will get converted
         :return:

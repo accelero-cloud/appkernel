@@ -37,7 +37,8 @@ class Validator(object):
 
     def validate(self, parameter_name, validable_object):
         """
-        Validates and object against the validation pramaters.
+        Validates and object against the validation parameters.
+
         :param parameter_name:
         :param validable_object:
         :raise ValidationException:
