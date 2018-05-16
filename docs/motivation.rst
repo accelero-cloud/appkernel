@@ -2,24 +2,33 @@ What is being built here?
 --------------------------
 The vision of the project is to provide you with a full-fledged microservice chassis, as defined by Chris Richardson.
 
-Currently supported (and fully tested) features
+Supported features
 ------------------------------------------------
 
-* :ref:`REST endpoints over HTTP`
-* REST endpoints over HTTP
-* Full range of CRUD operations
-* Customizable resource endpoints
-* Customizable, multiple item endpoints
-* Filtering and Sorting
-* Pagination
-* Data Validation
+* Powered by Flask
 * Extensible Data Validation
 * Default Values
+* Custom ID Fields
+* :ref:`REST endpoints over HTTP`
+* REST endpoints over HTTP
+* Customizable resource endpoints
+* Filtering and Sorting
+* Pagination
+* Full range of CRUD operations
 * Projections
 * Embedded Resource Serialization
-* Custom ID Fields
 * MongoDB Aggregation Framework
-* Powered by Flask
+
+Powered by Flask
+`````````````````
+
+Let's assume that we have a User class extending our ..class:: Model ::
+
+    if __name__ == '__main__':
+        app = Flask(__name__)
+        kernel = AppKernelEngine(__name__, app=app)
+        kernel.register(User)
+        kernel.run()
 
 REST endpoints over HTTP
 ````````````````````````
