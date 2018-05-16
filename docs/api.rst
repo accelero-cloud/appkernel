@@ -29,8 +29,53 @@ Example: ::
     :inherited-members:
 
 Parameter
------
+---------
 .. autoclass:: Parameter
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Repository
+----------
+The current implementation is the MongoRepository.
+.. autoclass:: Repository
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+Query
+-----
+.. autoclass:: Query
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+MongoRepository
+---------------
+.. autoclass:: MongoRepository
+    :members: version_check, add_schema_validation, create_index, create_text_index, create_unique_index, get_collection
+    :inherited-members:
+
+Auditable Repository
+-------------------
+.. autoclass:: AuditableRepository
+    :members:
+    :inherited-members:
+
+
+MongoQuery
+----------
+.. autoclass:: MongoQuery
+    :special-members: __init__
+    :members:
+    :inherited-members:
+
+
+
+
+Service
+-------
+.. autoclass:: Service
     :special-members: __init__
     :members:
     :inherited-members:

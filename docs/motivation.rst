@@ -1,11 +1,8 @@
-What is being built here?
---------------------------
+Features
+------------------------------------------------
 The vision of the project is to provide you with a full-fledged microservice chassis, as defined by Chris Richardson.
 
-Supported features
-------------------------------------------------
-
-* Powered by Flask
+* :ref:`Powered by Flask`
 * Extensible Data Validation
 * Default Values
 * Custom ID Fields
@@ -29,6 +26,20 @@ Let's assume that we have created a User class extending the :class:`Model` and 
         kernel = AppKernelEngine('demo app', app=app)
         kernel.register(User)
         kernel.run()
+
+Extensible Data Validation
+``````````````````````````
+
+Assume that we would like to  ::
+
+    class User(Model, AuditableRepository, Service):
+        id = Parameter(str, required=True, generator=uuid_generator('U'))
+        name = Parameter(str, required=True, validators=[NotEmpty])
+        email = Parameter(str, required=True, validators=[Email, NotEmpty])
+        password = Parameter(str, required=True, validators=[NotEmpty],
+                             to_value_converter=password_hasher(rounds=10), omit=True)
+        roles = Parameter(list, sub_type=str, default_value=['Login'])
+
 
 REST endpoints over HTTP
 ````````````````````````
