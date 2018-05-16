@@ -31,5 +31,6 @@ Example: ::
 Parameter
 -----
 .. autoclass:: Parameter
+    :special-members:
     :members:
     :inherited-members:
