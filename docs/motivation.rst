@@ -22,7 +22,7 @@ Supported features
 Powered by Flask
 `````````````````
 
-Let's assume that we have a User class extending our ..class:: Model ::
+Let's assume that we have a User class extending our ..py:class:: Model ::
 
     if __name__ == '__main__':
         app = Flask(__name__)
