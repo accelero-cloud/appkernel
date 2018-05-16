@@ -5,7 +5,7 @@ The vision of the project is to provide you with a full-fledged microservice cha
 Currently supported (and fully tested) features
 ------------------------------------------------
 
-* :ref:`rest-reference`
+* :ref:`REST endpoints over HTTP`
 * REST endpoints over HTTP
 * Full range of CRUD operations
 * Customizable resource endpoints
@@ -21,10 +21,9 @@ Currently supported (and fully tested) features
 * MongoDB Aggregation Framework
 * Powered by Flask
 
-.. _rest-reference:
 REST endpoints over HTTP
 ````````````````````````
-
+bla bla
 
 Why did we built this?
 ----------------------
