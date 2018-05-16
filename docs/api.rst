@@ -31,6 +31,6 @@ Example: ::
 Parameter
 -----
 .. autoclass:: Parameter
-    :special-members:
+    :special-members: __init__
     :members:
     :inherited-members:
