@@ -52,7 +52,6 @@ Not Empty Validator
     :members:
     :inherited-members:
 
-
 Regular Expression Validator
 ````````````````````````````
 .. autoclass:: Regexp
@@ -104,9 +103,25 @@ Unique Value Validator
     :inherited-members:
 
 
+Generators
+----------
+
+UUID Generator
+``````````````
+.. autofunction:: create_uuid_generator
+
+UUID Generator
+``````````````
+.. autofunction:: create_uuid_generator
+
+UUID Generator
+``````````````
+.. autofunction:: create_uuid_generator
+
 Repository
 ----------
 The current implementation is the MongoRepository.
+
 .. autoclass:: Repository
     :special-members: __init__
     :members:
