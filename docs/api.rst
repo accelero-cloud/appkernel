@@ -15,7 +15,7 @@ The main application class, which exposes the Service classes, manages Repositor
 
 Model
 -----
-The base class to he extended by all Domain objects (Models). It has a set of useful methods, such as JSON marshaling, metadata (json schema) generation and validation.
+The base class to be extended by all Domain objects (Models). It has a set of useful methods, such as JSON marshaling, metadata (json schema) generation and validation.
 Example: ::
 
     class User(Model):
@@ -27,6 +27,7 @@ Example: ::
 .. autoclass:: Model
     :members:
     :inherited-members:
+
 Parameter
 -----
 .. autoclass:: Parameter
