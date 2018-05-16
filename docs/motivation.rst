@@ -22,11 +22,11 @@ Supported features
 Powered by Flask
 `````````````````
 
-Let's assume that we have a User class extending our .. py:class:: Model ::
+Let's assume that we have created a User class extending the :class:`Model` and the :class:`Service`. Now we'd like to expose it as a REST endpoint ::
 
     if __name__ == '__main__':
         app = Flask(__name__)
-        kernel = AppKernelEngine(__name__, app=app)
+        kernel = AppKernelEngine('demo app', app=app)
         kernel.register(User)
         kernel.run()
 
