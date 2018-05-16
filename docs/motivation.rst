@@ -1,10 +1,11 @@
-What are we building here?
+What is being built here?
 --------------------------
 The vision of the project is to provide you with a full-fledged microservice chassis, as defined by Chris Richardson.
 
 Currently supported (and fully tested) features
 ------------------------------------------------
 
+* :ref:`rest-reference`
 * REST endpoints over HTTP
 * Full range of CRUD operations
 * Customizable resource endpoints
@@ -19,6 +20,11 @@ Currently supported (and fully tested) features
 * Custom ID Fields
 * MongoDB Aggregation Framework
 * Powered by Flask
+
+.. _rest-reference:
+REST endpoints over HTTP
+````````````````````````
+
 
 Why did we built this?
 ----------------------
