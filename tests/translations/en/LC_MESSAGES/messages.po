@@ -1,0 +1,35 @@
+# English translations for PROJECT.
+# Copyright (C) 2018 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2018.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2018-05-19 15:06+0200\n"
+"PO-Revision-Date: 2018-05-19 15:11+0200\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.5.3\n"
+
+#: test_util.py:27
+msgid "Current password is not correct"
+msgstr "Old password is not matched."
+
+msgid "User.name"
+msgstr "Name"
+
+msgid "User.password"
+msgstr "Password"
+
+msgid "User.description"
+msgstr "Description"
+
+msgid "User.roles"
+msgstr "Roles"
