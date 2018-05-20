@@ -110,13 +110,13 @@ UUID Generator
 ``````````````
 .. autofunction:: create_uuid_generator
 
-UUID Generator
+Date NOW Generator
 ``````````````
-.. autofunction:: create_uuid_generator
+.. autofunction:: date_now_generator
 
-UUID Generator
+Password hasher
 ``````````````
-.. autofunction:: create_uuid_generator
+.. autofunction:: password_hasher
 
 Repository
 ----------
@@ -144,14 +144,12 @@ Auditable Repository
 -------------------
 .. autoclass:: AuditableRepository
     :members:
-    :inherited-members:
 
 MongoQuery
 ----------
 .. autoclass:: MongoQuery
     :special-members: __init__
     :members:
-    :inherited-members:
 
 Service
 -------

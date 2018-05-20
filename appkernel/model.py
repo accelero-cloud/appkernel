@@ -3,6 +3,7 @@ from bson import ObjectId
 from enum import Enum
 from datetime import datetime, date
 from appkernel.validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
+from flask_babel import lazy_gettext
 
 try:
     import simplejson as json
@@ -596,7 +597,7 @@ class Model(object):
         for field_name in props:
             attribute = getattr(cls, field_name)
             if isinstance(attribute, Parameter):
-                result_dct[field_name] = Model.__describe_attribute(cls, attribute,
+                result_dct[field_name] = Model.__describe_attribute(cls, field_name, attribute,
                                                                     convert_types_to_string=convert_types_to_string)
         return result_dct
 
@@ -611,11 +612,14 @@ class Model(object):
         return json.dumps(cls.get_parameter_spec(), default=default_json_serializer, indent=4, sort_keys=True)
 
     @staticmethod
-    def __describe_attribute(clazz, attribute, convert_types_to_string=True):
+    def __describe_attribute(clazz, field_name, attribute, convert_types_to_string=True):
         attr_desc = {
             'type': attribute.python_type.__name__ if convert_types_to_string else attribute.python_type,
             'required': attribute.required,
         }
+        label = lazy_gettext('{}.{}'.format(clazz.__name__, field_name))
+        if label:
+            attr_desc.update(label=str(label))
         if issubclass(attribute.python_type, Model):
             attr_desc.update(
                 props=attribute.python_type.get_parameter_spec(convert_types_to_string=convert_types_to_string))

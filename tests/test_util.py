@@ -6,6 +6,7 @@ from appkernel.service import link
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, password_hasher
 from passlib.hash import pbkdf2_sha256
 from enum import Enum
+from flask_babel import _, lazy_gettext as _l
 
 from appkernel.validators import Max, Min
 
@@ -23,7 +24,7 @@ class User(Model, MongoRepository, Service):
     @link(rel='change_password', http_method='POST')
     def change_p(self, current_password, new_password):
         if not pbkdf2_sha256.verify(current_password, self.password):
-            raise ServiceException(403, 'Current password is not correct')
+            raise ServiceException(403, _('Current password is not correct'))
         else:
             self.password = new_password
             self.save()

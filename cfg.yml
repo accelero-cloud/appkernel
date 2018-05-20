@@ -6,3 +6,5 @@ appkernel:
   mongo:
     host: localhost
     db: appkernel
+  i18n:
+    languages: ['en-US','de-DE']

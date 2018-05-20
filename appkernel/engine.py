@@ -1,6 +1,8 @@
 #!/usr/bin/python
-from flask import Flask, jsonify, current_app
+from flask import Flask, jsonify, current_app, request, g
 import logging
+from flask_babel import Babel, get_locale
+import gettext
 from pymongo import MongoClient
 import sys, os, yaml, re
 import getopt
@@ -16,6 +18,11 @@ try:
 except ImportError:
     import json
 
+try:
+    from flask import _app_ctx_stack as stack
+except ImportError:
+    from flask import _request_ctx_stack as stack
+
 
 class MessageType(Enum):
     ErrorMessage = 1
@@ -30,6 +37,38 @@ class AppKernelJSONEncoder(json.JSONEncoder):
         else:
             return list(iterable)
         return json.JSONEncoder.default(self, obj)
+
+
+def get_cmdline_options():
+    # working dir is also available on: self.app.root_path
+    argv = sys.argv[1:]
+    opts, args = getopt.getopt(argv, 'c:dw:', ['config-dir=', 'development', 'working-dir='])
+    # -- config directory
+    config_dir_provided, config_dir_param = AppKernelEngine.is_option_provided(('-c', '--config-dir'), opts, args)
+    cwd = os.path.dirname(os.path.realpath(sys.argv[0]))
+    if config_dir_provided:
+        cfg_dir = '{}/'.format(str(config_dir_param).rstrip('/'))
+        cfg_dir = os.path.expanduser(cfg_dir)
+        if not os.path.isdir(cfg_dir) or not os.access(cfg_dir, os.W_OK):
+            raise AppInitialisationError('The config directory [{}] is not found/not writable.'.format(cfg_dir))
+    else:
+        cfg_dir = '{}/../'.format(cwd.rstrip('/'))
+
+    # -- working directory
+    working_dir_provided, working_dir_param = AppKernelEngine.is_option_provided(('-w', '--working-dir'), opts,
+                                                                                 args)
+    if working_dir_provided:
+        cwd = os.path.expanduser('{}/'.format(str(config_dir_param).rstrip('/')))
+        if not os.path.isdir(cwd) or not os.access(cwd, os.W_OK):
+            raise AppInitialisationError('The working directory[{}] is not found/not writable.'.format(cwd))
+    else:
+        cwd = '{}/../'.format(cwd.rstrip('/'))
+    development, param = AppKernelEngine.is_option_provided(('-d', '--development'), opts, args)
+    return {
+        'cfg_dir': cfg_dir,
+        'development': development,
+        'cwd': cwd
+    }
 
 
 class AppKernelEngine(object):
@@ -61,9 +100,10 @@ class AppKernelEngine(object):
         try:
             self.app_id = app_id
             self.root_url = root_url
-            self.init_flask_app()
-            self.init_web_layer()
-            self.cmd_line_options = self.get_cmdline_options()
+            self.__configure_flask_app()
+            self.__init_web_layer()
+            self.__init_babel()
+            self.cmd_line_options = get_cmdline_options()
             self.cfg_engine = CfgEngine(cfg_dir or self.cmd_line_options.get('cfg_dir'))
             self.development = development or self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
@@ -75,14 +115,33 @@ class AppKernelEngine(object):
             # resolution=3, where the value 3 represents 3 seconds.
             eventlet.debug.hub_blocking_detection(True, resolution=3)
             atexit.register(self.shutdown_hook)
+            if hasattr(app, 'teardown_appcontext'):
+                app.teardown_appcontext(self.teardown)
+            else:
+                app.teardown_request(self.teardown)
             # -- database host
             db_host = self.cfg_engine.get('appkernel.mongo.host') or 'localhost'
             db_name = self.cfg_engine.get('appkernel.mongo.db') or 'app'
-            AppKernelEngine.database = MongoClient(host=db_host)[db_name]
+            self.mongo_client = MongoClient(host=db_host)
+            AppKernelEngine.database = self.mongo_client[db_name]
+            ctx = stack.top
+            if ctx is not None:
+                if not hasattr(ctx, 'mongo_db'):
+                    ctx.mongo_db = AppKernelEngine.database
         except (AppInitialisationError, AssertionError) as init_err:
             # print >> sys.stderr,
             self.app.logger.error(init_err.message)
             sys.exit(-1)
+
+    def __init_babel(self):
+        self.babel = Babel(self.app)
+
+        def get_current_locale():
+            with self.app.app_context():
+                return request.accept_languages.best_match(self.cfg_engine.get('appkernel.i18n.languages'))
+        self.babel.localeselector(get_current_locale)
+        # catalogs = gettext.find('locale', 'locale', all=True)
+        # self.logger.info('Using message catalogs: {}'.format(catalogs))
 
     @property
     def logger(self):
@@ -93,6 +152,8 @@ class AppKernelEngine(object):
         self.app.run(debug=self.development)
 
     def shutdown_hook(self):
+        if AppKernelEngine.database:
+            self.mongo_client.close()
         if self.app and self.app.logger:
             self.app.logger.info('======= Shutting Down {} ======='.format(self.app_id))
 
@@ -134,21 +195,26 @@ class AppKernelEngine(object):
                 return True, arg
         return False, ''
 
-    def init_flask_app(self):
-        # app.config.setdefault('SQLITE3_DATABASE', ':memory:')
-        # Use the newstyle teardown_appcontext if it's available,
-        # otherwise fall back to the request context
+    def __configure_flask_app(self):
         if hasattr(self.app, 'teardown_appcontext'):
             self.app.teardown_appcontext(self.teardown)
         else:
             self.app.teardown_request(self.teardown)
+        if not hasattr(self.app, 'extensions'):
+            self.app.extensions = {}
+        self.app.extensions['appkernel'] = self
 
-    def init_web_layer(self):
+    def __init_web_layer(self):
         self.app.json_encoder = AppKernelJSONEncoder
         self.app.register_error_handler(Exception, self.generic_error_handler)
         for code in default_exceptions.iterkeys():
             # add a default error handler for everything is unhandled
             self.app.register_error_handler(code, self.generic_error_handler)
+
+            def set_locale_on_request():
+                g.locale = str(get_locale())
+
+            self.app.before_request(set_locale_on_request)
 
     def init_logger(self, log_folder, level=logging.DEBUG):
         assert log_folder is not None, 'The log folder must be provided.'
@@ -204,7 +270,7 @@ class AppKernelEngine(object):
         :return:
         """
         if exception is not None:
-            self.app.logger.info(exception.message)
+            self.app.logger.warn(exception.message)
 
     def register(self, service_class, url_base=None, methods=['GET']):
         service_class.set_app_engine(self, url_base or self.root_url, methods=methods)

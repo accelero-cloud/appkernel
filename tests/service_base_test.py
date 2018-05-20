@@ -540,6 +540,23 @@ def test_metadata(client):
     assert 'created' in result
     assert 'password' in result
 
+    assert 'label' in result.get('description')
+    assert result.get('description').get('label') == 'Description'
+
+    assert 'label' in result.get('description')
+    assert result.get('description').get('label') == 'Description'
+
+    assert 'label' in result.get('roles')
+    assert result.get('roles').get('label') == 'Roles'
+
+    assert 'label' in result.get('created')
+    assert result.get('created').get('label') == 'User.created'
+
+    assert 'label' in result.get('sequence')
+    assert result.get('sequence').get('label') == 'User.sequence'
+
+    assert 'label' in result.get('password')
+    assert result.get('password').get('label') == 'Password'
 
 def test_schema(client):
     rsp = client.get('/users/schema')
