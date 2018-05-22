@@ -1,11 +1,10 @@
 import datetime, os, tarfile
-import uuid
 import base64
+import itertools
+
 from bson import ObjectId
-
 from compat import PY3
-
-OBJ_PREFIX = 'OBJ_' # pylint: disable-msg=C0103
+OBJ_PREFIX = 'OBJ_'  # pylint: disable-msg=C0103
 
 
 def default_json_serializer(obj):
@@ -76,3 +75,47 @@ def assure_folder(folder_path):
 
 def merge_dicts(x_dict, y_dict):
     return x_dict.copy().update(y_dict)
+
+
+def extract_model_messages(fileobj, keywords, comment_tags, options):
+    """Extract messages from XXX files.
+
+    :param fileobj: the file-like object the messages should be extracted
+                    from
+    :param keywords: a list of keywords (i.e. function names) that should
+                     be recognized as translation functions
+    :param comment_tags: a list of translator tags to search for and
+                         include in the results
+    :param options: a dictionary of additional options (optional)
+    :return: an iterator over ``(lineno, funcname, message, comments)``
+             tuples
+    :rtype: ``iterator``
+    """
+
+    def extract_model():
+        import ast
+        fileobj.seek(0)
+        node = ast.parse(fileobj.read())
+        classes = [n for n in node.body if isinstance(n, ast.ClassDef)]
+
+        def has_model(class_def):
+            for base in class_def.bases:
+                from appkernel import Model
+                if base.id == Model.__name__:
+                    return True
+            return False
+
+        def is_parameter(body_elem):
+            if not hasattr(body_elem, 'value') or not hasattr(body_elem.value, 'func'):
+                return False
+            return body_elem.value.func.id == 'Parameter'
+
+        for class_ in classes:
+            if has_model(class_):
+                for param in [p for p in class_.body if isinstance(p, ast.Assign) and is_parameter(p)]:
+                    clazz_name = class_.name
+                    parameter_name = param.targets[0].id
+                    yield (param.lineno, '', '{}.{}'.format(clazz_name, parameter_name), ['Parameter "{}" on "{}"'.format(parameter_name, clazz_name)])
+
+    from babel.messages.extract import extract_python
+    return itertools.chain(extract_python(fileobj, keywords, comment_tags, options), extract_model())

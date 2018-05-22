@@ -102,9 +102,9 @@ class AppKernelEngine(object):
             self.root_url = root_url
             self.__configure_flask_app()
             self.__init_web_layer()
-            self.__init_babel()
             self.cmd_line_options = get_cmdline_options()
             self.cfg_engine = CfgEngine(cfg_dir or self.cmd_line_options.get('cfg_dir'))
+            self.__init_babel()
             self.development = development or self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
             self.init_logger(log_folder=cwd, level=log_level)
@@ -135,10 +135,17 @@ class AppKernelEngine(object):
 
     def __init_babel(self):
         self.babel = Babel(self.app)
+        supported_languages = []
+        for supported_lang in self.cfg_engine.get('appkernel.i18n.languages'):
+            supported_languages.append(supported_lang)
+            if '-' in supported_lang:
+                supported_languages.append(supported_lang.split('-')[0])
 
         def get_current_locale():
             with self.app.app_context():
-                return request.accept_languages.best_match(self.cfg_engine.get('appkernel.i18n.languages'))
+                best_match = request.accept_languages.best_match(supported_languages, default='en')
+                return best_match.replace('-', '_')
+
         self.babel.localeselector(get_current_locale)
         # catalogs = gettext.find('locale', 'locale', all=True)
         # self.logger.info('Using message catalogs: {}'.format(catalogs))

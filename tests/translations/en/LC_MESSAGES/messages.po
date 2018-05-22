@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-05-19 15:06+0200\n"
+"POT-Creation-Date: 2018-05-20 23:22+0200\n"
 "PO-Revision-Date: 2018-05-19 15:11+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -22,14 +22,142 @@ msgstr ""
 msgid "Current password is not correct"
 msgstr "Old password is not matched."
 
+#. Parameter "id" on "User"
+#: test_util.py:15
+msgid "User.id"
+msgstr ""
+
+#. Parameter "name" on "User"
+#: test_util.py:16
 msgid "User.name"
 msgstr "Name"
 
+#. Parameter "password" on "User"
+#: test_util.py:17
 msgid "User.password"
 msgstr "Password"
 
+#. Parameter "description" on "User"
+#: test_util.py:19
 msgid "User.description"
 msgstr "Description"
 
+#. Parameter "roles" on "User"
+#: test_util.py:20
 msgid "User.roles"
 msgstr "Roles"
+
+#. Parameter "created" on "User"
+#: test_util.py:21
+msgid "User.created"
+msgstr ""
+
+#. Parameter "sequence" on "User"
+#: test_util.py:22
+msgid "User.sequence"
+msgstr ""
+
+#. Parameter "code" on "Stock"
+#: test_util.py:38
+msgid "Stock.code"
+msgstr ""
+
+#. Parameter "open" on "Stock"
+#: test_util.py:39
+msgid "Stock.open"
+msgstr ""
+
+#. Parameter "updated" on "Stock"
+#: test_util.py:40
+msgid "Stock.updated"
+msgstr ""
+
+#. Parameter "history" on "Stock"
+#: test_util.py:41
+msgid "Stock.history"
+msgstr ""
+
+#. Parameter "sequence" on "Stock"
+#: test_util.py:42
+msgid "Stock.sequence"
+msgstr ""
+
+#. Parameter "id" on "Portfolio"
+#: test_util.py:46
+msgid "Portfolio.id"
+msgstr ""
+
+#. Parameter "name" on "Portfolio"
+#: test_util.py:47
+msgid "Portfolio.name"
+msgstr ""
+
+#. Parameter "stocks" on "Portfolio"
+#: test_util.py:48
+msgid "Portfolio.stocks"
+msgstr ""
+
+#. Parameter "owner" on "Portfolio"
+#: test_util.py:49
+msgid "Portfolio.owner"
+msgstr ""
+
+#. Parameter "just_numbers" on "ExampleClass"
+#: test_util.py:76
+msgid "ExampleClass.just_numbers"
+msgstr ""
+
+#. Parameter "future_field" on "ExampleClass"
+#: test_util.py:77
+msgid "ExampleClass.future_field"
+msgstr ""
+
+#. Parameter "id" on "Task"
+#: test_util.py:87
+msgid "Task.id"
+msgstr ""
+
+#. Parameter "name" on "Task"
+#: test_util.py:88
+msgid "Task.name"
+msgstr ""
+
+#. Parameter "description" on "Task"
+#: test_util.py:89
+msgid "Task.description"
+msgstr ""
+
+#. Parameter "completed" on "Task"
+#: test_util.py:90
+msgid "Task.completed"
+msgstr ""
+
+#. Parameter "created" on "Task"
+#: test_util.py:91
+msgid "Task.created"
+msgstr ""
+
+#. Parameter "closed_date" on "Task"
+#: test_util.py:92
+msgid "Task.closed_date"
+msgstr ""
+
+#. Parameter "priority" on "Task"
+#: test_util.py:93
+msgid "Task.priority"
+msgstr ""
+
+#. Parameter "name" on "Project"
+#: test_util.py:104
+msgid "Project.name"
+msgstr ""
+
+#. Parameter "tasks" on "Project"
+#: test_util.py:105
+msgid "Project.tasks"
+msgstr ""
+
+#. Parameter "created" on "Project"
+#: test_util.py:106
+msgid "Project.created"
+msgstr ""

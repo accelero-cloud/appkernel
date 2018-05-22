@@ -7,4 +7,5 @@ appkernel:
     host: localhost
     db: appkernel
   i18n:
+    #languages: ['en','en-US' ,'de', 'de-DE']
     languages: ['en-US','de-DE']

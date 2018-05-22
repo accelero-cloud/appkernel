@@ -23,6 +23,28 @@ def create_table(table_name):
     yield table
     table.execute()
 
+def read_custom_code(fileobj):
+        import ast
+
+        def show_info(function_node):
+            print("\nFunction name:", function_node.name)
+            print("Args:")
+            for arg in function_node.args.args:
+                # import pdb; pdb.set_trace()
+                print("\tparameter name: {}".format(arg.id))
+
+        node = ast.parse(fileobj.read())
+        functions = [n for n in node.body if isinstance(n, ast.FunctionDef)]
+        classes = [n for n in node.body if isinstance(n, ast.ClassDef)]
+
+        for fct in functions:
+            show_info(fct)
+
+        for class_ in classes:
+            print("Class name:", class_.name)
+            methods = [n for n in class_.body if isinstance(n, ast.FunctionDef)]
+            for method in methods:
+                show_info(method)
 
 if __name__ == "__main__":
     table = Table('cookies')

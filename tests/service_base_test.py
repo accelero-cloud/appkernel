@@ -543,9 +543,6 @@ def test_metadata(client):
     assert 'label' in result.get('description')
     assert result.get('description').get('label') == 'Description'
 
-    assert 'label' in result.get('description')
-    assert result.get('description').get('label') == 'Description'
-
     assert 'label' in result.get('roles')
     assert result.get('roles').get('label') == 'Roles'
 

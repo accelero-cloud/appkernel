@@ -23,7 +23,7 @@ setup(
         'pyyaml', 'enum34', 'pymongo==3.6.1', 'simplejson',
         'Flask==0.12.2', 'werkzeug', 'eventlet',
         'wrapt', 'passlib==1.7.1', 'jsonschema',
-        'flask-babel'
+        'flask-babel', 'babel'
         # 'requests', 'pymongo', 'Werkzeug==0.12.2',
         # , 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',
@@ -58,5 +58,9 @@ setup(
         # '': ['*.txt', '*.rst'],
         # And include any *.msg files found in the 'hello' package, too:
         # 'hello': ['*.msg'],
-    }
+    },
+    entry_points="""
+    [babel.extractors]
+    model_messages = appkernel.util:extract_model_messages
+    """,
 )
