@@ -1,5 +1,4 @@
 from enum import Enum
-from appkernel.engine import AppKernelException
 from datetime import datetime, date
 import re
 
@@ -15,6 +14,21 @@ class ValidatorType(Enum):
     MAX = 8
     RANGE = 9
     EMAIL = 10
+
+
+class AppKernelException(Exception):
+    def __init__(self, message):
+        """
+        A base exception class for AppKernel
+        :param message: the cause of the failure
+        """
+        super(AppKernelException, self).__init__(message)
+
+
+class AppInitialisationError(AppKernelException):
+
+    def __init__(self, message):
+        super(AppInitialisationError, self).__init__(message)
 
 
 class ValidationException(AppKernelException):

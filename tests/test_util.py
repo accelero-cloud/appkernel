@@ -1,4 +1,4 @@
-from appkernel import Service
+from appkernel import Service, IdentityMixin, Role, CurrentUser, Anonymous
 from appkernel import Model, Parameter, UniqueIndex, ServiceException
 from datetime import datetime
 from appkernel import AuditableRepository, Repository, MongoRepository
@@ -7,11 +7,10 @@ from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, dat
 from passlib.hash import pbkdf2_sha256
 from enum import Enum
 from flask_babel import _, lazy_gettext as _l
-
 from appkernel.validators import Max, Min
 
 
-class User(Model, MongoRepository, Service):
+class User(Model, MongoRepository, Service, IdentityMixin):
     id = Parameter(str, required=True, generator=create_uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     password = Parameter(str, required=True, validators=[NotEmpty],
@@ -21,7 +20,7 @@ class User(Model, MongoRepository, Service):
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
     sequence = Parameter(int)
 
-    @link(rel='change_password', http_method='POST')
+    @link(rel='change_password', http_method='POST', require=[CurrentUser(), Role('admin')])
     def change_p(self, current_password, new_password):
         if not pbkdf2_sha256.verify(current_password, self.password):
             raise ServiceException(403, _('Current password is not correct'))
@@ -29,7 +28,7 @@ class User(Model, MongoRepository, Service):
             self.password = new_password
             self.save()
 
-    @link()
+    @link(require=Anonymous())
     def get_description(self):
         return self.description
 

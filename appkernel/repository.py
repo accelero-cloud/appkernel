@@ -1,8 +1,9 @@
 from datetime import datetime
-
+from flask import current_app
 import pymongo
 import operator
-from appkernel import AppKernelEngine
+
+from appkernel.configuration import config
 from model import Model, Expression, AppKernelException, SortOrder, Parameter, Index, TextIndex, UniqueIndex
 from pymongo.collection import Collection
 
@@ -301,7 +302,7 @@ class MongoRepository(Repository):
 
     @staticmethod
     def version_check(required_version_tuple):
-        server_info = AppKernelEngine.database.client.server_info()
+        server_info = config.mongo_database.client.server_info()
         current_version = tuple(server_info['version'].split('.'))
         if current_version < required_version_tuple:
             raise AppKernelException(
@@ -314,7 +315,7 @@ class MongoRepository(Repository):
         :return:
         """
         MongoRepository.version_check(tuple([3, 6, 0]))
-        AppKernelEngine.database.command(
+        config.mongo_database.command(
             'collMod', xtract(cls),
             validator={'$jsonSchema': cls.get_json_schema(mongo_compatibility=True)},
             validationLevel='moderate',
@@ -351,8 +352,9 @@ class MongoRepository(Repository):
         :return: the collection for this model object
         :rtype: Collection
         """
-        if AppKernelEngine.database is not None:
-            return AppKernelEngine.database[xtract(cls)]
+        db = config.mongo_database
+        if db is not None:
+            return db[xtract(cls)]
         else:
             raise AppKernelException('The database engine is not set')
 

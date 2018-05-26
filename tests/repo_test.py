@@ -3,14 +3,14 @@ import json
 from pymongo.errors import WriteError
 
 from test_util import *
-from appkernel import AppKernelEngine
+from appkernel.configuration import config
 from pymongo import MongoClient
 import pytest
 from datetime import timedelta
 
 
 def setup_module(module):
-    AppKernelEngine.database = MongoClient(host='localhost')['appkernel']
+    config.mongo_database=MongoClient(host='localhost')['appkernel']
 
 
 def setup_function(function):
@@ -132,7 +132,7 @@ def test_find_some():
 
 def test_unique_index_creation():
     user = create_and_save_a_user('some user', 'some pass', 'some description')
-    idx_info = AppKernelEngine.database['Users'].index_information()
+    idx_info = config.mongo_database['Users'].index_information()
     assert 'name_idx' in idx_info
 
 

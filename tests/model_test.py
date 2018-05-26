@@ -1,10 +1,9 @@
 import json
 
 from pymongo import MongoClient
-
-from appkernel import AppKernelEngine
 from appkernel import ParameterRequiredException
 from appkernel import ValidationException
+from appkernel.configuration import config
 from test_util import *
 import pytest
 from datetime import timedelta
@@ -12,7 +11,7 @@ from jsonschema import validate
 
 
 def setup_module(module):
-    AppKernelEngine.database = MongoClient(host='localhost')['appkernel']
+    config.mongo_database=MongoClient(host='localhost')['appkernel']
 
 
 def setup_function(function):
@@ -157,6 +156,7 @@ def test_nested_object_serialisation():
     print(portfolio.dumps(pretty_print=True))
     check_portfolio(portfolio)
 
+
 def test_describe_model():
     user_spec = User.get_parameter_spec()
     print User.get_paramater_spec_as_json()
@@ -196,8 +196,6 @@ def test_describe_rich_model():
     assert not props.get('closed_date').get('required')
     assert props.get('closed_date').get('type') == 'datetime'
     assert props.get('closed_date').get('validators')[0].get('type') == 'Past'
-
-
 
 
 def test_json_schema():

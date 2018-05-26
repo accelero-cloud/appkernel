@@ -1,17 +1,24 @@
 #!/usr/bin/python
+from babel.support import Translations
 from flask import Flask, jsonify, current_app, request, g
 import logging
-from flask_babel import Babel, get_locale
-import gettext
+from flask_babel import Babel, get_locale, _
 from pymongo import MongoClient
 import sys, os, yaml, re
 import getopt
 from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import default_exceptions
+
+from appkernel.configuration import config
+from appkernel.model import ServiceRegistry
+from validators import AppInitialisationError
+from authorisation import authorize_request
 from util import default_json_serializer
 import atexit, eventlet.debug
 from enum import Enum
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 
 try:
     import simplejson as json
@@ -22,7 +29,6 @@ try:
     from flask import _app_ctx_stack as stack
 except ImportError:
     from flask import _request_ctx_stack as stack
-
 
 class MessageType(Enum):
     ErrorMessage = 1
@@ -72,7 +78,6 @@ def get_cmdline_options():
 
 
 class AppKernelEngine(object):
-    database = None
 
     def __init__(self,
                  app_id,
@@ -98,13 +103,19 @@ class AppKernelEngine(object):
         self.app = app or current_app
         assert self.app is not None, 'The Flask App must be provided as init parameter.'
         try:
+            config.service_registry = ServiceRegistry()
+            self.before_request_functions = []
+            self.after_request_functions = []
             self.app_id = app_id
             self.root_url = root_url
             self.__configure_flask_app()
             self.__init_web_layer()
             self.cmd_line_options = get_cmdline_options()
-            self.cfg_engine = CfgEngine(cfg_dir or self.cmd_line_options.get('cfg_dir'))
+            self.cfg_dir = cfg_dir or self.cmd_line_options.get('cfg_dir')
+            self.cfg_engine = CfgEngine(self.cfg_dir)
+            config.cfg_engine = self.cfg_engine
             self.__init_babel()
+            self.__init_cross_cutting_concerns()
             self.development = development or self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
             self.init_logger(log_folder=cwd, level=log_level)
@@ -123,18 +134,65 @@ class AppKernelEngine(object):
             db_host = self.cfg_engine.get('appkernel.mongo.host') or 'localhost'
             db_name = self.cfg_engine.get('appkernel.mongo.db') or 'app'
             self.mongo_client = MongoClient(host=db_host)
-            AppKernelEngine.database = self.mongo_client[db_name]
-            ctx = stack.top
-            if ctx is not None:
-                if not hasattr(ctx, 'mongo_db'):
-                    ctx.mongo_db = AppKernelEngine.database
+            config.mongo_database = self.mongo_client[db_name]
         except (AppInitialisationError, AssertionError) as init_err:
             # print >> sys.stderr,
             self.app.logger.error(init_err.message)
             sys.exit(-1)
 
+    def enable_security(self, authorisation_method=None):
+        self.enable_pki()
+        if not authorisation_method:
+            authorisation_method = authorize_request()
+        self.add_before_request_function(authorisation_method)
+        return self
+
+    def enable_pki(self):
+        if not hasattr(self.app, 'public_key'):
+            self.__init_crypto()
+
+    def add_before_request_function(self, func):
+        self.before_request_functions.append(func)
+
+    def add_after_request_function(self, func):
+        self.after_request_functions.append(func)
+
+    def __init_cross_cutting_concerns(self):
+        def create_function_chain_executor(chain):
+            def function_chain_executor():
+                for func in chain:
+                    func()
+
+            return function_chain_executor
+
+        # todo: journaling request responses
+        # todo: rate limiting
+        self.app.before_request(create_function_chain_executor(self.before_request_functions))
+        # todo: add after request processor
+        # self.app.after_request(create_function_chain_executor(self.after_request_functions))
+
+    def __init_crypto(self):
+        # https://stackoverflow.com/questions/29650495/how-to-verify-a-jwt-using-python-pyjwt-with-public-key
+        with self.app.app_context():
+            with open('{}/keys/appkernel.pem'.format(self.cfg_dir), "rb") as key_file:
+                private_key = serialization.load_pem_private_key(
+                    key_file.read(),
+                    password=None,
+                    backend=default_backend()
+                )
+                config.private_key = private_key
+            with open('{}/keys/appkernel.pub'.format(self.cfg_dir), 'rb') as key_file:
+                public_key = serialization.load_pem_public_key(
+                    key_file.read(),
+                    backend=default_backend()
+                )
+                config.public_key = public_key
+
     def __init_babel(self):
         self.babel = Babel(self.app)
+        # translations = Translations.load('translations')
+        # translations.merge(Translations.load())
+        # todo: support for multiple plugins
         supported_languages = []
         for supported_lang in self.cfg_engine.get('appkernel.i18n.languages'):
             supported_languages.append(supported_lang)
@@ -159,7 +217,7 @@ class AppKernelEngine(object):
         self.app.run(debug=self.development)
 
     def shutdown_hook(self):
-        if AppKernelEngine.database:
+        if config.mongo_database:
             self.mongo_client.close()
         if self.app and self.app.logger:
             self.app.logger.info('======= Shutting Down {} ======='.format(self.app_id))
@@ -279,23 +337,19 @@ class AppKernelEngine(object):
         if exception is not None:
             self.app.logger.warn(exception.message)
 
-    def register(self, service_class, url_base=None, methods=['GET']):
-        service_class.set_app_engine(self, url_base or self.root_url, methods=methods)
-
-
-class AppKernelException(Exception):
-    def __init__(self, message):
+    def register(self, service_class, url_base=None, methods=['GET'], enable_hateoas=True):
         """
-        A base exception class for AppKernel
-        :param message: the cause of the failure
+
+        :param service_class:
+        :param url_base:
+        :param methods:
+        :param enable_hateoas:
+        :return:
+        :rtype: Service
         """
-        super(AppKernelException, self).__init__(message)
 
-
-class AppInitialisationError(AppKernelException):
-
-    def __init__(self, message):
-        super(AppInitialisationError, self).__init__(message)
+        service_class.set_app_engine(self, url_base or self.root_url, methods=methods, enable_hateoas=enable_hateoas)
+        return service_class
 
 
 class CfgEngine(object):

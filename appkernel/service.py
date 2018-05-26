@@ -4,12 +4,13 @@ from enum import Enum
 from flask import jsonify, current_app, request, abort, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
-from appkernel.query import QueryProcessor
-from appkernel.validators import ValidationException
+from appkernel.configuration import config
+from iam import RbacMixin
+from query import QueryProcessor
+from validators import ValidationException
 from model import Model, ParameterRequiredException, create_tagging_decorator, _TaggingMetaClass, \
     get_argument_spec, ServiceException, OPS
-from appkernel import AppKernelEngine
-from appkernel.repository import Repository, xtract, MongoRepository
+from repository import Repository, xtract, MongoRepository
 from reflection import *
 from collections import defaultdict
 from datetime import datetime
@@ -23,7 +24,7 @@ except ImportError:
 link = create_tagging_decorator('links')
 
 
-class Service(object):
+class Service(RbacMixin):
     pretty_print = True
     qp = QueryProcessor()  # pylint: disable=C0103
     """
@@ -33,8 +34,14 @@ class Service(object):
     """
 
     @classmethod
+    def __add_app_rule(cls, rule, endpoint, view_function, **options):
+        config.service_registry.add_endpoint(endpoint, cls)
+        cls.app.add_url_rule(rule, endpoint, view_function, **options)
+
+    @classmethod
     def set_app_engine(cls, app_engine, url_base, methods, enable_hateoas=True):
         """
+        :param enable_hateoas:
         :param methods: the HTTP methods allowed for this service
         :param url_base: the url where the service is exposed
         :type url_base: basestring
@@ -52,44 +59,44 @@ class Service(object):
         cls.enable_hateoas = enable_hateoas
         class_methods = dir(cls)
         if issubclass(cls, Model):
-            cls.app.add_url_rule('{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
-                                 cls.create_simple_wrapper_executor(app_engine, cls.get_parameter_spec),
-                                 methods=['GET'])
-            cls.app.add_url_rule('{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
+            cls.__add_app_rule('{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
                                  cls.create_simple_wrapper_executor(app_engine, cls.get_json_schema),
+                                 methods=['GET'])
+            cls.__add_app_rule('{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
+                                 cls.create_simple_wrapper_executor(app_engine, cls.get_parameter_spec),
                                  methods=['GET'])
 
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
             if 'find_by_query' in class_methods:
-                cls.app.add_url_rule('{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
+                cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
                                      cls.execute(app_engine, cls.find_by_query, cls),
                                      methods=['GET'])
             if 'find_by_id' in class_methods:
-                cls.app.add_url_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
+                cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
                                      cls.execute(app_engine, cls.find_by_id, cls),
                                      methods=['GET'])
-        if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
-            cls.app.add_url_rule('{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
-                                 cls.execute(app_engine, cls.aggregate, cls),
-                                 methods=['GET'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
-            cls.app.add_url_rule('{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
+            cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
                                  cls.execute(app_engine, cls.save_object, cls),
                                  methods=['POST'])
         if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
-            cls.app.add_url_rule('{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
+            cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
                                  cls.execute(app_engine, cls.replace_object, cls),
                                  methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
-            cls.app.add_url_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
+            cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
                                  cls.execute(app_engine, cls.save_object, cls),
                                  methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
-            cls.app.add_url_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
+            cls.__add_app_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
                                  cls.execute(app_engine, cls.delete_by_id, cls),
                                  methods=['DELETE'])
+        if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
+            cls.__add_app_rule('{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
+                                 cls.execute(app_engine, cls.aggregate, cls),
+                                 methods=['GET'])
         if cls.enable_hateoas:
             cls.prepare_actions()
 
@@ -128,7 +135,7 @@ class Service(object):
                 relation = this_link.get('decorator_kwargs').get('rel', func_name)
                 if not isinstance(methods, list):
                     methods = [methods]
-                cls.app.add_url_rule('{}/<object_id>/{}'.format(cls.endpoint, relation),
+                cls.__add_app_rule('{}/<object_id>/{}'.format(cls.endpoint, relation),
                                      '{}_{}'.format(xtract(cls).lower(), relation),
                                      create_action_executor(func_name),
                                      methods=methods)
@@ -201,7 +208,6 @@ class Service(object):
                 # print 'request form: {}'.format(request.form)
                 # print 'request args: {}'.format(request.args)
                 # print 'request form: {}'.format(request.form)
-                # #todo: continue it here
                 # #request.form | request.args | request.files
                 # #request.values: combined args and form, preferring args if keys overlap
                 # print 'request json {}'.format(request.json)

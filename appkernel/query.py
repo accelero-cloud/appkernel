@@ -1,6 +1,6 @@
 import inspect, re
 
-from appkernel.model import get_argument_spec
+from model import get_argument_spec
 
 
 class QueryProcessor(object):
