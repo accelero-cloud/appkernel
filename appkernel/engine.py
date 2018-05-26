@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from babel.support import Translations
-from flask import Flask, jsonify, current_app, request, g
+from flask import Flask, jsonify, current_app, request, g, make_response
 import logging
 from flask_babel import Babel, get_locale, _
 from pymongo import MongoClient
@@ -9,9 +9,7 @@ import getopt
 from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import default_exceptions
-
 from appkernel.configuration import config
-from appkernel.model import ServiceRegistry
 from validators import AppInitialisationError
 from authorisation import authorize_request
 from util import default_json_serializer
@@ -103,7 +101,7 @@ class AppKernelEngine(object):
         self.app = app or current_app
         assert self.app is not None, 'The Flask App must be provided as init parameter.'
         try:
-            config.service_registry = ServiceRegistry()
+            config.service_registry = {}
             self.before_request_functions = []
             self.after_request_functions = []
             self.app_id = app_id
@@ -143,7 +141,7 @@ class AppKernelEngine(object):
     def enable_security(self, authorisation_method=None):
         self.enable_pki()
         if not authorisation_method:
-            authorisation_method = authorize_request()
+            authorisation_method = authorize_request
         self.add_before_request_function(authorisation_method)
         return self
 
@@ -161,7 +159,7 @@ class AppKernelEngine(object):
         def create_function_chain_executor(chain):
             def function_chain_executor():
                 for func in chain:
-                    func()
+                    return func()
 
             return function_chain_executor
 
@@ -310,7 +308,7 @@ class AppKernelEngine(object):
         logger.addHandler(handler)
 
     def create_custom_error(self, code, message):
-        return jsonify({'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}), code
+        return make_response(jsonify({'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}), code)
 
     def generic_error_handler(self, ex=None):
         """

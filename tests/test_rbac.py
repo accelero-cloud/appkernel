@@ -76,28 +76,34 @@ def test_auth_basic(client):
     headers = Headers()
     headers.add('X-Tenant', 'rockee')
     rsp = client.get('/users/{}'.format(user_id), headers=headers)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 401, 'should be unauthorized'
 
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
     rsp = client.post('/users/{}/change_password'.format(user_id), data=post_data, headers=headers)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 401, 'should be unauthorized'
 
     headers.add('Authorization', 'Bearer {}'.format(u.auth_token))
     rsp = client.get('/users/{}'.format(user_id), headers=headers)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 403, 'should be forbidden'
-
-    post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
-    rsp = client.post('/users/{}/change_password'.format(user_id), data=post_data, headers=headers)
-    assert rsp.status_code == 200, 'should be ok'
-    # todo: other user
 
     u.update(roles=['user', 'admin'])
     headers.set('Authorization', 'Bearer {}'.format(u.auth_token))
+    rsp = client.get('/users/{}'.format(user_id), headers=headers)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200, 'should be accepted'
     # for h in rsp.headers:
     #     print h
     # self.assertTrue('WWW-Authenticate' in rv.headers)
     # self.assertTrue('Basic' in rv.headers['WWW-Authenticate'])
+
+    # post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
+    # rsp = client.post('/users/{}/change_password'.format(user_id), data=post_data, headers=headers)
+    # print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    # assert rsp.status_code == 200, 'should be ok'
+    # todo: other user
 
 
 def test_deny_all(client, current_file_path):

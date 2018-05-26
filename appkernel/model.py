@@ -851,13 +851,13 @@ class Model(object):
         return field in cls.__dict__ and isinstance(getattr(cls, field), Parameter)
 
 
-class ServiceRegistry(object):
-
-    def __init__(self):
-        self.services = {}
-
-    def add_endpoint(self, endpoint_name, service_class):
-        self.services[endpoint_name] = service_class
-
-    def get_service_by_endpoint(self, endpoint):
-        return self.services.get(endpoint)
+# class ServiceRegistry(object):
+#
+#     def __init__(self):
+#         self.services = {}
+#
+#     def add_endpoint(self, endpoint_name, service_class):
+#         self.services[endpoint_name] = service_class
+#
+#     def get_service_by_endpoint(self, endpoint):
+#         return self.services.get(endpoint)

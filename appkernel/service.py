@@ -35,7 +35,7 @@ class Service(RbacMixin):
 
     @classmethod
     def __add_app_rule(cls, rule, endpoint, view_function, **options):
-        config.service_registry.add_endpoint(endpoint, cls)
+        config.service_registry[endpoint]=cls
         cls.app.add_url_rule(rule, endpoint, view_function, **options)
 
     @classmethod
