@@ -29,7 +29,7 @@ class Authority(Permission):
     def __init__(self, identity_name='anonymous', id=None):
         super(Authority, self).__init__()
         self.name = identity_name
-        self.id = id
+        self.id = id # pylint: disable=C0103
 
 
 class CurrentUser(Authority):
@@ -39,7 +39,7 @@ class CurrentUser(Authority):
 
 class IdentityMixin(object):
     def __init__(self, id=None, roles=[Anonymous()]):
-        self.id = id
+        self.id = id # pylint: disable=C0103
         self.roles = roles
 
     @property
