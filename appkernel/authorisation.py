@@ -29,6 +29,11 @@ def authorize_request():
                               isinstance(permission, appkernel.Denied)]
         return len(denied_permissions) > 0
 
+    def contains_anonymous():
+        anonymous_permissions = [permission for permission in required_permissions if
+                                 isinstance(permission, appkernel.Anonymous)]
+        return len(anonymous_permissions) > 0
+
     required_permissions = config.service_registry.get(request.endpoint).get_required_permission(request.method,
                                                                                                  request.endpoint)
     if required_permissions:
@@ -40,6 +45,9 @@ def authorize_request():
 
         if contains_denied():
             return appkernel.Service.app_engine.create_custom_error(403, _('Not allowed to access method.'))
+
+        if contains_anonymous():
+            return
 
         authorisation_header = request.headers.get('Authorization')
         if not authorisation_header:
@@ -64,7 +72,7 @@ def authorize_request():
             if missing_required_role and len(required_authorities) > 0:
                 for required_authority in required_authorities:
                     missing_required_authority = not auth_mix.get(required_authority.__class__.__name__)(token,
-                                                                                                     required_authority)
+                                                                                                         required_authority)
                     if not missing_required_authority:
                         break
 

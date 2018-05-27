@@ -27,7 +27,7 @@ class User(Model, MongoRepository, Service, IdentityMixin):
         else:
             self.password = new_password
             self.save()
-        return {'message': 'Password changed', 'code': 200}
+        return _('Password changed')
 
     @link(require=Anonymous())
     def get_description(self):

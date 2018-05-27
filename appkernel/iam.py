@@ -44,22 +44,22 @@ class CurrentSubject(Authority):
 
 
 class IdentityMixin(object):
-    token_validity_in_minutes = 60
+    token_validity_in_seconds = 3600
 
     def __init__(self, id=None, roles=[Anonymous()]):
         self.id = id  # pylint: disable=C0103
         self.roles = roles
 
     @staticmethod
-    def set_validity(minutes):
-        IdentityMixin.token_validity_in_minutes = minutes
+    def set_validity(seconds):
+        IdentityMixin.token_validity_in_seconds = seconds
 
     @property
     def auth_token(self):
         if not self.id:
             raise AttributeError('The id of the Identity is not defined.')
         payload = {
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=IdentityMixin.token_validity_in_minutes),
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=IdentityMixin.token_validity_in_seconds),
             'iat': datetime.datetime.utcnow(),
             'sub': self.id
         }
@@ -129,12 +129,17 @@ class RbacMixin(object):
         return cls
 
     @classmethod
-    def deny(cls, permission, methods, endpoint=None):
-        cls.__set_list(methods, permission, endpoint)
+    def allow_all(cls):
+        for method in ['GET', 'POST', 'PUT', 'DELETE']:
+            if method not in cls.protected_methods:
+                cls.protected_methods[method] = {'*': [Anonymous()]}
+            else:
+                cls.protected_methods[method]['*'] = [Anonymous()]
         return cls
 
     @classmethod
-    def exempt(cls, permission, methods):
+    def deny(cls, permission, methods, endpoint=None):
+        cls.__set_list(methods, permission, endpoint)
         return cls
 
     @classmethod
