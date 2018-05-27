@@ -1,4 +1,4 @@
-from appkernel import Service, IdentityMixin, Role, CurrentUser, Anonymous
+from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous
 from appkernel import Model, Parameter, UniqueIndex, ServiceException
 from datetime import datetime
 from appkernel import AuditableRepository, Repository, MongoRepository
@@ -20,13 +20,14 @@ class User(Model, MongoRepository, Service, IdentityMixin):
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
     sequence = Parameter(int)
 
-    @link(rel='change_password', http_method='POST', require=[CurrentUser(), Role('admin')])
+    @link(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])
     def change_p(self, current_password, new_password):
         if not pbkdf2_sha256.verify(current_password, self.password):
             raise ServiceException(403, _('Current password is not correct'))
         else:
             self.password = new_password
             self.save()
+        return {'message': 'Password changed', 'code': 200}
 
     @link(require=Anonymous())
     def get_description(self):

@@ -37,9 +37,10 @@ class Authority(Permission):
         return 'AUTHORITY_{}'.format(self.name.upper())
 
 
-class CurrentUser(Authority):
-    def __init__(self):
-        super(CurrentUser, self).__init__('current_user')
+class CurrentSubject(Authority):
+    def __init__(self, binding_view_arg='object_id'):
+        super(CurrentSubject, self).__init__('current_user')
+        self.view_arg = binding_view_arg
 
 
 class IdentityMixin(object):
@@ -96,21 +97,35 @@ class RbacMixin(object):
             return endpoints.get('*')
 
     @staticmethod
-    def __set_list(methods=[], permission=Denied(), endpoint=None):
-        if not isinstance(permission, Permission):
-            raise AttributeError('The permission must be a subclass of Permission')
+    def __set_list(methods=[], permissions=Denied(), endpoint=None):
+        def add_endpoint_and_permissions(meth):
+            if meth not in RbacMixin.protected_methods:
+                RbacMixin.protected_methods[meth] = {
+                    endpoint or '*': permissions if isinstance(permissions, list) else [permissions]}
+            else:
+                RbacMixin.protected_methods[meth][endpoint or '*'] = permissions if isinstance(permissions,
+                                                                                               list) else [
+                    permissions]
+
+        if (not isinstance(permissions, list) and not isinstance(permissions, Permission)) or (
+                isinstance(permissions, list) and len(
+            [perm for perm in permissions if isinstance(perm, Permission)]) == 0):
+            raise AttributeError('The permission must be a subclass of a Permission or list of Permissions')
         if isinstance(methods, list):
             for method in methods:
-                RbacMixin.protected_methods[method] = {endpoint or '*': permission}
+                add_endpoint_and_permissions(method)
         elif isinstance(methods, (str, basestring, unicode)):
-            RbacMixin.protected_methods[methods] = {endpoint or '*': permission}
+            add_endpoint_and_permissions(methods)
         else:
             raise TypeError('Methods must be of type list or string.')
 
     @classmethod
     def deny_all(cls):
         for method in ['GET', 'POST', 'PUT', 'DELETE']:
-            cls.protected_methods[method] = {'*': Denied()}
+            if method not in cls.protected_methods:
+                cls.protected_methods[method] = {'*': [Denied()]}
+            else:
+                cls.protected_methods[method]['*'] = [Denied()]
         return cls
 
     @classmethod

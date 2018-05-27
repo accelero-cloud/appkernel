@@ -5,7 +5,7 @@ from flask import jsonify, current_app, request, abort, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
 from appkernel.configuration import config
-from iam import RbacMixin
+from iam import RbacMixin, Anonymous
 from query import QueryProcessor
 from validators import ValidationException
 from model import Model, ParameterRequiredException, create_tagging_decorator, _TaggingMetaClass, \
@@ -35,7 +35,7 @@ class Service(RbacMixin):
 
     @classmethod
     def __add_app_rule(cls, rule, endpoint, view_function, **options):
-        config.service_registry[endpoint]=cls
+        config.service_registry[endpoint] = cls
         cls.app.add_url_rule(rule, endpoint, view_function, **options)
 
     @classmethod
@@ -60,45 +60,45 @@ class Service(RbacMixin):
         class_methods = dir(cls)
         if issubclass(cls, Model):
             cls.__add_app_rule('{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
-                                 cls.create_simple_wrapper_executor(app_engine, cls.get_json_schema),
-                                 methods=['GET'])
+                               cls.create_simple_wrapper_executor(app_engine, cls.get_json_schema),
+                               methods=['GET'])
             cls.__add_app_rule('{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
-                                 cls.create_simple_wrapper_executor(app_engine, cls.get_parameter_spec),
-                                 methods=['GET'])
+                               cls.create_simple_wrapper_executor(app_engine, cls.get_parameter_spec),
+                               methods=['GET'])
 
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
             if 'find_by_query' in class_methods:
                 cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
-                                     cls.execute(app_engine, cls.find_by_query, cls),
-                                     methods=['GET'])
+                                   cls.execute(app_engine, cls.find_by_query, cls),
+                                   methods=['GET'])
             if 'find_by_id' in class_methods:
                 cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
-                                     cls.execute(app_engine, cls.find_by_id, cls),
-                                     methods=['GET'])
+                                   cls.execute(app_engine, cls.find_by_id, cls),
+                                   methods=['GET'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
             cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
-                                 cls.execute(app_engine, cls.save_object, cls),
-                                 methods=['POST'])
+                               cls.execute(app_engine, cls.save_object, cls),
+                               methods=['POST'])
         if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
             cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
-                                 cls.execute(app_engine, cls.replace_object, cls),
-                                 methods=['PUT'])
+                               cls.execute(app_engine, cls.replace_object, cls),
+                               methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
             cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
-                                 cls.execute(app_engine, cls.save_object, cls),
-                                 methods=['PATCH'])
+                               cls.execute(app_engine, cls.save_object, cls),
+                               methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
             cls.__add_app_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
-                                 cls.execute(app_engine, cls.delete_by_id, cls),
-                                 methods=['DELETE'])
+                               cls.execute(app_engine, cls.delete_by_id, cls),
+                               methods=['DELETE'])
         if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
             cls.__add_app_rule('{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
-                                 cls.execute(app_engine, cls.aggregate, cls),
-                                 methods=['GET'])
-        if cls.enable_hateoas:
-            cls.prepare_actions()
+                               cls.execute(app_engine, cls.aggregate, cls),
+                               methods=['GET'])
+
+        cls.prepare_actions()
 
     @classmethod
     def prepare_actions(cls):
@@ -126,6 +126,8 @@ class Service(RbacMixin):
 
             return action_executor
 
+        setup_security = hasattr(config, 'security_enabled') and config.security_enabled
+        # if cls.enable_hateoas or setup_security:
         if 'links' in cls.__dict__:
             for this_link in cls.links:
                 func_name = this_link.get('function_name')
@@ -135,10 +137,14 @@ class Service(RbacMixin):
                 relation = this_link.get('decorator_kwargs').get('rel', func_name)
                 if not isinstance(methods, list):
                     methods = [methods]
+                link_endpoint = '{}_{}'.format(xtract(cls).lower(), relation)
                 cls.__add_app_rule('{}/<object_id>/{}'.format(cls.endpoint, relation),
-                                     '{}_{}'.format(xtract(cls).lower(), relation),
-                                     create_action_executor(func_name),
-                                     methods=methods)
+                                   link_endpoint,
+                                   create_action_executor(func_name),
+                                   methods=methods)
+                if setup_security:
+                    required_permissions = this_link.get('decorator_kwargs').get('require', Anonymous())
+                    cls.require(required_permissions, methods, link_endpoint)
 
     @staticmethod
     def __extract_dict_from_payload():

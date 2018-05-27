@@ -28,6 +28,7 @@ try:
 except ImportError:
     from flask import _request_ctx_stack as stack
 
+
 class MessageType(Enum):
     ErrorMessage = 1
 
@@ -143,6 +144,7 @@ class AppKernelEngine(object):
         if not authorisation_method:
             authorisation_method = authorize_request
         self.add_before_request_function(authorisation_method)
+        config.security_enabled = True
         return self
 
     def enable_pki(self):

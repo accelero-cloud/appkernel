@@ -125,6 +125,7 @@ def test_auth_decorated_link_good_token_correct_authority(client):
     user = default_config()
     headers = Headers()
     headers.add('X-Tenant', 'rockee')
+    headers.set('Authorization', 'Bearer {}'.format(user.auth_token))
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
     rsp = client.post('/users/{}/change_password'.format(user.id), data=post_data, headers=headers)
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)

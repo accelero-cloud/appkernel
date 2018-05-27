@@ -9,7 +9,21 @@ def check_token(jwt_token):
     return jwt.decode(jwt_token, config.public_key)
 
 
+def __has_current_subject_authority(token, authority):
+    if not isinstance(authority, appkernel.CurrentSubject):
+        raise TypeError('This method required authority of type {}.'.format(appkernel.CurrentSubject.__name__))
+    subject = token.get('sub', None)
+    binding_id = request.view_args.get(authority.view_arg)
+    if not subject or not binding_id:
+        return False
+    return subject == binding_id
+
+
 def authorize_request():
+    auth_mix = {
+        appkernel.CurrentSubject.__name__: __has_current_subject_authority
+    }
+
     def contains_denied():
         denied_permissions = [permission for permission in required_permissions if
                               isinstance(permission, appkernel.Denied)]
@@ -46,6 +60,13 @@ def authorize_request():
 
             if len(required_roles.intersection(set(token.get('roles', [])))) > 0:
                 missing_required_role = False
+
+            if missing_required_role and len(required_authorities) > 0:
+                for required_authority in required_authorities:
+                    missing_required_authority = not auth_mix.get(required_authority.__class__.__name__)(token,
+                                                                                                     required_authority)
+                    if not missing_required_authority:
+                        break
 
             if missing_required_role and missing_required_authority:
                 return appkernel.Service.app_engine.create_custom_error(403, _(
