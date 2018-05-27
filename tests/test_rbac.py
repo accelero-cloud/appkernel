@@ -67,43 +67,74 @@ def test_create_token():
         print('decoded with public key (internal): {}'.format(decoded_token))
 
 
-def test_auth_basic(client):
+def default_config():
     user_service = kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
     user_service.deny_all().require(Role('user'), methods='GET').require(Role('admin'),
                                                                          methods=['PUT', 'POST', 'PATCH', 'DELETE'])
     u = User().update(name='some_user', password='some_pass')
-    user_id = u.save()
+    u.save()
+    return u
+
+
+def test_auth_basic_deny_without_token(client):
+    user = default_config()
     headers = Headers()
     headers.add('X-Tenant', 'rockee')
-    rsp = client.get('/users/{}'.format(user_id), headers=headers)
+    rsp = client.get('/users/{}'.format(user.id), headers=headers)
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 401, 'should be unauthorized'
+    assert rsp.json.get('message') == 'The authorisation header is missing.'
 
-    post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
-    rsp = client.post('/users/{}/change_password'.format(user_id), data=post_data, headers=headers)
-    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    assert rsp.status_code == 401, 'should be unauthorized'
+# todo: test expired token
+# todo: test wrong token
 
-    headers.add('Authorization', 'Bearer {}'.format(u.auth_token))
-    rsp = client.get('/users/{}'.format(user_id), headers=headers)
+
+def test_auth_basic_deny_with_token_without_roles(client):
+    user = default_config()
+    headers = Headers()
+    headers.add('X-Tenant', 'rockee')
+    headers.add('Authorization', 'Bearer {}'.format(user.auth_token))
+    rsp = client.get('/users/{}'.format(user.id), headers=headers)
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 403, 'should be forbidden'
+    assert rsp.json.get('message') == 'The required permission is missing.'
 
-    u.update(roles=['user', 'admin'])
-    headers.set('Authorization', 'Bearer {}'.format(u.auth_token))
-    rsp = client.get('/users/{}'.format(user_id), headers=headers)
+
+def test_auth_basic_with_token_and_roles(client):
+    user = default_config()
+    headers = Headers()
+    headers.add('X-Tenant', 'rockee')
+    user.update(roles=['user', 'admin'])
+    headers.set('Authorization', 'Bearer {}'.format(user.auth_token))
+    rsp = client.get('/users/{}'.format(user.id), headers=headers)
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     assert rsp.status_code == 200, 'should be accepted'
+
+
+def test_auth_decorated_link_missing_token(client):
+    user = default_config()
+    headers = Headers()
+    headers.add('X-Tenant', 'rockee')
+    post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
+    rsp = client.post('/users/{}/change_password'.format(user.id), data=post_data, headers=headers)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 401, 'should be unauthorized'
+
+
+def test_auth_decorated_link_good_token_correct_authority(client):
+    user = default_config()
+    headers = Headers()
+    headers.add('X-Tenant', 'rockee')
+    post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
+    rsp = client.post('/users/{}/change_password'.format(user.id), data=post_data, headers=headers)
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 200, 'should be ok'
+    # todo: other user with role admin
+
     # for h in rsp.headers:
     #     print h
     # self.assertTrue('WWW-Authenticate' in rv.headers)
     # self.assertTrue('Basic' in rv.headers['WWW-Authenticate'])
-
-    # post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
-    # rsp = client.post('/users/{}/change_password'.format(user_id), data=post_data, headers=headers)
-    # print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
-    # assert rsp.status_code == 200, 'should be ok'
-    # todo: other user
 
 
 def test_deny_all(client, current_file_path):
