@@ -1,7 +1,7 @@
 .. toctree::
    :maxdepth: 1
 
-   motivation
+   features
    installation
    quickstart
    api

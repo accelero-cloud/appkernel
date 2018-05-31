@@ -35,7 +35,7 @@ class ValidationException(AppKernelException):
     def __init__(self, validator_type, validable_object, message):
         self.validable_object_name = validable_object.__class__.__name__
         super(ValidationException, self).__init__(
-            '{} on type {} - {}'.format(validator_type.name, self.validable_object_name, message))
+            '{} on type {} - {}'.format(validator_type, self.validable_object_name, message))
 
 
 class Validator(object):
@@ -44,8 +44,8 @@ class Validator(object):
     """
 
     def __init__(self, validator_type, value=None, message=None):
-        # type: (str, ValidatorType) -> ()
-        self.type = validator_type
+        # type: (str, str) -> ()
+        self.type = validator_type.name if isinstance(validator_type, ValidatorType) else validator_type
         self.value = value
         self.message = message
 

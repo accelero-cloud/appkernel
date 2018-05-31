@@ -5,7 +5,7 @@ The framework is supposed to cover all or most of the requirements of the Micros
 ## Model features
 - [x] validation on the data model using multiple custom validators
 - [x] json serialisation support
-- [ ] json schema generator
+- [x] json schema generator
 - [x] value generators
 - [ ] converters
 - [x] omitted fields
@@ -14,10 +14,10 @@ The framework is supposed to cover all or most of the requirements of the Micros
 
 ## Database features
 - [x] basic CRUD operations
-- [ ] easy to use active record style queries
+- [x] easy to use active record style queries
 - [x] automatically generate prefixed database ID
 - [x] index management on the database
-- [ ] database schema validation and schema management
+- [x] database schema validation and schema management
 - [x] builtin converters for serialising or deserialising the model to various other formats
 - [x] automated marshaling of objects to and from json
 - [x] audited fields (created, updated)
@@ -32,12 +32,12 @@ The framework is supposed to cover all or most of the requirements of the Micros
 - [ ] simplified logging
 - [X] REST services
 - [x] HATEOAS actions on model
-- [ ] object metadata
+- [x] object metadata
 - [ ] JSONP
 - [ ] graphql support
 - [ ] swagger support
 - [ ] Conditional Requests
-- [ ] basic authentication and JWT token support
+- [x] basic authentication and JWT token support
 - [ ] OAUTH
 - [ ] rate limiting and circuit breaker
 - [ ] API Versioning
