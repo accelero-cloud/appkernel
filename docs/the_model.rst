@@ -99,9 +99,8 @@ In case you would like to create a new validator, you just need to extend the :c
         def validate(self, parameter_name, parameter_value):
             # implement your custom validation logic
             # here's the logic of the regexp validator as an example
-            if isinstance(parameter_value, basestring):
-                if self.value != parameter_value:
-                    raise ValidationException(self.type, parameter_value,
+            if self.value != parameter_value:
+                raise ValidationException(self.type, parameter_value,
                                               _('The parameter %(pname) cannot be validated against %(value)', pname=parameter_name,
                                                                                                          value=self.value))
 

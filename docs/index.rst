@@ -10,7 +10,7 @@ The codebase is thoroughly tested under Python 2.7 (3.4+ and PyPy are planned fo
 
 How does it helps you?
 ----------------------
-**We did for you the heavy lifting so you can focus on the things that matter :)**
+**We did the heavy lifting so you can focus on the things that matter :)**
 
 We've spent the time on analysing the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
 You can focus entirely on delivering business value on day one and being the rockstar of your project.
