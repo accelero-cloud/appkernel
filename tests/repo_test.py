@@ -135,6 +135,8 @@ def test_unique_index_creation():
     idx_info = config.mongo_database['Users'].index_information()
     assert 'name_idx' in idx_info
 
+# todo: test index
+# todo: test text index
 
 def test_schema_validation_success():
     print('\n{}\n'.format(json.dumps(Project.get_json_schema(mongo_compatibility=True)), indent=2, sort_keys=True))

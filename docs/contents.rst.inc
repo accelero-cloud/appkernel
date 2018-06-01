@@ -1,6 +1,11 @@
 .. toctree::
    :maxdepth: 1
 
+   introduction
    installation
-   features
+   the_model
+   repositories
+   services
+   translations
+   authentication
    api

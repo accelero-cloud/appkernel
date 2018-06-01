@@ -71,3 +71,5 @@ def test_basic_translation(client):
         print '\n{}'.format(json.dumps(result, indent=2))
         assert 200 <= rsp.status_code < 300
         validate_result(result)
+
+# todo: test translation of the validation exceptions

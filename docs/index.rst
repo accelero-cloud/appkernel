@@ -10,13 +10,20 @@ The codebase is thoroughly tested under Python 2.7 (3.4+ and PyPy are planned fo
 
 How does it helps you?
 ----------------------
-We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
+**We did for you the heavy lifting so you can focus on the things that matter :)**
+
+We've spent the time on analysing the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
 You can focus entirely on delivering business value on day one and being the rockstar of your project.
+
+
+Read the docs
+=============
+.. include:: contents.rst.inc
 
 ****
 
-Crash Course
-------------
+Crash Course (TL;DR)
+--------------------
 Let's build a mini identity service: ::
 
     class User(Model, MongoRepository, Service):
@@ -112,6 +119,3 @@ Run the generators on the attributes and validate the resulting object (usually 
 
    user.finalise_and_validate()
 
-Read the docs :)
-================
-.. include:: contents.rst.inc
