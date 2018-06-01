@@ -1,7 +1,6 @@
 .. toctree::
    :maxdepth: 1
 
-   features
    installation
-   quickstart
+   features
    api

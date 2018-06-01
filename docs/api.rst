@@ -24,6 +24,7 @@ Example: ::
             email = Parameter(str, validators=Email, index=UniqueIndex)
             password = Parameter(str, validators=NotEmpty,
                                  to_value_converter=password_hasher(), omit=True)
+
 .. autoclass:: Model
     :members:
     :inherited-members:
@@ -111,11 +112,11 @@ UUID Generator
 .. autofunction:: create_uuid_generator
 
 Date NOW Generator
-``````````````
+``````````````````
 .. autofunction:: date_now_generator
 
 Password hasher
-``````````````
+```````````````
 .. autofunction:: password_hasher
 
 Repository
@@ -141,7 +142,7 @@ MongoRepository
     :inherited-members:
 
 Auditable Repository
--------------------
+--------------------
 .. autoclass:: AuditableRepository
     :members:
 

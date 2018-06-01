@@ -19,6 +19,12 @@ The vision of the project is to provide you with a full-fledged microservice cha
 * MongoDB Aggregation Framework
 * :ref:`Powered by Flask`
 
+.. note::
+    hehehe
+
+.. warning::
+    hahaha
+
 Extensible Data Validation
 ``````````````````````````
 USE CASE / MOTIVATION

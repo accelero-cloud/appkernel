@@ -3,7 +3,6 @@ from types import NoneType
 from enum import Enum
 from flask import jsonify, current_app, request, abort, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
-
 from appkernel.configuration import config
 from iam import RbacMixin, Anonymous
 from query import QueryProcessor
@@ -283,6 +282,7 @@ class Service(RbacMixin):
     @staticmethod
     def convert_to_query(query_param_names, request_args):
         """
+        Result:
         ?first_name={firstName}&last_name={lastName}&birth_date={birthDate}
         Supported query formats:
         The value of first_name, last_name and birth_date is exactly the ones in the list.
@@ -307,7 +307,6 @@ class Service(RbacMixin):
         Birth date between the two parameters, with date pattern matching if applies.
         Converted to:
         {"birth_date": [{$gte:{birthDate},{"$lt":{birthDate}}]}}
-
 
         ?state:[NEW, CLOSED]
         The state of a give content among the provided patterns.
