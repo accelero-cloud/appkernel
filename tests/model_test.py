@@ -283,4 +283,4 @@ def test_json_schema_in_mongo_compat_mode():
     # todo: add meta and schema support to service
     # todo: test converters
     # todo: expose model description over rest
-    # to_value_converter=to_unix_time, from_value_converter=to_time_unit
+    # value_converter=to_unix_time, value_converter=to_time_unit

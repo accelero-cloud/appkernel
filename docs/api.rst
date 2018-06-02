@@ -23,7 +23,7 @@ Example: ::
             name = Parameter(str, required=True, index=UniqueIndex)
             email = Parameter(str, validators=Email, index=UniqueIndex)
             password = Parameter(str, validators=NotEmpty,
-                                 to_value_converter=password_hasher(), omit=True)
+                                 value_converter=password_hasher(), omit=True)
 
 .. autoclass:: Model
     :members:

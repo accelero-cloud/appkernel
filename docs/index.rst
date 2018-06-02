@@ -31,7 +31,7 @@ Let's build a mini identity service: ::
         name = Parameter(str, required=True, index=UniqueIndex)
         email = Parameter(str, validators=[Email, NotEmpty], index=UniqueIndex)
         password = Parameter(str, validators=[NotEmpty],
-                             to_value_converter=password_hasher(), omit=True)
+                             value_converter=password_hasher(), omit=True)
         roles = Parameter(list, sub_type=str, default_value=['Login'])
 
     app = Flask(__name__)
@@ -113,7 +113,7 @@ Add schema validation to the database: ::
 
 Hash the password and omit this attribute from the json representation: ::
 
-   password = Parameter(..., to_value_converter=password_hasher(rounds=10), omit=True)
+   password = Parameter(..., value_converter=password_hasher(rounds=10), omit=True)
 
 Run the generators on the attributes and validate the resulting object (usually not needed, since it is implicitly called by save and dumps methods): ::
 

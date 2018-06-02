@@ -11,7 +11,7 @@ class User(Model, AuditableRepository, Service):
     name = Parameter(str, required=True, validators=[NotEmpty])
     email = Parameter(str, required=True, validators=[Email, NotEmpty])
     password = Parameter(str, required=True, validators=[NotEmpty],
-                         to_value_converter=password_hasher(rounds=10), omit=True)
+                         value_converter=password_hasher(rounds=10), omit=True)
     roles = Parameter(list, sub_type=str, default_value=['Login'])
 
 

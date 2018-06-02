@@ -239,8 +239,7 @@ class Parameter(DslBase):
                  required=False,
                  sub_type=None,
                  validators=None,
-                 to_value_converter=None,
-                 from_value_converter=None,
+                 value_converter=None,
                  default_value=None,
                  generator=None,
                  index=None,
@@ -252,8 +251,7 @@ class Parameter(DslBase):
             required(bool): if True, the field must be specified before validation;
             sub_type(type): in case the python type is a dict or a list (or any other collection type), one needs to specify the element types
             validators(Validator): a list of validator elements which are used to validate field content
-            to_value_converter: converts the value of the field in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
-            from_value_converter: used to decrypt (or convert) content loaded from the database before presenting it to the user;
+            value_converter: converts the value of the property in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
             default_value(object): this value is set on the field in case there's no other value there yet
             generator: content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
             index(Index): the type of index (if any) which needs to be added to the database;
@@ -265,8 +263,7 @@ class Parameter(DslBase):
         self.required = required
         self.sub_type = sub_type
         self.validators = validators
-        self.to_value_converter = to_value_converter
-        self.from_value_converter = from_value_converter
+        self.value_converter = value_converter
         self.default_value = default_value
         self.generator = generator
 
@@ -821,8 +818,8 @@ class Model(object):
             if param_object.required and param_name not in obj_items:
                 raise ParameterRequiredException(
                     '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
-            if param_object.to_value_converter:
-                setattr(self, param_name, param_object.to_value_converter(getattr(self, param_name)))
+            if param_object.value_converter:
+                setattr(self, param_name, param_object.value_converter[0](getattr(self, param_name)))
             if param_object.validators is not None and isinstance(param_object.validators, list):
                 for val in param_object.validators:
                     if isinstance(val, Validator) and param_name in obj_items:

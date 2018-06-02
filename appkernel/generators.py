@@ -15,10 +15,20 @@ def date_now_generator():
 
 
 def password_hasher(rounds=20000, salt_size=16):
-    def password_hasher(password):
+    def to_value_converter(password):
         # type: (str) -> str
         if password.startswith('$pbkdf2-sha256'):
             return password
         else:
             return pbkdf2_sha256.encrypt(password, rounds=rounds, salt_size=salt_size)
-    return password_hasher
+    return to_value_converter, None
+
+
+def unix_time_converter():
+    # todo: implement this
+    def to_unix_time():
+        pass
+
+    def from_unix_time():
+        pass
+    return to_unix_time, from_unix_time

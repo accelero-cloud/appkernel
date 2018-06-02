@@ -14,7 +14,7 @@ class User(Model, MongoRepository, Service, IdentityMixin):
     id = Parameter(str, required=True, generator=create_uuid_generator('U'))
     name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     password = Parameter(str, required=True, validators=[NotEmpty],
-                         to_value_converter=password_hasher(rounds=10), omit=True)
+                         value_converter=password_hasher(rounds=10), omit=True)
     description = Parameter(str)
     roles = Parameter(list, sub_type=str)
     created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
