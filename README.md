@@ -16,12 +16,12 @@ you don't have to. You can focus entirely on delivering business value from day 
 Let's build a mini identity service:
 ```python
 class User(Model, MongoRepository, Service):
-    id = Parameter(str)
-    name = Parameter(str, validators=[NotEmpty], index=UniqueIndex)
-    email = Parameter(str, validators=[Email, NotEmpty], index=UniqueIndex)
-    password = Parameter(str, validators=[NotEmpty],
+    id = Property(str)
+    name = Property(str, validators=[NotEmpty], index=UniqueIndex)
+    email = Property(str, validators=[Email, NotEmpty], index=UniqueIndex)
+    password = Property(str, validators=[NotEmpty],
                          value_converter=password_hasher(), omit=True)
-    roles = Parameter(list, sub_type=str, default_value=['Login'])
+    roles = Property(list, sub_type=str, default_value=['Login'])
 
 application_id = 'identity management app'
 app = Flask(__name__)
@@ -104,7 +104,7 @@ Additionally the following HTTP methods are supported:
 - PUT: replaces a User object
 
 ### A few features of the built-in ORM function
-Find one single user matching the query parameter:
+Find one single user matching the query Property:
 ```python
 user = User.where(name=='Some username').find_one()
 ```
@@ -120,15 +120,15 @@ user_generator = Project.find_by_query({'name': 'user name'})
 ## Some more extras baked into the Model
 Generate the ID value automatically using a uuid generator and a prefix 'U':
 ```python
-id = Parameter(..., generator=uuid_generator('U'))
+id = Property(..., generator=uuid_generator('U'))
 ```
 Add a Unique index to the User's name property:
 ```python
-name = Parameter(..., index=UniqueIndex)
+name = Property(..., index=UniqueIndex)
 ```
 Validate the e-mail property, using the NotEmpty and Email validators
 ```python
-email = Parameter(..., validators=[Email, NotEmpty])
+email = Property(..., validators=[Email, NotEmpty])
 ```
 Add schema validation to the database:
 ```python
@@ -136,7 +136,7 @@ User.add_schema_validation(validation_action='error')
 ```
 Hash the password and omit this attribute from the json representation:
 ```python
-password = Parameter(..., value_converter=password_hasher(rounds=10), omit=True)
+password = Property(..., value_converter=password_hasher(rounds=10), omit=True)
 ```
 Run the generators on the attributes and validate the object (usually not needed, since it is implicitly called by save and dumps methods):
 ```python

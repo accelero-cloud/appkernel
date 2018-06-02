@@ -17,9 +17,9 @@ class AppKernelException(Exception):
         super(AppKernelException, self).__init__(message)
 
 
-class ParameterRequiredException(AppKernelException):
+class PropertyRequiredException(AppKernelException):
     def __init__(self, value):
-        super(AppKernelException, self).__init__('The parameter {} is required.'.format(value))
+        super(AppKernelException, self).__init__('The property {} is required.'.format(value))
 
 
 class ServiceException(AppKernelException):
@@ -203,7 +203,7 @@ class _TaggingMetaClass(type):
                 #   'decorator_args': [],
                 #   'decorator_kwargs': {'http_method': ['POST']},
                 # }
-            if isinstance(member, Parameter):
+            if isinstance(member, Property):
                 # adding the name of the implementing class and the parameter name
                 member.backreference = BackReference(class_name=class_name, parameter_name=member_name)
         dct.update(tags)
@@ -231,7 +231,7 @@ class UniqueIndex(Index):
         super(UniqueIndex, self).__init__(SortOrder.ASC)
 
 
-class Parameter(DslBase):
+class Property(DslBase):
     """
     Metadata holder used by the Model classes.
     """
@@ -593,7 +593,7 @@ class Model(object):
         result_dct = {}
         for field_name in props:
             attribute = getattr(cls, field_name)
-            if isinstance(attribute, Parameter):
+            if isinstance(attribute, Property):
                 result_dct[field_name] = Model.__describe_attribute(cls, field_name, attribute,
                                                                     convert_types_to_string=convert_types_to_string)
         return result_dct
@@ -684,7 +684,7 @@ class Model(object):
         for param, obj in instance_items:
             if skip_omitted_fields:
                 # skip the omitted fields
-                cls_items = {k: v for k, v in instance.__class__.__dict__.iteritems() if isinstance(v, Parameter)}
+                cls_items = {k: v for k, v in instance.__class__.__dict__.iteritems() if isinstance(v, Property)}
                 parameter_def = cls_items.get(param)
                 if parameter_def and parameter_def.omit:
                     continue
@@ -723,7 +723,7 @@ class Model(object):
                     key = 'id'
                 if key in class_variables:
                     parameter = getattr(cls, key)
-                    if isinstance(parameter, Parameter):
+                    if isinstance(parameter, Property):
                         if issubclass(parameter.python_type, Model):
                             setattr(instance, key, Model.from_dict(val, parameter.python_type, convert_ids=convert_ids))
                         elif issubclass(parameter.python_type, list):
@@ -806,7 +806,7 @@ class Model(object):
         """
         obj_items = self.__dict__
         class_items = self.__class__.__dict__
-        cls_items = {k: v for k, v in class_items.iteritems() if isinstance(v, Parameter)}
+        cls_items = {k: v for k, v in class_items.iteritems() if isinstance(v, Property)}
         for param_name, param_object in cls_items.items():
             # initialise default values and generators for parameters which were not defined by the user
             if param_name not in obj_items:
@@ -816,7 +816,7 @@ class Model(object):
                     setattr(self, param_name, param_object.generator())
             # validate fields
             if param_object.required and param_name not in obj_items:
-                raise ParameterRequiredException(
+                raise PropertyRequiredException(
                     '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
             if param_object.value_converter:
                 setattr(self, param_name, param_object.value_converter[0](getattr(self, param_name)))
@@ -841,8 +841,8 @@ class Model(object):
 
     def _include_instance(self, field):
         return not field.startswith('__') and not callable(getattr(self, field)) and not isinstance(
-            getattr(self, field), Parameter)
+            getattr(self, field), Property)
 
     @staticmethod
     def __is_param_field(field, cls):
-        return field in cls.__dict__ and isinstance(getattr(cls, field), Parameter)
+        return field in cls.__dict__ and isinstance(getattr(cls, field), Property)

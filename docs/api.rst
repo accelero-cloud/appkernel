@@ -19,19 +19,19 @@ The base class to be extended by all Domain objects (Models). It has a set of us
 Example: ::
 
     class User(Model):
-            id = Parameter(str)
-            name = Parameter(str, required=True, index=UniqueIndex)
-            email = Parameter(str, validators=Email, index=UniqueIndex)
-            password = Parameter(str, validators=NotEmpty,
+            id = Property(str)
+            name = Property(str, required=True, index=UniqueIndex)
+            email = Property(str, validators=Email, index=UniqueIndex)
+            password = Property(str, validators=NotEmpty,
                                  value_converter=password_hasher(), omit=True)
 
 .. autoclass:: Model
     :members:
     :inherited-members:
 
-Parameter
+Property
 ---------
-.. autoclass:: Parameter
+.. autoclass:: Property
     :special-members: __init__
     :members:
     :inherited-members:

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import uuid
 from flask import Flask
-from appkernel import AppKernelEngine, Model, Repository, Service, Parameter, NotEmpty, Regexp, Past
+from appkernel import AppKernelEngine, Model, Repository, Service, Property, NotEmpty, Regexp, Past
 from datetime import datetime
 from appkernel.repository import MongoRepository
 
@@ -25,12 +25,12 @@ def date_now_generator():
 
 
 class User(Model, MongoRepository, Service):
-    id = Parameter(str, required=True, generator=uuid_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')])
-    password = Parameter(str, required=True, validators=[NotEmpty])
-    description = Parameter(str)
-    roles = Parameter(list, sub_type=str)
-    created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
+    id = Property(str, required=True, generator=uuid_generator('U'))
+    name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')])
+    password = Property(str, required=True, validators=[NotEmpty])
+    description = Property(str)
+    roles = Property(list, sub_type=str)
+    created = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
 
 
 @kernel.app.route('/cfg')

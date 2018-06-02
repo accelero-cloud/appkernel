@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import uuid
 from flask import Flask
-from appkernel import AppKernelEngine, Model, AuditableRepository, Service, Parameter, NotEmpty, Regexp, Past
+from appkernel import AppKernelEngine, Model, AuditableRepository, Service, Property, NotEmpty, Regexp, Past
 from datetime import datetime
 
 application_id = 'task_management_app'
@@ -17,12 +17,12 @@ def uuid_generator(prefix=None):
 
 
 class Task(Model, AuditableRepository, Service):
-    id = Parameter(str, required=True, generator=uuid_generator('T'))
-    name = Parameter(str, required=True, validators=[NotEmpty])
-    description = Parameter(str)
-    tags = Parameter(list, sub_type=str)
-    completed = Parameter(bool, required=True, default_value=False)
-    closed_date = Parameter(datetime, validators=[Past])
+    id = Property(str, required=True, generator=uuid_generator('T'))
+    name = Property(str, required=True, validators=[NotEmpty])
+    description = Property(str)
+    tags = Property(list, sub_type=str)
+    completed = Property(bool, required=True, default_value=False)
+    closed_date = Property(datetime, validators=[Past])
 
     def __init__(self, **kwargs):
         Model.init_model(self, **kwargs)

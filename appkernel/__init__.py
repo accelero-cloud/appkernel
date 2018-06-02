@@ -1,5 +1,5 @@
 from engine import AppKernelEngine
-from model import Model, Parameter, AppKernelException, Index, TextIndex, UniqueIndex, ParameterRequiredException, \
+from model import Model, Property, AppKernelException, Index, TextIndex, UniqueIndex, PropertyRequiredException, \
     ServiceException
 from validators import NotEmpty, Regexp, Past, Future, ValidationException, Email, Min, Max, Validator, Unique
 from service import Service

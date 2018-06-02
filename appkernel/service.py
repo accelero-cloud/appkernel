@@ -7,7 +7,7 @@ from appkernel.configuration import config
 from iam import RbacMixin, Anonymous
 from query import QueryProcessor
 from validators import ValidationException
-from model import Model, ParameterRequiredException, create_tagging_decorator, _TaggingMetaClass, \
+from model import Model, PropertyRequiredException, create_tagging_decorator, _TaggingMetaClass, \
     get_argument_spec, ServiceException, OPS
 from repository import Repository, xtract, MongoRepository
 from reflection import *
@@ -105,7 +105,7 @@ class Service(RbacMixin):
             def action_executor(**named_args):
                 if 'object_id' not in named_args:
                     return Service.app_engine.create_custom_error(400,
-                                                                  'The object_id parameter is required for this action to execute')
+                                                                  'The object_id property is required for this action to execute')
                 else:
                     try:
                         instance = cls.find_by_id(named_args['object_id'])
@@ -254,7 +254,7 @@ class Service(RbacMixin):
                     return_code = 204
                 result_dic_tentative = {} if result is None else cls.xvert(result)
                 return jsonify(result_dic_tentative), return_code
-            except ParameterRequiredException as pexc:
+            except PropertyRequiredException as pexc:
                 app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
                 return app_engine.create_custom_error(400, str(pexc))
             except ValidationException as vexc:

@@ -4,7 +4,7 @@ import pymongo
 import operator
 
 from appkernel.configuration import config
-from model import Model, Expression, AppKernelException, SortOrder, Parameter, Index, TextIndex, UniqueIndex
+from model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex
 from pymongo.collection import Collection
 
 
@@ -29,7 +29,7 @@ class Query(object):
         where = reduce(operator.and_, expressions)
 
         if isinstance(where, Expression):
-            if isinstance(where.lhs, Parameter):
+            if isinstance(where.lhs, Property):
                 if where.lhs.backreference.within_an_array:
                     # this query is part of an array
                     self.filter_expr[str(where.lhs.backreference.array_parameter_name)] = where.ops.lmbda(
@@ -48,7 +48,7 @@ class Query(object):
 
     @staticmethod
     def __extract_rhs(right_hand_side):
-        if isinstance(right_hand_side, Parameter):
+        if isinstance(right_hand_side, Property):
             return right_hand_side.backreference.parameter_name
         else:
             return right_hand_side
@@ -294,7 +294,7 @@ class MongoRepository(Repository):
         }
 
         for key, value in self.__class__.__dict__.iteritems():
-            if isinstance(value, Parameter):
+            if isinstance(value, Property):
                 if value.index:
                     fct = index_factories.get(value.index, MongoRepository.not_supported)
                     fct(self.get_collection(), key,

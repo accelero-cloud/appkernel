@@ -1,5 +1,5 @@
 from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous
-from appkernel import Model, Parameter, UniqueIndex, ServiceException
+from appkernel import Model, Property, UniqueIndex, ServiceException
 from datetime import datetime
 from appkernel import AuditableRepository, Repository, MongoRepository
 from appkernel.service import link
@@ -11,14 +11,14 @@ from appkernel.validators import Max, Min
 
 
 class User(Model, MongoRepository, Service, IdentityMixin):
-    id = Parameter(str, required=True, generator=create_uuid_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
-    password = Parameter(str, required=True, validators=[NotEmpty],
-                         value_converter=password_hasher(rounds=10), omit=True)
-    description = Parameter(str)
-    roles = Parameter(list, sub_type=str)
-    created = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
-    sequence = Parameter(int)
+    id = Property(str, required=True, generator=create_uuid_generator('U'))
+    name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
+    password = Property(str, required=True, validators=[NotEmpty],
+                        value_converter=password_hasher(rounds=10), omit=True)
+    description = Property(str)
+    roles = Property(list, sub_type=str)
+    created = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
+    sequence = Property(int)
 
     @link(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])
     def change_p(self, current_password, new_password):
@@ -35,18 +35,18 @@ class User(Model, MongoRepository, Service, IdentityMixin):
 
 
 class Stock(Model):
-    code = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]'), Max(4)], index=UniqueIndex)
-    open = Parameter(float, required=True, validators=[Min(0)])
-    updated = Parameter(datetime, required=True, validators=[Past], generator=date_now_generator)
-    history = Parameter(list, sub_type=long)
-    sequence = Parameter(int, validators=[Min(1), Max(100)])
+    code = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]'), Max(4)], index=UniqueIndex)
+    open = Property(float, required=True, validators=[Min(0)])
+    updated = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
+    history = Property(list, sub_type=long)
+    sequence = Property(int, validators=[Min(1), Max(100)])
 
 
 class Portfolio(Model, MongoRepository):
-    id = Parameter(str, required=True, generator=create_uuid_generator('P'))
-    name = Parameter(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
-    stocks = Parameter(list, sub_type=Stock, validators=NotEmpty)
-    owner = Parameter(User, required=False)
+    id = Property(str, required=True, generator=create_uuid_generator('P'))
+    name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
+    stocks = Property(list, sub_type=Stock, validators=NotEmpty)
+    owner = Property(User, required=False)
 
 
 def create_portfolio(name):
@@ -73,8 +73,8 @@ def create_and_save_portfolio_with_owner():
 
 
 class ExampleClass(Model):
-    just_numbers = Parameter(str, required=True, validators=[Regexp('^[0-9]+$')])
-    future_field = Parameter(datetime, validators=[Future])
+    just_numbers = Property(str, required=True, validators=[Regexp('^[0-9]+$')])
+    future_field = Property(datetime, validators=[Future])
 
 
 class Priority(Enum):
@@ -84,13 +84,13 @@ class Priority(Enum):
 
 
 class Task(Model, AuditableRepository):
-    id = Parameter(str, required=True, generator=create_uuid_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty])
-    description = Parameter(str, required=True, validators=[NotEmpty])
-    completed = Parameter(bool, required=True, default_value=False)
-    created = Parameter(datetime, required=True, generator=date_now_generator)
-    closed_date = Parameter(datetime, validators=[Past])
-    priority = Parameter(Priority, required=True, default_value=Priority.MEDIUM)
+    id = Property(str, required=True, generator=create_uuid_generator('U'))
+    name = Property(str, required=True, validators=[NotEmpty])
+    description = Property(str, required=True, validators=[NotEmpty])
+    completed = Property(bool, required=True, default_value=False)
+    created = Property(datetime, required=True, generator=date_now_generator)
+    closed_date = Property(datetime, validators=[Past])
+    priority = Property(Priority, required=True, default_value=Priority.MEDIUM)
 
     def __init__(self, **kwargs):
         Model.init_model(self, **kwargs)
@@ -101,9 +101,9 @@ class Task(Model, AuditableRepository):
 
 
 class Project(Model, AuditableRepository):
-    name = Parameter(str, required=True, validators=[NotEmpty()])
-    tasks = Parameter(list, sub_type=Task)
-    created = Parameter(datetime, required=True, generator=date_now_generator)
+    name = Property(str, required=True, validators=[NotEmpty()])
+    tasks = Property(list, sub_type=Task)
+    created = Property(datetime, required=True, generator=date_now_generator)
 
     def __init__(self, **kwargs):
         Model.init_model(self, **kwargs)

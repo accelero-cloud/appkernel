@@ -1,7 +1,7 @@
 import json
 
 from pymongo import MongoClient
-from appkernel import ParameterRequiredException
+from appkernel import PropertyRequiredException
 from appkernel import ValidationException
 from appkernel.configuration import config
 from test_util import *
@@ -40,7 +40,7 @@ def test_regexp_validation():
 
 def test_required_field():
     project = Project()
-    with pytest.raises(ParameterRequiredException):
+    with pytest.raises(PropertyRequiredException):
         project.finalise_and_validate()
     project.update(name='some_name')
     project.finalise_and_validate()

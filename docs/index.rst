@@ -12,8 +12,9 @@ How does it helps you?
 ----------------------
 **We did the heavy lifting so you can focus on the things that matter :)**
 
-We've spent the time on analysing the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on, so you don't have to.
-You can focus entirely on delivering business value on day one and being the rockstar of your project.
+We believe you wish to focus entirely on delivering business value on day one and being the rockstar of your project.
+Therefore we took care of the boilerplate code: analysed the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on,
+so you don't have to: **just lay back, fasten your seatbelts and enjoy the ride! ;)**
 
 
 Read the docs
@@ -27,12 +28,12 @@ Crash Course (TL;DR)
 Let's build a mini identity service: ::
 
     class User(Model, MongoRepository, Service):
-        id = Parameter(str)
-        name = Parameter(str, required=True, index=UniqueIndex)
-        email = Parameter(str, validators=[Email, NotEmpty], index=UniqueIndex)
-        password = Parameter(str, validators=[NotEmpty],
+        id = Property(str)
+        name = Property(str, required=True, index=UniqueIndex)
+        email = Property(str, validators=[Email, NotEmpty], index=UniqueIndex)
+        password = Property(str, validators=[NotEmpty],
                              value_converter=password_hasher(), omit=True)
-        roles = Parameter(list, sub_type=str, default_value=['Login'])
+        roles = Property(list, sub_type=str, default_value=['Login'])
 
     app = Flask(__name__)
     kernel = AppKernelEngine('demo app', app=app)
@@ -79,7 +80,7 @@ Quick overview
 A few features of the built-in ORM function
 -------------------------------------------
 
-Find one single user matching the query parameter: ::
+Find one single user matching the query Property: ::
 
    user = User.where(name=='Some username').find_one()
 
@@ -95,17 +96,17 @@ Some more extras baked into the Model
 -------------------------------------
 Generate the ID value automatically using a uuid generator and a prefix 'U': ::
 
-   id = Parameter(..., generator=uuid_generator('U-'))
+   id = Property(..., generator=uuid_generator('U-'))
 
 It will generate an ID which gives a hint about the object type: *U-0590e790-46cf-42a0-bdca-07b0694d08e2*
 
 Add a Unique index to the User's name property: ::
 
-   name = Parameter(..., index=UniqueIndex)
+   name = Property(..., index=UniqueIndex)
 
 Validate the e-mail property, using the NotEmpty and Email validators ::
 
-   email = Parameter(..., validators=[Email, NotEmpty])
+   email = Property(..., validators=[Email, NotEmpty])
 
 Add schema validation to the database: ::
 
@@ -113,7 +114,7 @@ Add schema validation to the database: ::
 
 Hash the password and omit this attribute from the json representation: ::
 
-   password = Parameter(..., value_converter=password_hasher(rounds=10), omit=True)
+   password = Property(..., value_converter=password_hasher(rounds=10), omit=True)
 
 Run the generators on the attributes and validate the resulting object (usually not needed, since it is implicitly called by save and dumps methods): ::
 

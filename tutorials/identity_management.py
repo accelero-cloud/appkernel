@@ -1,18 +1,18 @@
 from flask import Flask
 
-from appkernel import Model, Service, Parameter, NotEmpty, password_hasher, AppKernelEngine
+from appkernel import Model, Service, Property, NotEmpty, password_hasher, AppKernelEngine
 from appkernel.repository import MongoRepository, AuditableRepository
 from appkernel.validators import Email
 from tutorials.server import uuid_generator
 
 
 class User(Model, AuditableRepository, Service):
-    id = Parameter(str, required=True, generator=uuid_generator('U'))
-    name = Parameter(str, required=True, validators=[NotEmpty])
-    email = Parameter(str, required=True, validators=[Email, NotEmpty])
-    password = Parameter(str, required=True, validators=[NotEmpty],
-                         value_converter=password_hasher(rounds=10), omit=True)
-    roles = Parameter(list, sub_type=str, default_value=['Login'])
+    id = Property(str, required=True, generator=uuid_generator('U'))
+    name = Property(str, required=True, validators=[NotEmpty])
+    email = Property(str, required=True, validators=[Email, NotEmpty])
+    password = Property(str, required=True, validators=[NotEmpty],
+                        value_converter=password_hasher(rounds=10), omit=True)
+    roles = Property(list, sub_type=str, default_value=['Login'])
 
 
 application_id = 'task_management_app'
