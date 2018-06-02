@@ -9,6 +9,7 @@ import getopt
 from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import default_exceptions
+import appkernel
 from appkernel.configuration import config
 from validators import AppInitialisationError
 from authorisation import authorize_request
@@ -84,7 +85,8 @@ class AppKernelEngine(object):
                  root_url='/',
                  log_level=logging.DEBUG,
                  cfg_dir=None,
-                 development=None):
+                 development=None,
+                 enable_defaults=False):
         """
         Initialiser of Flask Engine.
         :param app: the Flask App
@@ -111,7 +113,7 @@ class AppKernelEngine(object):
             self.__init_web_layer()
             self.cmd_line_options = get_cmdline_options()
             self.cfg_dir = cfg_dir or self.cmd_line_options.get('cfg_dir')
-            self.cfg_engine = CfgEngine(self.cfg_dir)
+            self.cfg_engine = CfgEngine(self.cfg_dir, optional=enable_defaults)
             config.cfg_engine = self.cfg_engine
             self.__init_babel()
             self.__init_cross_cutting_concerns()
@@ -194,7 +196,7 @@ class AppKernelEngine(object):
         # translations.merge(Translations.load())
         # todo: support for multiple plugins
         supported_languages = []
-        for supported_lang in self.cfg_engine.get('appkernel.i18n.languages'):
+        for supported_lang in self.cfg_engine.get('appkernel.i18n.languages') or ['en-US']:
             supported_languages.append(supported_lang)
             if '-' in supported_lang:
                 supported_languages.append(supported_lang.split('-')[0])
@@ -347,7 +349,7 @@ class AppKernelEngine(object):
         :return:
         :rtype: Service
         """
-
+        assert issubclass(service_class, appkernel.Service), 'Only subclasses of Service can be registered.'
         service_class.set_app_engine(self, url_base or self.root_url, methods=methods, enable_hateoas=enable_hateoas)
         return service_class
 
@@ -357,17 +359,25 @@ class CfgEngine(object):
     Encapsulates application configuration. One can use it for retrieving various section form the configuration.
     """
 
-    def __init__(self, cfg_dir, config_file_name='cfg.yml'):
+    def __init__(self, cfg_dir, config_file_name='cfg.yml', optional=False):
         """
-        :param cfg_dir:
+        :param cfg_dir: the directory which holds the configuration files;
+        :param config_file_name: the file name which contains the configuration (cfg.yml by default);
+        :param optional: if True it will initialise even if config resource is not found (defaults to False);
         """
+        self.optional = optional
+        self.initialised = False
         config_file = '{}/{}'.format(cfg_dir.rstrip('/'), config_file_name)
         if not os.access(config_file, os.R_OK):
-            raise AppInitialisationError('The config file {} is missing or not readable. '.format(config_file))
+            if not optional:
+                raise AppInitialisationError('The config file {} is missing or not readable. '.format(config_file))
+            else:
+                return
 
         with open(config_file, 'r') as ymlfile:
             try:
                 self.cfg = yaml.load(ymlfile)
+                self.initialised = True
             except yaml.scanner.ScannerError as se:
                 raise AppInitialisationError('cannot read configuration file due to: {}'.format(config_file))
 
@@ -386,6 +396,8 @@ class CfgEngine(object):
         """
         :return: a section (or value) under the given array keys
         """
+        if not self.initialised:
+            return
         assert isinstance(config_nodes, list), 'config_nodes should be a string list'
         if section_dict is None:
             section_dict = self.cfg

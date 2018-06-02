@@ -104,6 +104,20 @@ def test_update():
 
 
 def test_find_all():
+    project_count=10
+    for i in xrange(project_count):
+        u = Project().update(name='multi_user_%s' % i).update(undefined_parameter='something undefined'). \
+            append_to(groups='some group name').append_to(groups='some other group name')
+        u.save()
+    assert Project.count() == project_count
+    counter = 0
+    for u in Project.find():
+        print(u)
+        counter += 1
+    assert counter == project_count
+
+
+def test_find_all_by_query():
     for i in xrange(50):
         u = Project().update(name='multi_user_%s' % i).update(undefined_parameter='something undefined'). \
             append_to(groups='some group name').append_to(groups='some other group name')
@@ -116,7 +130,7 @@ def test_find_all():
     assert counter == 10
 
 
-def test_find_some():
+def test_find_some_by_query():
     for i in xrange(50):
         p = Project().update(name='multi_user_%s' % i).update(undefined_parameter='something undefined'). \
             append_to(groups='some group name').append_to(groups='some other group name')

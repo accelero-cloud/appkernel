@@ -8,4 +8,5 @@
    services
    translations
    authentication
+   motivation_vision
    api

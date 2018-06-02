@@ -1,5 +1,9 @@
 How does it works?
 ------------------
+
+Base Model
+..........
+
 AppKernel is built around the concepts of Domain Driven Design. You can start the project by laying out the model (the Enitity).
 
 The Model class represents the data in our application and stands at the heart of the architecture. As a first step we define
@@ -13,7 +17,7 @@ the *Properties* (fields) of our new domain model object as static class variabl
         roles = Property(list, sub_type=str)
 
 
-By this time we've got for free a keyword argument constructor (__init__ methof), a  json and dict representation of the class: ::
+By this time we've got for free a keyword argument constructor (__init__ method), a  json and dict representation of the class: ::
 
     u = User(name='some name', email='some name')
     u.password='some pass'
@@ -26,7 +30,7 @@ By this time we've got for free a keyword argument constructor (__init__ methof)
 
 Or in case we want a pretty printed Json we can do: ::
 
-    u.dumps(pretty_print=True)
+    print(u.dumps(pretty_print=True))
     {
         "email": "some name",
         "name": "some name",
@@ -49,54 +53,183 @@ And let's try to list the properties again: ::
     str(u)
     '<User> {"email": "some name", "name": "some name"}'
     u.dumps()
-    ValidationException: REGEXP on type str - The property email cannot be validated against (?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[-!#-[]-]|\[-	-])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[-!-ZS-]|\[-	-])+)\])
+    ValidationException: REGEXP on type str - The property email cannot be validated against (?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[-!#-[]-]|\[--])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[-!-ZS-]|\[--])+)\])
 
-Whoops... but wait a minute, that's desired behaviour since we didn't provided a proper e-mail address. Let's try again: ::
+Whoops... that's quite a big of error message and regular expression :P ...but wait a minute, that's desired behaviour since we didn't provided a proper e-mail address.
+Let's try it again: ::
 
     u.email='user@acme.com'
     u.dumps()
     PropertyRequiredException: The property [password] on class [User] is required.
 
-Yeah, that's expected too. Final round: ::
+Yeah, that's expected too, since we missed the required password. Final round: ::
 
     u.password='some pass'
-    u.dumps()
-    '{"email": "user@acme.com", "name": "some name", "password": "some pass", "roles": ["Login"]}'
+    print(u.dumps(pretty_print=True))
+    {
+        "email": "user@acme.com",
+        "name": "some name",
+        "password": "some pass",
+        "roles": [
+            "Login"
+        ]
+    }
+
 
 Observe how the default value on the *roles* property is automagically added :)
 
-But what if I just want to validate the class in my business logic, without generating json? Despair not my friend, there's a handy method for it: ::
+So far so good, but what if I just want to validate the class in my business logic, without generating json? Despair not my friend, there's a handy method for it: ::
 
     u.finalise_and_validate()
 
-Ohh, that's good... but why it is called finalise and validate, why not just validate?
+Ohh, that looks good already... but why it is called finalise and validate, why not just validate?
 
-Well, because we have thought that there are few use-cases beyond validation and default value generation. Imagine that:
+Well, because we have thought that there are few more use-cases beyond validation and default value generation. Imagine that:
 
-- we want to automatically hash password values
-- or we want to add a custom ID generator to our model which has some alpha characters for the id
+- we want to automatically hash password values before saving to the database;
+- or we want to add a custom ID generator to our model which has some alpha character-prefix for the id, so we always know which ID belongs to which Model;
+
+Let's add a bit more magic to the mix :) ::
+
+    class User(Model):
+        id = Property(str, generator=create_uuid_generator('U'))
+        name = Property(str, required=True)
+        email = Property(str, validators=[Email])
+        password = Property(str, required=True, value_converter=password_hasher())
+        roles = Property(list, sub_type=str, default_value=['Login'])
+
+    u = User(name='some name', email='user@acme.com', password='some pass')
+    print(u.dumps(pretty_print=True))
+
+Output: ::
+
+    {
+        "email": "user@acme.com",
+        "id": "U013333e7-9f23-4e9d-80de-480505535cad",
+        "name": "some name",
+        "password": "$pbkdf2-sha256$20000$C0GI8f4/B2AsRah1LiWE8A$2KBVlwBMtaoy1c2dhNORCETNEwssKMnYvB5NAPbkg1s",
+        "roles": [
+            "Login"
+        ]
+    }
+
+whoaaa.. what happened here:
+
+- the **id** field got autogenerated and whenever we will receive a sample json we will know that is describe a User model object, since the ID starts with 'U'
+- more interesting is the change happened to the **password** property: it was hashed, so we are all secured :)
+
+
+Service classes
+...............
+
+Repository
+``````````
 
 Now we add a pinch of augmentation by extending a few more utility classes:
 
 * extend the Repository class (or its descendants) to add ORM functionality to the model (CRUD, Schema Generation, Indexing, etc.);
 * extend the Service class (or its descendants) to expose the model as a REST services (create new instances with POST, retrieve existing ones with GET or DELETE them);
 
-Let's assume that we have created a User class extending the :class:`Model` and the :class:`Service`. Now we'd like to expose it as a REST endpoint ::
+Let's create a short configuration in the Python interactive console to explore the features of a Repository.
+According to the Domain Driven Design specification the Repository cotain methods for retrieving domain objects such that alternative storage implementations may be easily interchanged. ::
 
-    if __name__ == '__main__':
-        app = Flask(__name__)
-        kernel = AppKernelEngine('demo app', app=app)
-        kernel.register(User)
-        kernel.run()
+    from appkernel import Model, MongoRepository, Property, password_hasher, create_uuid_generator, Email
+    from appkernel.configuration import config
+    from pymongo import MongoClient
 
+    config.mongo_database=MongoClient(host='localhost')['tutorial']
 
+    class User(Model, MongoRepository):
+        id = Property(str, generator=create_uuid_generator('U'))
+        name = Property(str, required=True)
+        email = Property(str, validators=[Email])
+        password = Property(str, required=True, value_converter=password_hasher())
+        roles = Property(list, sub_type=str, default_value=['Login'])
 
-Why did we built this?
-----------------------
-* We had the need to build a myriad of small services in our daily business, ranging from data-aggregation pipelines, to housekeeping services and other process automation services. These do share similar requirements and the underlying infrastructure needed to be rebuilt and tested over and over again. The question arose: what if we avoid spending valuable time on the boilerplate and focus only on the fun part?
+    u = User(name='some name', email='user@acme.com', password='some pass')
+    u.save()
+    u'U7ebc9ae7-d33c-458e-af56-d08283dcabb7'
 
-* Often time takes a substantial effort to make a valuable internal hack or proof of concept presentable to customers, until it reaches the maturity in terms reliability, fault tolerance and security. What if all these non-functional requirements would be taken care by an underlying platform?
+It returns the ID of the saved Model object. Now let's try to return it: ::
 
-* There are several initiatives out there (Flask Admin, Flask Rest Extension and so), which do target parts of the problem, but they either need substantial effort to make them play nice together, either they feel complicated and uneasy to use. We wanted something simple and beautiful, which we love working with.
+    loaded_user = User.find_by_id(u.id)
+    print(loaded_user)
+    <User> {"email": "user@acme.com", "id": "Ua727d463-26c8-4a47-9402-5683430d1bd0", "name": "some name", "password": "$pbkdf2-sha256$20000$KaW0lnKuNSakdG4NQcjZOw$9Nk4RWeszS.PWkNoW4slQdg7K376tsg610prUfjK3n8", "roles": ["Login"]}
 
-* These were the major driving question, which lead to the development of App Kernel.
+Ok, let's try to make a few more users and some more advanced queries: ::
+
+    user_at_acme = User.where(User.email=='user@acme.com').find_one()
+    print(user_at_acme.dumps(pretty_print=True))
+
+Giving the following output: ::
+
+    {
+        "email": "user@acme.com",
+        "id": "Ueeb4139a-1e35-43cd-ab69-7bc3b9104ae4",
+        "name": "some name",
+        "password": "$pbkdf2-sha256$20000$lrJ2jpEyhpCSUmpNaY1RSg$n13u6quqZA9FBVV.oDVD6GzjcKshac.3gDDm1lQfFE0",
+        "roles": [
+            "Login"
+        ]
+    }
+
+Getting rid of this user instance would be as simple as *user_at_acme.delete()*, however we won't do it yet, since I want to show a few more tricks.
+
+Rest Service
+````````````
+So let's access the user information over HTTP as rest service. It is super simple: the User class needs to additionally extend :class:`Service` and we are all set. ::
+
+    from appkernel import Model, MongoRepository, Property, password_hasher, create_uuid_generator, Email, Service
+    from pymongo import MongoClient
+    from flask import Flask
+    from appkernel import AppKernelEngine
+
+    app = Flask('demo app')
+    kernel = AppKernelEngine('demo app', app=app, enable_defaults=True)
+
+    class User(Model, MongoRepository, Service):
+        id = Property(str, generator=create_uuid_generator('U'))
+        name = Property(str, required=True)
+        email = Property(str, validators=[Email])
+        password = Property(str, required=True, value_converter=password_hasher())
+        roles = Property(list, sub_type=str, default_value=['Login'])
+
+    u = User(name='some name', email='user@acme.com', password='some pass')
+    u.save()
+
+    kernel.register(User)
+    kernel.run()
+
+Output: ::
+
+     * Running on http://127.0.0.1:5000/ (Press CTRL+C to quit)
+
+At this moment we have a running REST service exposed on the http://127.0.0.1:5000/.
+Let's try out the main functions in a terminal console with **curl**: ::
+
+    curl -X GET http://127.0.0.1:5000/users/
+
+With output: ::
+
+    {
+      "_items": [
+        {
+          "_type": "User",
+          "email": "user@acme.com",
+          "id": "U9c6785f5-b8b1-4801-a09c-a45109af1222",
+          "name": "some name",
+          "password": "$pbkdf2-sha256$20000$6z2nVMq5N8b4P8eYs1aK0Q$011JYdBICbRUr4YjI7QXJOkPm9X8PHLccVknwqQoQoA",
+          "roles": [
+            "Login"
+          ]
+        }
+      ],
+      "_links": {
+        "self": {
+          "href": "/users/"
+        }
+      },
+      "_type": "User"
+    }
+
+Now that you got the taste of **Appkernel** feel free to dig deeper an deeper using this documentation.

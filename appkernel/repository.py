@@ -26,8 +26,9 @@ class Query(object):
         self.__prep_expressions(*expressions)
 
     def __prep_expressions(self, *expressions):
+        if not expressions:
+            return
         where = reduce(operator.and_, expressions)
-
         if isinstance(where, Expression):
             if isinstance(where.lhs, Property):
                 if where.lhs.backreference.within_an_array:

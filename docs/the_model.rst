@@ -30,7 +30,7 @@ The following example showcases the most notable features of a **Model** class: 
         name = Property(str, required=True, index=UniqueIndex)
         email = Property(str, validators=[Email], index=UniqueIndex)
         password = Property(str, validators=[NotEmpty],
-                             to_value_converter=password_hasher(rounds=10), omit=True)
+                             value_converter=password_hasher(), omit=True)
         roles = Property(list, sub_type=str, default_value=['Login'])
         registration = Property(datetime, validators=[Past], generator=date_now_generator)
 
@@ -53,14 +53,14 @@ Interested? let's explore more details :)
 
 Extensible Data Validation
 ``````````````````````````
-We tried to make the boring task of validation a simple and fun experience for you. Therefore all Propertys have a builtin
+We tried to make the boring task of validation a simple and fun experience for you. Therefore all Properties have a builtin
 **required** field which - if set to True - will check the existence of a property.
 But in some cases this is far from enough, this is why we introduced the validator lists, which provides a higher sophistication
 for backend and database validation.
 
 For example you might want to make sure that a Property value is a valid e-mail address (by using the Email validator),
 or make sure that the value is lower than 10 (using the Max validator). You can use none, one or more validators for one single Property,
-or you can add you very own custom validator by extending the :class:`Validator` base class;
+or you can add your very own custom validator by extending the :class:`Validator` base class;
 
 Built-in validators
 ...................
@@ -78,7 +78,7 @@ Built-in validators
 
     email = Property(str, validators=[Email])
 
-:class:`Min` and :class:`Max` - the field should be numeric one and the value should be higher or lowe than the specified one; ::
+:class:`Min` and :class:`Max` - the field should be numeric one and the value should be between the specified Min and Max values; ::
 
     sequence = Property(int, validators=[Min(1), Max(100)])
 
@@ -89,19 +89,19 @@ Built-in validators
 :class:`Unique` - the field value should be unique in the collection of this Model object (it will install a unique
 index in the Mongo database and will cause cause a special unique property in the Json schema;
 
-In case you would like to create a new validator, you just need to extend the :class:`Validator` base class and implement the **validate** method: ::
+In case you would like to create a new type of validator, you just need to extend the :class:`Validator` base class and implement the **validate** method: ::
 
     class CustomValidator(Validator):
         def __init__(self, value):
             # initialise the extended class
             super(CustomValidator, self).__init__('CustomValidator', value)
 
-        def validate(self, Property_name, Property_value):
+        def validate(self, param_name, param_value):
             # implement your custom validation logic
             # here's the logic of the regexp validator as an example
-            if self.value != Property_value:
-                raise ValidationException(self.type, Property_value,
-                                              _('The Property %(pname) cannot be validated against %(value)', pname=Property_name,
+            if self.value != param_value:
+                raise ValidationException(self.type, param_value,
+                                              _('The Property %(pname) cannot be validated against %(value)', pname=param_name,
                                                                                                          value=self.value))
 
 In the example above we used the **_()** function from *Babel* in order to provide translation support for to the validation error message;
