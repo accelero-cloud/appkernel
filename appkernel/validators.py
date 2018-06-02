@@ -1,6 +1,7 @@
 from enum import Enum
 from datetime import datetime, date
 import re
+from babel import _
 
 
 class ValidatorType(Enum):
@@ -71,8 +72,7 @@ class Regexp(Validator):
         if isinstance(validable_object, basestring):
             if not re.match(self.value, validable_object):
                 raise ValidationException(self.type, validable_object,
-                                          'The parameter *{}* cannot be validated against {}'.format(parameter_name,
-                                                                                                     self.value))
+                                          _('The property %(email) cannot be validated against %(value)', email=parameter_name, value=self.value))
 
 
 class Email(Regexp):
