@@ -282,36 +282,43 @@ class Service(RbacMixin):
     @staticmethod
     def convert_to_query(query_param_names, request_args):
         """
-        Result:
-        ?first_name={firstName}&last_name={lastName}&birth_date={birthDate}
+        Result example: ::
+
+            ?first_name={firstName}&last_name={lastName}&birth_date={birthDate}
+
         Supported query formats:
         The value of first_name, last_name and birth_date is exactly the ones in the list.
-        Converted to:
-        {"$and":[
-            {"first_name":{firstName}},
-            {"last_name":{lastName}},
-            {"birth_date":{birthDate}}
-            ]}
+        Converted to: ::
+
+            {"$and":[
+                {"first_name":{firstName}},
+                {"last_name":{lastName}},
+                {"birth_date":{birthDate}}
+                ]}
 
         ?first_name=~{firstName}
         The first name contains a given value;
-        Converted to:
-        {"first_name" : "/.*{firstName}.*/i"}
+        Converted to: ::
+
+            {"first_name" : "/.*{firstName}.*/i"}
 
         ?birth_date=>{birthDate}
         Birth date after the given parameter (inclusive >=)
-        Converted to:
-        {"birth_date": {$gte:{birthDate}}}
+        Converted to: ::
 
-        ?birth_date=>{birthDate}&?birth_date=<{birthDate}
+            {"birth_date": {$gte:{birthDate}}}
+
+        Another query format: ?birth_date=>{birthDate}&?birth_date=<{birthDate}
         Birth date between the two parameters, with date pattern matching if applies.
-        Converted to:
-        {"birth_date": [{$gte:{birthDate},{"$lt":{birthDate}}]}}
+        Converted to: ::
 
-        ?state:[NEW, CLOSED]
+            {"birth_date": [{$gte:{birthDate},{"$lt":{birthDate}}]}}
+
+        Collection query: ?state:[NEW, CLOSED]
         The state of a give content among the provided patterns.
-        Converted to:
-        {"state":{"$in":["NEW", "CLOSED"]}}
+        Converted to: ::
+
+            {"state":{"$in":["NEW", "CLOSED"]}}
 
         :param query_param_names: the names of all query parameters as a set; example set(['birth_date','logic'])
         :type query_param_names: set
@@ -320,7 +327,6 @@ class Service(RbacMixin):
         :return: the query expression which than can be converted to repository specific queries (eg. Mongo or SQL query)
         :rtype: dict
         """
-
         query_dict = defaultdict(list)
         for arg in request_args:
             if arg != 'logic' and arg in query_param_names:
