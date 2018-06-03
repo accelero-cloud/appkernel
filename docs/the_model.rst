@@ -129,7 +129,7 @@ Do we have you attention? let's explore the details :)
 
 Extensible Data Validation
 ``````````````````````````
-We tried to make the boring task of validation a simple and fun experience for you. Therefore all Properties have a builtin
+We tried to make the boring task of validation a simple and fun experience for you. Therefore all properties have a builtin
 **required** field which - if set to True - will check the existence of a property.
 But in some cases this is far from enough, this is why we introduced the validator lists, which provides a higher sophistication
 for backend and database validation.
@@ -176,23 +176,26 @@ In case you would like to create a new type of validator, you just need to exten
             # here's the logic of the regexp validator as an example
             if self.value != param_value:
                 raise ValidationException(self.type, param_value,
-                                              _('The Property %(pname) cannot be validated against %(value)', pname=param_name,
+                                              _('The Property %(pname)s cannot be validated against %(value)s', pname=param_name,
                                                                                                          value=self.value))
 
-In the example above we used the **_()** function from *Babel* in order to provide translation support for to the validation error message;
+.. note::
+    The validate function should not return any value but raise a :class:`ValidationException` when the value is does not met the predefined conditions.
+
+.. note::
+    In the example above we used the **_()** function from *Babel* in order to provide translation support for to the validation error message;
 
 Default Values and Generators
 `````````````````````````````
-USE CASE / MOTIVATION
-Sometimes required field values can be automatically generated upon persisting the model object (eg. a database ID)
-or sensible defaults can be provided in design time (eg. the role 'Login' might be safely added to all users); ::
+Sometimes field values can be automatically generated upon persisting the model object (eg. a database ID or date values related to the creation or current used id
+in case of need for auditing function) or sensible defaults can be provided in design time (eg. the role 'Login' might be safely added to all users);
+Take the following example: ::
 
-    id = Property(str, required=True, generator=uuid_generator('U'))
+    id = Property(str, required=True, generator=create_uuid_generator('U'))
 
-In this case the id field will get a generated value upon saving (or running the `finalise_and_validate()` method on the model)
-if one was not provided already;
-Writing customer generators is easy: any method with a return value would suffice.
-In case the generator requires an input Property (like the uuid_generator in our case), one would create a method which returns
+In this case the id property will take a generated value upon saving (or running the `finalise_and_validate()` method on the model) if another value is not provided already;
+Writing custom generators is easy: any global function with a return value would suffice.
+In case the generator requires an input argument (like the create_uuid_generator in our case), one would create a method which returns
 another method: ::
 
     def uuid_generator(prefix=None):
@@ -205,8 +208,160 @@ This type of ID generator enables you to prefix the IDs of your different Models
 one will know immediately know in which collection to sarch for even if he only has an ID (given that the User model ID is prefixed
 with 'U' and the Customer Model ID is prefixed with 'CT';
 
+Built-in generators
+...................
+
+*UUID Generator*: generates a globally unique id. In case a prefix parameter is provided it will be added in-front of the result ::
+
+    id = Property(str, generator=create_uuid_generator('U'))
+
+
+*Date generator*: generate the date-time value of the finalisation moment: ::
+
+    registration = Property(datetime, generator=date_now_generator)
+
+*Current user generator*: used to add the authenticated user, useful to automatically register ownership on data object or audit activities. ::
+
+    owner = Property(datetime, generator=current_user_generator)
+
 Value Converters
 ````````````````
-USE CASE / MOTIVATION
+It is also needed to change already existing field values in way or another. Think about the following use-cases:
 
+- passwords need to be hashed before saving it into the database;
+- dates could be converted to and from UNIX time before saving or sending it over the wire so one needs to deal less with the data format;
+- some sensitive data fragments (such as GDPR controlled private data) might be encrypted upon saving as well;
+
+Therefore any function which returns a tuple of 2 other methods with the property value as input parameter can be used as a value converter.
+In case the converter works only in one direction (like the password hasher), None can be returned as the second method.
+Here's the code of the password hasher as an example: ::
+
+    def password_hasher(rounds=20000, salt_size=16):
+    def to_value_converter(password):
+        # type: (str) -> str
+        if password.startswith('$pbkdf2-sha256'):
+            return password
+        else:
+            return pbkdf2_sha256.encrypt(password, rounds=rounds, salt_size=salt_size)
+
+    return to_value_converter, None
+
+Dict and Json Converters
+''''''''''''''''''''''''
+
+All Models can be easily converted back and forth to and from dict or json representation.
+Writing JSON is as simple as: ::
+
+    user.dumps()
+
+The dumps method takes 2 optional parameter:
+
+- *validate* is set to True by default (it will check the class parameters against the validators and the required parameter;
+- *pretty_print* is set to False by default (one would need to set it explicitly to True one nice indented JSON output is favoured;
+
+Let's try it out: ::
+
+    print(user.dumps(pretty_print=True))
+    {
+        "email": "some@acme.com",
+        "id": "Uf112dc8a-d75e-405c-ba8f-c15d1bf438f9",
+        "name": "some user",
+        "registration": "2018-06-03T17:39:54.125991",
+        "roles": [
+            "Login"
+        ]
+    }
+
+Observe that the password property is missing from the JSON output however the the instance contains a hashed password.
+That is happening due to the fact that we set the password field to *omit=True*, which means that it will be excluded from all string representations. ::
+
+    password = Property(str, value_converter=password_hasher(), omit=True)
+
+What if we want to use a *dict* or any different format as output. In such cases comes handy the static method: ::
+
+    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False)
+
+And can be used in the following way: ::
+
+    User.to_dict(user)
+
+In case one wants to prepare some low level MongoDB persistence and we want to convert any property name **id** to **_id** as Mongo expects it. Im such cases
+the *convert_id=True* parameter come handy.
+
+Of course the opposite would work by using: ::
+
+    User.from_dict(some_dict_object)
+
+One can use the **set_unmanaged_parameters=False** if values from the dict which do not belong to the Model should be ignored.
+
+JSON Schema
+'''''''''''
+
+So now we would want to validate objects when they are received on the wire or we would like to use it for validation in Mongo. Simple as that: ::
+
+    User.get_json_schema()
+
+In case you would like not to allow more properties on the wire than the ones already defined on the class you can set the **additional_properties=False**
+which will remove the **'additionalProperties':True,** from the schema, does not allow any json document which contains more properties than the saved ones
+
+In case you would like to use the schema as source of document validation in MongoDB, you would need to use **mongo_compatibility=True**, because the way
+Mongo handles dates and several other objects on the scope.
+
+Meta-data generator
+'''''''''''''''''''
+The JSON schema is a great standard format, however sometimes is harder to parse and it is fairly limited in features when it comes to generate user interfaces
+from the schema definition on the fly. Therefore we've built a proprietary format which is thought to be easy to be parsed by Javascript. ::
+
+    print(json.dumps(User.get_parameter_spec(), indent=4))
+    {
+            "name": {
+            "required": true,
+            "type": "str",
+            "label": "User.name"
+        },
+        "roles": {
+            "default_value": [
+                "Login"
+            ],
+            "required": false,
+            "type": "list",
+            "sub_type": "str",
+            "label": "User.roles"
+        },
+        "email": {
+            "validators": [
+                {
+                    "type": "Email"
+                }
+            ],
+            "required": false,
+            "type": "str",
+            "label": "User.email"
+        },
+        "registration": {
+            "validators": [
+                {
+                    "type": "Past"
+                }
+            ],
+            "required": false,
+            "type": "datetime",
+            "label": "User.registration"
+        },
+        "password": {
+            "validators": [
+                {
+                    "type": "NotEmpty"
+                }
+            ],
+            "required": false,
+            "type": "str",
+            "label": "User.password"
+        },
+        "id": {
+            "required": true,
+            "type": "str",
+            "label": "User.id"
+        }
+    }
 
