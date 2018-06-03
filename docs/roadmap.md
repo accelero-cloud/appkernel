@@ -7,7 +7,7 @@ The framework is supposed to cover all or most of the requirements of the Micros
 - [x] json serialisation support
 - [x] json schema generator
 - [x] value generators
-- [ ] converters
+- [x] value converters
 - [x] omitted fields
 
 
@@ -22,7 +22,7 @@ The framework is supposed to cover all or most of the requirements of the Micros
 - [x] automated marshaling of objects to and from json
 - [x] audited fields (created, updated)
 - [x] Document Versioning
-- [ ] Bulk Inserts
+- [x] Bulk Inserts
 - [ ] Predefined Database Filters
 - [ ] Projections
 - [ ] Internal Resources
@@ -30,18 +30,18 @@ The framework is supposed to cover all or most of the requirements of the Micros
 ## REST Service Endpoints
 - [ ] File Storage
 - [ ] simplified logging
-- [X] REST services
+- [x] REST services
 - [x] HATEOAS actions on model
 - [x] object metadata
 - [ ] JSONP
 - [ ] graphql support
-- [ ] swagger support
+- [ ] OpenApi support
 - [ ] Conditional Requests
 - [x] basic authentication and JWT token support
 - [ ] OAUTH
 - [ ] rate limiting and circuit breaker
 - [ ] API Versioning
-- [ ] Read-only by default
+- [x] Read-only by default
 - [ ] GeoJSON
 - [ ] webflow
 

@@ -2,6 +2,9 @@ Services
 ========
 The vision of the project is to provide you with a full-fledged microservice chassis, as defined by Chris Richardson.
 
+.. warning::
+    Work in progress section of documentation
+
 * Full range of CRUD operations
 
 * :ref:`REST endpoints over HTTP`

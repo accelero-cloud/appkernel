@@ -132,7 +132,7 @@ We tried to make the boring task of validation a simple and fun experience. Ther
 But in some cases this is far from enough, this is why we introduced the validator lists, which provides a higher sophistication
 for backend and database validation.
 
-For example you might want to make sure that a property's value is a valid e-mail address (by using the Email validator),
+For example you might want to make sure that a property value is a valid e-mail address (by using the Email validator),
 or make sure that the value is lower than 10 (using the Max validator). You can use none, one or more validators for one single property,
 or you can add your very own custom validator by extending the :class:`Validator` base class;
 
