@@ -584,3 +584,5 @@ def test_query_simple_array_contains():
 #     # { $ and: [{price: { $ne: 1.99}}, {price: { $exists: true}}]}
 #     # { price: { $ne: 1.99, $exists: true } }
 #
+
+# todo: test relationships.
