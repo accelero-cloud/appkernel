@@ -321,6 +321,7 @@ def test_find_by_exact_match(client):
     assert rsp.status_code == 200
     assert rsp.json.get('_items')[0].get('name') == 'John'
 
+# todo: test search term with space in it
 
 def test_find_boolean(client):
     john = create_and_save_a_user('John Doe', 'a password', 'John is a random guy')
@@ -561,3 +562,6 @@ def test_schema(client):
     result = rsp.json
     print '\n{}'.format(json.dumps(result, indent=2))
     assert '$schema' in result
+
+# todo: bad request sould be converted into json NOT html
+# curl -X GET "http://127.0.0.1:5000/users/?name='some user'"

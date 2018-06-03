@@ -3,8 +3,8 @@ Welcome to Appkernel- microservices made easy!
 
 What is Appkernel?
 ------------------
-A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
-It is powered by Flask and it offers native support for MongoDB data stores.
+A beautiful python framework "for humans", enabling to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
+It is powered by Flask and it offers native support for MongoDB repositories.
 
 The codebase is thoroughly tested under Python 2.7 (3.4+ and PyPy are planned for the release 1.0).
 
@@ -13,7 +13,7 @@ How does it helps you?
 **We did the heavy lifting so you can focus on the things that matter :)**
 
 We believe you wish to focus entirely on delivering business value on day one and being the rockstar of your project.
-Therefore we took care of the boilerplate code: analysed the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on,
+Therefore we took care of the boilerplate: analysed the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on,
 so you don't have to: **just lay back, fasten your seatbelts and enjoy the ride! ;)**
 
 
@@ -30,15 +30,16 @@ Let's build a mini identity service: ::
     class User(Model, MongoRepository, Service):
         id = Property(str)
         name = Property(str, required=True, index=UniqueIndex)
-        email = Property(str, validators=[Email, NotEmpty], index=UniqueIndex)
+        email = Property(str, validators=[Email], index=UniqueIndex)
         password = Property(str, validators=[NotEmpty],
                              value_converter=password_hasher(), omit=True)
         roles = Property(list, sub_type=str, default_value=['Login'])
 
     app = Flask(__name__)
-    kernel = AppKernelEngine('demo app', app=app)
+    kernel = AppKernelEngine('demo app', app=app, enable_defaults=True)
 
     if __name__ == '__main__':
+
         kernel.register(User)
 
         # let's create a sample user
@@ -46,9 +47,6 @@ Let's build a mini identity service: ::
         user.save()
 
         kernel.run()
-
-That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json
-schema for validation, or metadata to generate an SPA (Single Page Application). Of course validation and some more goodies are built-in as well :)
 
 Now we can test it by using curl: ::
 
@@ -75,12 +73,15 @@ Now we can test it by using curl: ::
      }
    }
 
-Quick overview
-==============
-A few features of the built-in ORM function
--------------------------------------------
+That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json
+schema for validation, or metadata to generate an SPA (Single Page Application). Of course validation and some more goodies are built-in as well :)
 
-Find one single user matching the query Property: ::
+Quick overview of some notable features
+=======================================
+Built-in ORM function
+----------------------
+
+Find one user matching the query parameter: ::
 
    user = User.where(name=='Some username').find_one()
 
@@ -98,7 +99,7 @@ Generate the ID value automatically using a uuid generator and a prefix 'U': ::
 
    id = Property(..., generator=uuid_generator('U-'))
 
-It will generate an ID which gives a hint about the object type: *U-0590e790-46cf-42a0-bdca-07b0694d08e2*
+It will generate an ID which gives a hint about the object type (eg. *U-0590e790-46cf-42a0-bdca-07b0694d08e2*)
 
 Add a Unique index to the User's name property: ::
 
@@ -120,3 +121,5 @@ Run the generators on the attributes and validate the resulting object (usually 
 
    user.finalise_and_validate()
 
+
+# todo: security and jwt token

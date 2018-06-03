@@ -73,3 +73,4 @@ def test_basic_translation(client):
         validate_result(result)
 
 # todo: test translation of the validation exceptions
+# todo: test translated field metadata
