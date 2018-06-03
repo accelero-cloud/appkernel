@@ -280,7 +280,7 @@ class Property(DslBase):
                 nested_parameter.backreference.parameter_name = '{}.{}'.format(self.backreference.parameter_name,
                                                                                nested_parameter.backreference.parameter_name)
                 return nested_parameter
-        raise AttributeError(attribute)
+        raise AttributeError('Class {} has no attribute {}'.format(self.__class__.__name__, attribute))
 
     def __getitem__(self, item_expression):
         # used when an item is accessed, using the notation self[key]
@@ -818,7 +818,7 @@ class Model(object):
             if param_object.required and param_name not in obj_items:
                 raise PropertyRequiredException(
                     '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
-            if param_object.value_converter:
+            if param_object.value_converter and param_name in self.__dict__:
                 setattr(self, param_name, param_object.value_converter[0](getattr(self, param_name)))
             if param_object.validators is not None and isinstance(param_object.validators, list):
                 for val in param_object.validators:

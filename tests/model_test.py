@@ -284,3 +284,4 @@ def test_json_schema_in_mongo_compat_mode():
     # todo: test converters
     # todo: expose model description over rest
     # value_converter=to_unix_time, value_converter=to_time_unit
+    # todo: test with password converter (or other converters) but missing element
