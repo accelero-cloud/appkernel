@@ -33,9 +33,11 @@ def password_hasher(rounds=20000, salt_size=16):
 def unix_time_converter():
     # todo: implement this
     def to_unix_time(property_value):
+        print(property_value)
         pass
 
     def from_unix_time(property_value):
+        print(property_value)
         pass
 
     return to_unix_time, from_unix_time
@@ -44,9 +46,11 @@ def unix_time_converter():
 def enigma_converter():
     # todo: implement this
     def to_encrypt(property_value):
+        print(property_value)
         pass
 
     def to_decrypt(property_value):
+        print(property_value)
         pass
 
     return to_encrypt, to_decrypt
