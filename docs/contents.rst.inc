@@ -11,3 +11,4 @@
    motivation_vision
    api
    roadmap
+   license

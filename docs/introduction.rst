@@ -324,6 +324,7 @@ easy to be consumed by a frontend rendering logic: ::
         "type": "list"
       }
     }
+
 How beautiful is that? There's way more to it (such as field translation, detailed support for validation rules), described in the **Service Section**.
 
 Let's try to delete the previously sored User object (**please note:**  the ID at the end of the URL will be different in your case, you need to copy paste from the previous request.) ::
@@ -347,6 +348,7 @@ Now we are ready to retry the deletion of the object. ::
       "_type": "OperationResult",
       "result": 1
     }
+
 The OperationResult 1 shows that the deletion was successful.
 
 Now that you got the taste of **Appkernel** feel free to dig deeper an deeper using this documentation.

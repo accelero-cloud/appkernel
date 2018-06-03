@@ -5,7 +5,7 @@
 # This file does only contain a selection of the most common options. For a
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
-
+from recommonmark.parser import CommonMarkParser
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -36,6 +36,9 @@ html_context = {
     "conf_py_path": "/source/",  # Path in the checkout to the docs root
 }
 # -- General configuration ---------------------------------------------------
+source_parsers = {
+    '.md': CommonMarkParser,
+}
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
@@ -65,7 +68,7 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.rst', '.md']
 
 # The master toctree document.
 master_doc = 'index'

@@ -20,7 +20,7 @@ Basic CRUD (Created, Update, Delete) operations
 .. note::
     You can follow all the examples in the Python's interactive interpreter using the imports and the configuration snippet from below.
 
- ::
+The database is initialised in this way only for the interactive interpreter or for unit tests. ::
 
     from appkernel import Model, MongoRepository, Property, password_hasher, create_uuid_generator, Email, AuditableRepository, NotEmpty, date_now_generator, Past
     from appkernel.configuration import config
@@ -30,7 +30,7 @@ Basic CRUD (Created, Update, Delete) operations
 
     config.mongo_database=MongoClient(host='localhost')['tutorial']
 
-We need some model classes which we will use throughout the page: ::
+We need some model classes which we will be using throughout the page: ::
 
     class Priority(Enum):
         HIGH = 1
@@ -65,7 +65,8 @@ Now we are ready to create a small project: ::
     project.save()
     print(project.dumps(pretty_print=True))
 
-And the output looks simply amazing: ::
+And the output looks sleek: ::
+
     {
         "id": "OBJ_5b142be00df7a9647023f0b1",
         "created": "2018-06-03T19:54:06.830307",
