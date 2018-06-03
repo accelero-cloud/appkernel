@@ -3,7 +3,7 @@ The Model Class
 
 A child class extending the :class:`Model` becomes a data-holder object with some out-of the box features (json schema, validation, factory methods).
 A Model corresponds to the *Entity* from the domain driven design concept. A Model is persisted in the database and/or sent through the wire between two or more services.
-A Model is also similar to the Python Data Class (will appear in 3.6) but way more powerful. ::
+A Model is also similar to the Python Data Class (will appear in 3.6) but way more powerful.
 
 .. warning::
     This section discusses the Model and its features in great detail. For a quick overview on the most notable features visit the :ref:`How does it works?` section if you
@@ -17,16 +17,14 @@ Features of a Model
 * :ref:`Default Values and Generators`
 * :ref:`Value Converters`
 * :ref:`Dict and Json Converters`
-* :ref:`JSON Schema Generator`
+* :ref:`JSON Schema`
 * :ref:`Meta-data generator`
 
 Introduction to the Model Class
 '''''''''''''''''''''''''''''''
 
 .. note::
-    All the examples below were tested with Python's interactive console using teh set of imports from below;
-
-All import  ::
+    All the examples below were tested with Python's interactive console using the set of imports from below; ::
 
     from datetime import datetime
     from appkernel import Model, MongoRepository, Property, Email, UniqueIndex, NotEmpty, Past, create_uuid_generator, date_now_generator, password_hasher
@@ -62,7 +60,7 @@ It will generate the following output: ::
 Let's have a look on what just have happened. The defined user class can be persisted in MongoDB with the following properties:
 
 - database ID which gets auto-generated upon saving the instance (the UUID generator support a prefix, which later can be used to identify the model type in the support phase);
-- **name**:: which is validated upon saving (*required=True*) and a unique index will be added to the Users collection (duplicate names won't be allowed);
+- **name**: which is validated upon saving (*required=True*) and a unique index will be added to the Users collection (duplicate names won't be allowed);
 - **email**: also a unique value, additionally will be validated against a regular expression pattern which makes sure that the value follows the format of an e-mail address (must contain '@' and '.' characters);
 - **password**: will be converted to a hashed value upon saving, so we maintain proper security practices; Observe the *omit=True* parameter which will cause
   the exclusion of this property from the JSON (and other wire-format) representation of the Model;
@@ -98,7 +96,7 @@ You also got a nice representation function for free: ::
     print(user)
     <User> {"email": "some@acme.com", "enabled": true, "id": "U943a5699-fa7c-4431-949d-3763ce92b847", "name": "some user", "registration": "2018-06-03T13:32:51.636770", "roles": ["Login", "Support"]}
 
-One can also add new properties to the class (as expected in python): ::
+New properties can also be added to the class (as expected in python): ::
 
     user.enabled=True
     print(user.dumps(pretty_print=True))
@@ -116,20 +114,20 @@ One can also add new properties to the class (as expected in python): ::
     }
 
 
-But what if we would create a User object which is ::
+But what if we would create a User object which is not valid? ::
 
     incomplete_user = User()
     incomplete_user.finalise_and_validate()
 
-Will raise the following Exception: ::
+Of course, it will raise the following Exception: ::
 
     PropertyRequiredException: The property [name] on class [User] is required.
 
-Do we have you attention? let's explore the details :)
+Do we have your attention? let's explore the details :)
 
 Extensible Data Validation
 ``````````````````````````
-We tried to make the boring task of validation a simple and fun experience for you. Therefore all properties have a builtin
+We tried to make the boring task of validation a simple and fun experience. Therefore all properties have a builtin
 **required** field which - if set to True - will check the existence of a property.
 But in some cases this is far from enough, this is why we introduced the validator lists, which provides a higher sophistication
 for backend and database validation.
