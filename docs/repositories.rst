@@ -210,8 +210,8 @@ Or you can iterate through all occurrences... ::
         print(prj.dumps(pretty_print=True))
 
 ... and sort the result in a particular order: ::
-
-    for prj in Project.where(Project.name == 'some test project').sort_by(Project.created.asc()).find():
+    query = Project.where(Project.name == 'some test project').sort_by(Project.created.asc())
+    for prj in query.find():
         print(prj.dumps(pretty_print=True))
 
 Chaining multiple expressions is also possible: ::
@@ -231,48 +231,49 @@ The following query will return the first 10 Projects from the database: ::
         print(prj)
 
 Query expressions
-'''''''''''''''''
+.................
 
 Find by ID
-..........
-    ::
+''''''''''
+
+    Find a project knowing its exact id: ::
 
     Project.find_by_id('5b1ee9930df7a9087e0e8953')
 
 Exact match
-...........
-Returns Project A: ::
+'''''''''''
+Returns *'Project A'*: ::
 
     prj = Project.find_one((User.name == 'Project A'))
 
 Not equal
-.........
-Return all projects **except** 'Project A': ::
+'''''''''
+Return all projects **except** *'Project A'*: ::
 
     prj = Project.find_one((User.name != 'Project A'))
 
 Or
-..
-Returns Project A or Project B: ::
+''
+Returns *'Project A'* or *'Project B'*: ::
 
     prj = Project.find_one((Project.name == 'Project A') | (Project.name == 'Project B'))
 
 
 And
-...
-Returns every project named 'Project A' created after yesterday: ::
+'''
+Returns every project named *'Project A'* created after yesterday: ::
 
     yesterday = (datetime.now() - timedelta(days=1))
     prj = Project.find_one((Project.name == 'Project A') & (Project.created > yesterday))
 
 Empty Array
-...........
+'''''''''''
 Find all Projects with no tasks: ::
 
     prj = Project.find_one(Project.tasks == None)
 
 Contains
-........
+''''''''
 Find all projects which has at least one task containing the string 'finish': ::
 
     prj = Project.find_one(Project.tasks.name % 'finish')
@@ -282,23 +283,23 @@ Also you can query for values in an array. The following query will return all u
     User.find(User.roles % ['Admin', 'Operator'])
 
 Does not exists
-...............
+'''''''''''''''
 
 Return all users which have no defined **description** field: ::
 
     User.find(User.description == None)
 
 Value exists
-............
+''''''''''''
 Return all users which has description field: ::
 
     User.find(User.description != None)
 
 Smaller and bigger
-..................
+''''''''''''''''''
 
 Native Queries
-''''''''''''''
+..............
 
 llll
 
