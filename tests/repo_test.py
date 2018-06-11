@@ -72,6 +72,10 @@ def test_basic_model():
     assert 'id' in non_converted_id_model
     assert '_id' not in non_converted_id_model
 
+# todo: test with no ID generator and proper ID
+# user.save()
+# ObjectId('5b1d158b0df7a9325de7255e')
+
 
 def test_complex_model():
     p = Project().update(name='some_name').update(undefined_parameter='something undefined'). \
@@ -101,6 +105,8 @@ def test_update():
     assert len(assertable_project.tasks) == 3
     assert assertable_project.version == 2
     assert assertable_project.inserted < assertable_project.updated
+
+# todo: update previously deleted object
 
 
 def test_find_all():
@@ -152,6 +158,7 @@ def test_unique_index_creation():
 # todo: test index
 # todo: test text index
 
+
 def test_schema_validation_success():
     print('\n{}\n'.format(json.dumps(Project.get_json_schema(mongo_compatibility=True)), indent=2, sort_keys=True))
     Project.add_schema_validation(validation_action='error')
@@ -178,6 +185,9 @@ def test_basic_query():
     assert len(results) == 1
     assert isinstance(results[0], User)
     assert results[0].name == 'John'
+
+# todo: test non existing property
+# Project.find_one(Project.version == '2')
 
 
 def test_basic_negative_query():
@@ -330,6 +340,8 @@ def test_between_date():
     print '\n>fetched: {}'.format(len(results))
     assert len(results) == 3
 
+
+# todo: test this | Project.find_one((Project.created > date(2018, 6, 10)) & (Project.created < date(2018,6,12)))
 
 def test_between_date_negative():
     john, jane, max = create_and_save_john_jane_and_max()
@@ -584,5 +596,5 @@ def test_query_simple_array_contains():
 #     # { $ and: [{price: { $ne: 1.99}}, {price: { $exists: true}}]}
 #     # { price: { $ne: 1.99, $exists: true } }
 #
-
+# todo: test missing fields / test fields which do exist
 # todo: test relationships.

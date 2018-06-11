@@ -8,7 +8,7 @@ License: [Apache 2](docs/license.md)
 ## What is Appkernel?
 A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
 
-## What's in it for you?
+## How does it helps you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
 you don't have to. You can focus entirely on delivering business value from day one and being the rockstar of your project.
 
@@ -142,9 +142,9 @@ Run the generators on the attributes and validate the object (usually not needed
 ```python
 user.finalise_and_validate()
 ```
-[I want to know more. Bring me to the tutorial](docs/tutorial.md)
+[I want to know the status](docs/roadmap.md)
 
-For more details feel free to check out the documentation :)
+[For more details feel free to check out the documentation](http://appkernel.readthedocs.io)
 
 ## What are we building here?
 The vision of the project is to provide you with a full-fledged [microservice chassis](http://microservices.io/microservices/news/2016/02/21/microservice-chassis.html),

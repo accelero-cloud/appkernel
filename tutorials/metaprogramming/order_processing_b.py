@@ -1,0 +1,127 @@
+import functools
+import timeit
+import time
+import random
+from timeit import default_timer as timer
+from requests import ConnectionError
+
+service_performance = 1
+
+
+def summon_chaos_monkey():
+    choice = random.choice([True, False, ConnectionError])
+    if isinstance(choice, bool):
+        return choice
+    else:
+        raise choice('Random error')
+
+
+def retryable(retries=3, delay=1):
+    def _decorator(function):
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            number_of_tries = 1
+            while True:
+                try:
+                    return function(*args, **kwargs)
+                except Exception as exc:
+                    number_of_tries += 1
+                    if number_of_tries > retries:
+                        raise exc
+                    else:
+                        print('{} caught / retrying...'.format(str(exc)))
+                        time.sleep(delay)
+        return wrapper
+    return _decorator
+
+
+def timeit(method):
+    def timed(*args, **kw):
+        ts = timer()
+        result = method(*args, **kw)
+        te = timer()
+        print '>> Audit time: %r  %2.2f ms' % (method.__name__, (te - ts) * 1000)
+        return result
+
+    return timed
+
+
+class Order(object):
+    def __init__(self, id, total, products, card_number):
+        self.id = id
+        self.total = total
+        self.products = products
+        self.card_number = card_number
+
+    def validate(self):
+        required_fields = set(['id', 'total', 'products', 'card_number'])
+        fields = [f for f in self.__dict__ if not f.startswith('_')]
+        assert len(required_fields.intersection(fields)) >= len(
+            required_fields), '!!! validation failed, some fields are missing'
+
+
+class PaymentService(object):
+
+    @staticmethod
+    @timeit
+    @retryable()
+    def authorise_payment(order):
+        # simulate magic
+        time.sleep(service_performance)
+        authorised = summon_chaos_monkey()
+        if authorised:
+            print('... authorised payment for card number: {}'.format(order.card_number))
+        else:
+            print('!!! payment for card {} is declined.'.format(order.card_number))
+        return authorised
+
+    @staticmethod
+    @timeit
+    @retryable()
+    def reverse_payment(order):
+        # simulate magic
+        time.sleep(service_performance)
+        print('... reversed payment for card number: {}'.format(order.card_number))
+        return True
+
+
+class WarehouseService(object):
+
+    @staticmethod
+    @timeit
+    @retryable()
+    def reserve_and_ship(order):
+        # simulate magic
+        time.sleep(service_performance)
+        shipped = summon_chaos_monkey()
+        if shipped:
+            print('... the following products are reserved and shipped: {}'.format(order.products))
+        else:
+            print('!!! some of the following products is not available anymore: {}.'.format(order.products))
+        return shipped
+
+
+payment_service = PaymentService()
+warehouse_service = WarehouseService()
+
+
+class OrderProcessingService(object):
+
+    @staticmethod
+    def process_order(order):
+        # the orchestration
+        try:
+            print('Processing order with id: {} \n======================> \n\n'.format(order.id))
+            order.validate()
+            if payment_service.authorise_payment(order):
+                if not warehouse_service.reserve_and_ship(order):
+                    payment_service.reverse_payment(order)
+        except Exception as exc:
+            print('!!! system exception caught: {}'.format(str(exc)))
+            payment_service.reverse_payment(order)
+
+
+if __name__ == '__main__':
+    print('\n\n')
+    order_processing_service = OrderProcessingService()
+    order_processing_service.process_order(Order('123', '10', ['umbrella', 'socks'], '01234567890'))

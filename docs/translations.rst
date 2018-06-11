@@ -1,5 +1,8 @@
-Preparing translation for your services
-=======================================
+I18n (Internationalisation)
+===========================
+
+.. warning::
+    Work in progress section of documentation
 
 Writing code which will be translated using babel
 -------------------------------------------------
