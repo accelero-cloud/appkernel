@@ -27,6 +27,7 @@ wheels/
 .idea
 venv
 docs/_build
+keys
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
