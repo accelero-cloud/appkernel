@@ -1,6 +1,7 @@
 .. toctree::
    :maxdepth: 1
 
+   roadmap
    introduction
    installation
    the_model
@@ -10,5 +11,4 @@
    authentication
    motivation_vision
    api
-   roadmap
    license

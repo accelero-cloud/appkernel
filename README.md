@@ -20,7 +20,7 @@ class User(Model, MongoRepository, Service):
     name = Property(str, validators=[NotEmpty], index=UniqueIndex)
     email = Property(str, validators=[Email, NotEmpty], index=UniqueIndex)
     password = Property(str, validators=[NotEmpty],
-                         value_converter=password_hasher(), omit=True)
+                         converter=content_hasher(), omit=True)
     roles = Property(list, sub_type=str, default_value=['Login'])
 
 application_id = 'identity management app'
@@ -136,7 +136,7 @@ User.add_schema_validation(validation_action='error')
 ```
 Hash the password and omit this attribute from the json representation:
 ```python
-password = Property(..., value_converter=password_hasher(rounds=10), omit=True)
+password = Property(..., converter=content_hasher(rounds=10), omit=True)
 ```
 Run the generators on the attributes and validate the object (usually not needed, since it is implicitly called by save and dumps methods):
 ```python

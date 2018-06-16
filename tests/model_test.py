@@ -279,9 +279,3 @@ def test_json_schema_in_mongo_compat_mode():
     project = create_rich_project()
     print project.dumps(pretty_print=True)
     validate(json.loads(project.dumps()), json_schema)
-
-    # todo: add meta and schema support to service
-    # todo: test converters
-    # todo: expose model description over rest
-    # value_converter=to_unix_time, value_converter=to_time_unit
-    # todo: test with password converter (or other converters) but missing element

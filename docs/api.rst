@@ -23,7 +23,7 @@ Example: ::
             name = Property(str, required=True, index=UniqueIndex)
             email = Property(str, validators=Email, index=UniqueIndex)
             password = Property(str, validators=NotEmpty,
-                                 value_converter=password_hasher(), omit=True)
+                                 converter=content_hasher(), omit=True)
 
 .. autoclass:: Model
     :members:
@@ -117,7 +117,7 @@ Date NOW Generator
 
 Password hasher
 ```````````````
-.. autofunction:: password_hasher
+.. autofunction:: content_hasher
 
 Repository
 ----------

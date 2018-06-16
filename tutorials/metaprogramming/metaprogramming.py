@@ -1,7 +1,7 @@
 from flask import Flask
 from passlib.handlers.pbkdf2 import pbkdf2_sha256
 from flask_babel import _
-from appkernel import Property, Model, MongoRepository, Service, UniqueIndex, Email, NotEmpty, password_hasher, \
+from appkernel import Property, Model, MongoRepository, Service, UniqueIndex, Email, NotEmpty, content_hasher, \
     AppKernelEngine, Regexp, CurrentSubject, ServiceException, Anonymous, Role
 from appkernel.service import link
 
@@ -11,7 +11,7 @@ class User(Model, MongoRepository, Service):
     name = Property(str, required=True, index=UniqueIndex)
     email = Property(str, validators=[Email], index=UniqueIndex)
     password = Property(str, validators=[Regexp('(?=.{8,})')],
-                        value_converter=password_hasher(), omit=True)
+                        converter=content_hasher(), omit=True)
     roles = Property(list, sub_type=str, default_value=['Login'])
 
     @link(http_method='POST', require=[CurrentSubject(), Role('admin')])

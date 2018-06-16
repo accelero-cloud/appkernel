@@ -1,6 +1,6 @@
 from flask import Flask
 
-from appkernel import Model, Service, Property, NotEmpty, password_hasher, AppKernelEngine
+from appkernel import Model, Service, Property, NotEmpty, content_hasher, AppKernelEngine
 from appkernel.repository import MongoRepository, AuditableRepository
 from appkernel.validators import Email
 from tutorials.server import uuid_generator
@@ -11,7 +11,7 @@ class User(Model, AuditableRepository, Service):
     name = Property(str, required=True, validators=[NotEmpty])
     email = Property(str, required=True, validators=[Email, NotEmpty])
     password = Property(str, required=True, validators=[NotEmpty],
-                        value_converter=password_hasher(rounds=10), omit=True)
+                        converter=content_hasher(rounds=10), omit=True)
     roles = Property(list, sub_type=str, default_value=['Login'])
 
 

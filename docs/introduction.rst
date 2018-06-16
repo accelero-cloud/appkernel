@@ -91,9 +91,9 @@ without generating json? Despair not my friend, there's a handy method for it as
 Ohh, that looks nice... but wait a minute, why it is called finalise and validate, why not just validate?
 
 Well, because we have thought that there are few more use-cases beyond validation and default value generation.
-Therefore we thought it makes sense to add some finalisation methods called *generators* and *value converters*, where:
+We thought it makes sense to add some finalisation methods called *generators* and *value converters*, where:
 
-- a generator will generator some value upon the finalisation of the object (eg. custom IDs or instance creation dates)
+- a generator will generate some value upon the finalisation of the object (eg. custom IDs or instance creation dates)
 - the converters will convert already existing values to something else (eg. passwords are hashed, date-times are converted back and forth to/from UNIX time, etc.)
 
 Let's add a bit more magic to the mix :) ::
@@ -102,7 +102,7 @@ Let's add a bit more magic to the mix :) ::
         id = Property(str, generator=create_uuid_generator('U'))
         name = Property(str, required=True)
         email = Property(str, validators=[Email])
-        password = Property(str, required=True, value_converter=password_hasher())
+        password = Property(str, required=True, converter=content_hasher())
         roles = Property(list, sub_type=str, default_value=['Login'])
 
     u = User(name='some name', email='user@acme.com', password='some pass')
@@ -142,7 +142,7 @@ We start by adding a pinch of augmentation with a few utility classes:
 Let's *restart our interactive python console ** and add a short configuration and an import section to explore the features of a Repository.
 According to the Domain Driven Design specification: "the Repository contains methods for retrieving domain objects such that alternative storage implementations may be easily interchanged. ::
 
-    from appkernel import Model, MongoRepository, Property, password_hasher, create_uuid_generator, Email
+    from appkernel import Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email
     from appkernel.configuration import config
     from pymongo import MongoClient
 
@@ -152,7 +152,7 @@ According to the Domain Driven Design specification: "the Repository contains me
         id = Property(str, generator=create_uuid_generator('U'))
         name = Property(str, required=True)
         email = Property(str, validators=[Email])
-        password = Property(str, required=True, value_converter=password_hasher())
+        password = Property(str, required=True, converter=content_hasher())
         roles = Property(list, sub_type=str, default_value=['Login'])
 
     u = User(name='some name', email='user@acme.com', password='some pass')
@@ -191,7 +191,7 @@ Rest Service
 Let's **restart again our python console** so we can expose the User model over REST permitting the creation and deletion from client applications.
 Doing so is super simple: the User class needs to extend the :class:`Service` and we are all set. ::
 
-    from appkernel import Model, MongoRepository, Property, password_hasher, create_uuid_generator, Email, Service
+    from appkernel import Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email, Service
     from pymongo import MongoClient
     from flask import Flask
     from appkernel import AppKernelEngine
@@ -203,7 +203,7 @@ Doing so is super simple: the User class needs to extend the :class:`Service` an
         id = Property(str, generator=create_uuid_generator('U'))
         name = Property(str, required=True)
         email = Property(str, validators=[Email])
-        password = Property(str, required=True, value_converter=password_hasher())
+        password = Property(str, required=True, converter=content_hasher())
         roles = Property(list, sub_type=str, default_value=['Login'])
 
     u = User(name='some name', email='user@acme.com', password='some pass')

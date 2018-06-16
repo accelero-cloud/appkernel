@@ -16,6 +16,7 @@ Features of a Model
 * :ref:`Extensible Data Validation`
 * :ref:`Default Values and Generators`
 * :ref:`Value Converters`
+* :ref:`Marshallers`
 * :ref:`Dict and Json Converters`
 * :ref:`JSON Schema`
 * :ref:`Meta-data generator`
@@ -24,10 +25,11 @@ Introduction to the Model Class
 '''''''''''''''''''''''''''''''
 
 .. note::
-    All the examples below were tested with Python's interactive console using the set of imports from below; ::
+    All the examples below were tested with Python's interactive console using the set of imports from below;
+    ::
 
     from datetime import datetime
-    from appkernel import Model, MongoRepository, Property, Email, UniqueIndex, NotEmpty, Past, create_uuid_generator, date_now_generator, password_hasher
+    from appkernel import Model, MongoRepository, Property, Email, UniqueIndex, NotEmpty, Past, create_uuid_generator, date_now_generator, content_hasher
 
 The following example showcases the most notable features of a **Model** class: ::
 
@@ -36,7 +38,7 @@ The following example showcases the most notable features of a **Model** class: 
         name = Property(str, required=True, index=UniqueIndex)
         email = Property(str, validators=[Email], index=UniqueIndex)
         password = Property(str, validators=[NotEmpty],
-                             value_converter=password_hasher(), omit=True)
+                             converter=content_hasher(), omit=True)
         roles = Property(list, sub_type=str, default_value=['Login'])
         registration = Property(datetime, validators=[Past], generator=date_now_generator)
 
@@ -59,7 +61,7 @@ It will generate the following output: ::
 
 Let's have a look on what just have happened. The defined user class can be persisted in MongoDB with the following properties:
 
-- database ID which gets auto-generated upon saving the instance (the UUID generator support a prefix, which later can be used to identify the model type in the support phase);
+- **database ID**: gets auto-generated upon saving the instance (the UUID generator support random value prefixing, so later will be simple to identify Model classes by their IDs);
 - **name**: which is validated upon saving (*required=True*) and a unique index will be added to the Users collection (duplicate names won't be allowed);
 - **email**: also a unique value, additionally will be validated against a regular expression pattern which makes sure that the value follows the format of an e-mail address (must contain '@' and '.' characters);
 - **password**: will be converted to a hashed value upon saving, so we maintain proper security practices; Observe the *omit=True* parameter which will cause
@@ -129,8 +131,7 @@ Extensible Data Validation
 ``````````````````````````
 We tried to make the boring task of validation a simple and fun experience. Therefore all properties have a builtin
 **required** field which - if set to True - will check the existence of a property.
-But in some cases this is far from enough, this is why we introduced the validator lists, which provides a higher sophistication
-for backend and database validation.
+But in some cases this is far from enough.
 
 For example you might want to make sure that a property value is a valid e-mail address (by using the Email validator),
 or make sure that the value is lower than 10 (using the Max validator). You can use none, one or more validators for one single property,
@@ -171,7 +172,7 @@ In case you would like to create a new type of validator, you just need to exten
 
         def validate(self, param_name, param_value):
             # implement your custom validation logic
-            # here's the logic of the regexp validator as an example
+            # below there's a simple equality logic as an example
             if self.value != param_value:
                 raise ValidationException(self.type, param_value,
                                               _('The Property %(pname)s cannot be validated against %(value)s', pname=param_name,
@@ -228,21 +229,21 @@ It is also needed to change already existing field values in way or another. Thi
 
 - passwords need to be hashed before saving it into the database;
 - dates could be converted to and from UNIX time before saving or sending it over the wire so one needs to deal less with the data format;
-- some sensitive data fragments (such as GDPR controlled private data) might be encrypted upon saving as well;
+- some sensitive data fragments (such as GDPR controlled private data) might be encrypted/hashed upon saving as well;
 
 Therefore any function which returns a tuple of 2 other methods with the property value as input parameter can be used as a value converter.
 In case the converter works only in one direction (like the password hasher), None can be returned as the second method.
 Here's the code of the password hasher as an example: ::
 
-    def password_hasher(rounds=20000, salt_size=16):
-    def to_value_converter(password):
-        # type: (str) -> str
-        if password.startswith('$pbkdf2-sha256'):
-            return password
-        else:
-            return pbkdf2_sha256.encrypt(password, rounds=rounds, salt_size=salt_size)
+    def content_hasher(rounds=20000, salt_size=16):
+        def hash_content(password):
+            # type: (str) -> str
+            if password.startswith('$pbkdf2-sha256'):
+                return password
+            else:
+                return pbkdf2_sha256.encrypt(password, rounds=rounds, salt_size=salt_size)
 
-    return to_value_converter, None
+    return hash_content
 
 Dict and Json Converters
 ''''''''''''''''''''''''
@@ -273,7 +274,7 @@ Let's try it out: ::
 Observe that the password property is missing from the JSON output however the the instance contains a hashed password.
 That is happening due to the fact that we set the password field to *omit=True*, which means that it will be excluded from all string representations. ::
 
-    password = Property(str, value_converter=password_hasher(), omit=True)
+    password = Property(str, converter=content_hasher(), omit=True)
 
 What if we want to use a *dict* or any different format as output. In such cases comes handy the static method: ::
 

@@ -604,3 +604,4 @@ def test_query_simple_array_contains():
 #     # { price: { $ne: 1.99, $exists: true } }
 #
 # todo: test relationships.
+# todo: test support converter into mongo

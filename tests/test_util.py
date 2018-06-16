@@ -2,8 +2,9 @@ from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous, T
 from appkernel import Model, Property, UniqueIndex, ServiceException
 from datetime import datetime
 from appkernel import AuditableRepository, Repository, MongoRepository
+from appkernel.generators import TimestampMarshaller
 from appkernel.service import link
-from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, password_hasher
+from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
 from passlib.hash import pbkdf2_sha256
 from enum import Enum
 from flask_babel import _, lazy_gettext as _l
@@ -14,10 +15,11 @@ class User(Model, MongoRepository, Service, IdentityMixin):
     id = Property(str, required=True, generator=create_uuid_generator('U'))
     name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     password = Property(str, required=True, validators=[NotEmpty],
-                        value_converter=password_hasher(rounds=10), omit=True)
+                        converter=content_hasher(rounds=10), omit=True)
     description = Property(str, index=TextIndex)
     roles = Property(list, sub_type=str)
     created = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
+    last_login = Property(datetime, marshaller=TimestampMarshaller)
     sequence = Property(int, index=Index)
 
     @link(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])

@@ -23,7 +23,7 @@ Basic CRUD (Created, Update, Delete) operations
 
 The following example describe a way for database initialisation which is only recommended for the interactive interpreter or for unit tests. ::
 
-    from appkernel import Model, MongoRepository, Property, password_hasher, create_uuid_generator, Email, AuditableRepository, NotEmpty, date_now_generator, Past
+    from appkernel import Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email, AuditableRepository, NotEmpty, date_now_generator, Past
     from appkernel.configuration import config
     from pymongo import MongoClient
     from enum import Enum

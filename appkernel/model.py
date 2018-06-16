@@ -189,6 +189,19 @@ class BackReference(object):
         self.array_parameter_name = None
 
 
+class Marshaller(object):
+
+    def __new__(cls, *args, **kwargs):
+        if cls is Marshaller:
+            raise TypeError("the base Marsaller class may not be instantiated")
+        return object.__new__(cls, *args, **kwargs)
+
+    def to_wireformat(self, class_value):
+        pass
+
+    def from_wire_format(self, wire_value):
+        pass
+
 # class _Initialiser(type):
 #     """
 #     It calls a special purpose static __init method on all classes;
@@ -256,10 +269,11 @@ class Property(DslBase):
                  required=False,
                  sub_type=None,
                  validators=None,
-                 value_converter=None,
+                 converter=None,
                  default_value=None,
                  generator=None,
                  index=None,
+                 marshaller=None,
                  omit=False):
         # type: (type, bool, type, function, function, function, function, Index) -> ()
         """
@@ -268,10 +282,11 @@ class Property(DslBase):
             required(bool): if True, the field must be specified before validation;
             sub_type(type): in case the python type is a dict or a list (or any other collection type), one needs to specify the element types
             validators(Validator): a list of validator elements which are used to validate field content
-            value_converter: converts the value of the property in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
+            converter: converts the value of the property in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
             default_value(object): this value is set on the field in case there's no other value there yet
-            generator: content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
+            generator(function): content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
             index(Index): the type of index (if any) which needs to be added to the database;
+            marshaller(Marshaller):
             omit(bool): if True, the field won't be included in the json or other wire-format messages
         """
         self.omit = omit
@@ -280,8 +295,9 @@ class Property(DslBase):
         self.required = required
         self.sub_type = sub_type
         self.validators = validators
-        self.value_converter = value_converter
+        self.converter = converter
         self.default_value = default_value
+        self.marshaller = marshaller
         self.generator = generator
 
     def __getattr__(self, attribute):
@@ -847,8 +863,8 @@ class Model(object):
             if param_object.required and param_name not in obj_items:
                 raise PropertyRequiredException(
                     '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
-            if param_object.value_converter and param_name in self.__dict__:
-                setattr(self, param_name, param_object.value_converter[0](getattr(self, param_name)))
+            if param_object.converter and param_name in self.__dict__:
+                setattr(self, param_name, param_object.converter(getattr(self, param_name)))
             if param_object.validators is not None and isinstance(param_object.validators, list):
                 for val in param_object.validators:
                     if isinstance(val, Validator) and param_name in obj_items:
