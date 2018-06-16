@@ -56,9 +56,9 @@ def test_basic_model():
 
     print '\n\n==== reloading ===='
     p2 = Project.find_by_id(obj_id)
-    print '> dict of p2: {}'.format(Model.to_dict(p2, convert_id=False))
-    print '\n{}'.format(p2.get_parameter_spec())
-    print '> str reloaded object :: %s' % p2
+    print('> dict of p2: {}'.format(Model.to_dict(p2, convert_id=False)))
+    print('\n{}'.format(p2.get_parameter_spec()))
+    print('> str reloaded object :: {}'.format(p2))
     assert p2.undefined_parameter == 'something else'
     assert p2.id is not None
     assert p2.name == 'somename'
@@ -71,10 +71,6 @@ def test_basic_model():
     print('> NON converted id model: {}'.format(non_converted_id_model))
     assert 'id' in non_converted_id_model
     assert '_id' not in non_converted_id_model
-
-# todo: test with no ID generator and proper ID
-# user.save()
-# ObjectId('5b1d158b0df7a9325de7255e')
 
 
 def test_complex_model():

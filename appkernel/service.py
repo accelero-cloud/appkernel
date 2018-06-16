@@ -85,7 +85,7 @@ class Service(RbacMixin):
                                methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
             cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
-                               cls.execute(app_engine, cls.save_object, cls),
+                               cls.execute(app_engine, cls.patch_object, cls),
                                methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
@@ -243,10 +243,10 @@ class Service(RbacMixin):
 
                 result = provisioner_method(
                     **Service.__autobox_parameters(provisioner_method, named_and_request_arguments))
-                if request.method == 'GET':
+                if request.method in ['GET', 'PUT', 'PATCH']:
                     if result is None:
-                        return app_engine.create_custom_error(404, 'Document with id {} is not found.'.format(
-                            named_args.get('object_id', '-1')))
+                        object_id = named_args.get('object_id', None)
+                        return app_engine.create_custom_error(404, 'Document{} is not found.'.format(' with id {}'.format(object_id) if object_id else ''))
                 if request.method == 'DELETE' and isinstance(result, int) and result == 0:
                     return app_engine.create_custom_error(404, 'Document with id {} was not deleted.'.format(
                         named_args.get('object_id', '-1')))

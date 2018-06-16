@@ -2,7 +2,10 @@ from datetime import datetime
 import pymongo
 import operator
 
+from bson import ObjectId
+
 from appkernel.configuration import config
+from appkernel.util import OBJ_PREFIX
 from model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex
 from pymongo.collection import Collection
 
@@ -178,6 +181,10 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
     @classmethod
+    def patch_object(cls, document, object_id=None):
+        raise NotImplemented('abstract method')
+
+    @classmethod
     def save_object(cls, document, object_id=None):
         raise NotImplemented('abstract method')
 
@@ -284,8 +291,6 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
 
-
-
 class MongoRepository(Repository):
 
     @classmethod
@@ -375,6 +380,8 @@ class MongoRepository(Repository):
     @classmethod
     def find_by_id(cls, object_id):
         assert object_id, 'the id of the lookup object must be provided'
+        if isinstance(object_id, (str, basestring, unicode)) and object_id.startswith(OBJ_PREFIX):
+            object_id = ObjectId(object_id.split(OBJ_PREFIX)[1])
         document_dict = cls.get_collection().find_one({'_id': object_id})
         return Model.from_dict(document_dict, cls, convert_ids=True) if document_dict else None
 
@@ -397,18 +404,23 @@ class MongoRepository(Repository):
         elif not isinstance(document, dict):
             raise RepositoryException('Only dictionary or Model is accepted.')
         else:
-            has_id = object_id or 'id' in document or '_id' in document
             document_id = object_id or document.get('id') or document.get('_id')
+            has_id = document_id is not None
         return has_id, document_id, document
 
     @classmethod
-    def save_object(cls, document, object_id=None):
+    def patch_object(cls, document, object_id=None):
+        return cls.save_object(document, object_id=object_id, insert_if_none_found=False)
+
+    @classmethod
+    def save_object(cls, document, object_id=None, insert_if_none_found=True):
         # type: (object) -> object
         assert document, 'the document must be handed over as a parameter'
         has_id, document_id, document = MongoRepository.prepare_document(document, object_id)
         if has_id:
-            update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document}, upsert=True)
-            return update_result.upserted_id or document_id
+            update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document},
+                                                            upsert=insert_if_none_found)
+            return update_result.upserted_id or (document_id if update_result.matched_count > 0 else None)
         else:
             insert_result = cls.get_collection().insert_one(document)
             return insert_result.inserted_id  # pylint: disable=C0103
@@ -418,7 +430,7 @@ class MongoRepository(Repository):
         assert document, 'the document must be provided before replacing'
         has_id, document_id, document = MongoRepository.prepare_document(document, None)
         update_result = cls.get_collection().replace_one({'_id': document_id}, document, upsert=False)
-        return update_result.upserted_id or document_id
+        return (update_result.upserted_id or document_id) if update_result.matched_count > 0 else None
 
     @classmethod
     def bulk_insert(cls, list_of_model_instances):
@@ -540,6 +552,3 @@ class AuditableRepository(MongoRepository):
     def save(self):
         self.id = self.__class__.save_object(Model.to_dict(self, convert_id=True))
         return self.id
-
-# todo:
-# build unique index (eg. for username)

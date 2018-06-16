@@ -100,7 +100,7 @@ class Task(Model, AuditableRepository):
         self.closed_date = datetime.now()
 
 
-class Project(Model, AuditableRepository):
+class Project(Model, AuditableRepository, Service):
     name = Property(str, required=True, validators=[NotEmpty()])
     tasks = Property(list, sub_type=Task)
     created = Property(datetime, required=True, generator=date_now_generator)

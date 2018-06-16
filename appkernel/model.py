@@ -741,10 +741,6 @@ class Model(object):
                             setattr(instance, key, Model.from_list(val, parameter.sub_type, convert_ids=convert_ids))
                         elif issubclass(parameter.python_type, Enum):
                             setattr(instance, key, parameter.python_type[val])
-                        elif (key == '_id' or key == 'id') and isinstance(val, (str, basestring)) and val.startswith(
-                                OBJ_PREFIX):
-                            # check if the object id is a mongo object id
-                            setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[0]))
                         elif isinstance(val, (basestring, str, unicode)):
                             # convert json string elements into target types based on the Parameter class
                             setattr(instance, key,
@@ -752,6 +748,10 @@ class Model(object):
                         else:
                             # set object elements on the target instance
                             setattr(instance, key, val)
+                elif (key == '_id' or key == 'id') and isinstance(val, (str, basestring)) and val.startswith(
+                        OBJ_PREFIX):
+                    # check if the object id is a mongo object id
+                    setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
                 elif set_unmanaged_parameters:
                     setattr(instance, key, val)
         return instance

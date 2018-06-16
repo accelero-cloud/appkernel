@@ -1,7 +1,10 @@
 from flask import Flask
 from appkernel import AppKernelEngine
 from datetime import datetime
-from test_util import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max
+
+from appkernel.util import OBJ_PREFIX
+from test_util import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max, \
+    Project, Task
 import os
 import pytest
 
@@ -64,6 +67,7 @@ def setup_module(module):
     print '\nModule: >> {} at {}'.format(module, current_file_path)
     kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(current_file_path), development=True)
     kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
+    kernel.register(Project, methods=['GET', 'PUT'])
 
 
 def setup_function(function):
@@ -103,9 +107,21 @@ def test_delete_basic(client):
     u = User().update(name='some_user', password='some_pass')
     user_id = u.save()
     rsp = client.delete('/users/{}'.format(user_id))
-    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     assert rsp.json.get('result') == 1
+
+
+def test_find_by_object_id(client):
+    Project.get_collection().delete_many({})
+    p = Project()
+    p.name = 'somename'
+    p.undefined_parameter = 'something else'
+    p.tasks = [Task(name='some_task', description='some description')]
+    proj_id = p.save()
+    rsp = client.get('/projects/{}{}'.format(OBJ_PREFIX, proj_id))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 200
 
 
 def test_delete_invalid_url(client):
@@ -515,6 +531,13 @@ def test_patch_nonexistent_field(client):
     assert rsp.json.get('locked')
 
 
+def test_patch_non_existent_document(client):
+    rsp = client.patch('/users/12234567890', data=json.dumps({'locked': True}))
+    print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
+    assert rsp.status_code == 404
+    assert rsp.json.get('code') == 404
+
+
 def test_put_user(client, user_dict):
     user_json = json.dumps(user_dict)
     print '\nSending: {}'.format(user_json)
@@ -533,7 +556,7 @@ def test_put_user(client, user_dict):
     replacement_user_json = json.dumps(replacement_user)
     print '\nSending: {}'.format(replacement_user_json)
     rsp = client.put('/users/', data=replacement_user_json)
-    assert 200 <= rsp.status_code <300
+    assert 200 <= rsp.status_code < 300
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
     rsp = client.get('/users/')
     print '\nResponse: {} -> {}'.format(rsp.status, rsp.data)
@@ -541,6 +564,47 @@ def test_put_user(client, user_dict):
     assert returned_user.get('_items')[0].get('locked') is True
     assert returned_user.get('_items')[0].get('name') == 'changed user'
     assert len(returned_user.get('_items')[0].get('roles')) == 0
+
+
+def test_put_with_object_id(client):
+    Project.get_collection().delete_many({})
+    p = Project()
+    p.name = 'somename'
+    p.undefined_parameter = 'something else'
+    p.tasks = [Task(name='some_task', description='some description')]
+    proj_id = p.save()
+    rsp = client.get('/projects/{}{}'.format(OBJ_PREFIX, proj_id))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 200
+
+    p2 = Project()
+    p2.name = 'some other project name'
+    p2.tasks = []
+    p2.id = proj_id
+    new_project = p2.dumps(pretty_print=True)
+    print('sending new content: {}'.format(new_project))
+    rsp = client.put('/projects/', data=new_project)
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 201
+    assert Project.count() == 1
+    replaced_project = Project.find_by_query({'_id': proj_id})[0]
+    assert replaced_project.name == 'some other project name'
+    assert len(replaced_project.tasks) == 0
+
+
+def test_put_not_found_object(client):
+    Project.get_collection().delete_many({})
+    p2 = Project()
+    p2.name = 'some other project name'
+    p2.tasks = []
+    p2.id = 'OBJ_123456789012'
+    new_project = p2.dumps(pretty_print=True)
+    print('sending new content: {}'.format(new_project))
+    rsp = client.put('/projects/', data=new_project)
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 404
+    assert Project.count() == 0
+    assert rsp.json.get('_type') == 'ErrorMessage'
 
 
 def test_metadata(client):
