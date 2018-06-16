@@ -7,7 +7,7 @@ from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, dat
 from passlib.hash import pbkdf2_sha256
 from enum import Enum
 from flask_babel import _, lazy_gettext as _l
-from appkernel.validators import Max, Min
+from appkernel.validators import Max, Min, Email
 
 
 class User(Model, MongoRepository, Service, IdentityMixin):
@@ -15,6 +15,7 @@ class User(Model, MongoRepository, Service, IdentityMixin):
     name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     password = Property(str, required=True, validators=[NotEmpty],
                         value_converter=password_hasher(rounds=10), omit=True)
+    email = Property(str, validators=[Email], index=UniqueIndex)
     description = Property(str, index=TextIndex)
     roles = Property(list, sub_type=str)
     created = Property(datetime, required=True, validators=[Past], generator=date_now_generator)

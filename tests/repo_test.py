@@ -166,8 +166,8 @@ def test_schema_validation_success():
     print Model.dumps(project, pretty_print=True)
     project.save()
 
-# todo: user schema validation
-# OperationFailure: $jsonSchema keyword 'format' is not currently supported
+# todo: add schema validation while ns is not there
+
 
 
 def test_schema_validation_rejected():

@@ -3,6 +3,7 @@ import pymongo
 import operator
 
 from bson import ObjectId
+from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
 from appkernel.util import OBJ_PREFIX
@@ -324,6 +325,11 @@ class MongoRepository(Repository):
         :return:
         """
         MongoRepository.version_check(tuple([3, 6, 0]))
+        try:
+            config.mongo_database.create_collection(xtract(cls))
+        except CollectionInvalid as cix:
+            pass
+
         config.mongo_database.command(
             'collMod', xtract(cls),
             validator={'$jsonSchema': cls.get_json_schema(mongo_compatibility=True)},
@@ -373,7 +379,7 @@ class MongoRepository(Repository):
         """
         db = config.mongo_database
         if db is not None:
-            return db[xtract(cls)]
+            return db.get_collection(xtract(cls))
         else:
             raise AppKernelException('The database engine is not set')
 

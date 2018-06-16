@@ -544,7 +544,7 @@ class Model(object):
                             properties[name].update(maxLength=validator.get('value'))
                     elif validator.get('type') == Regexp:
                         properties[name].update(pattern=validator.get('value'))
-                    elif validator.get('type') == Email:
+                    elif validator.get('type') == Email and not mongo_compatibility:
                         properties[name].update(format='email')
                         # todo: add formats for: hostname, ipv4, ipv6, uri
                         #   todo: build dependencies
