@@ -7,7 +7,8 @@ from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
 from appkernel.util import OBJ_PREFIX
-from model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex
+from model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex, \
+    CustomProperty
 from pymongo.collection import Collection
 
 
@@ -33,7 +34,7 @@ class Query(object):
             return
         where = reduce(operator.and_, expressions)
         if isinstance(where, Expression):
-            if isinstance(where.lhs, Property):
+            if isinstance(where.lhs, (Property, CustomProperty)):
                 if where.lhs.backreference.within_an_array:
                     # this query is part of an array
                     self.filter_expr[str(where.lhs.backreference.array_parameter_name)] = where.ops.lmbda(

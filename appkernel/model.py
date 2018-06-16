@@ -133,6 +133,12 @@ class DslBase(object):
         return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
 
 
+class CustomProperty(DslBase):
+
+    def __init__(self, cls, property_name):
+        self.backreference = BackReference(class_name=cls.__name__, parameter_name=property_name)
+
+
 class Expression(DslBase):
     """
     a binary expression, eg. foo < bar, foo == bar, foo.contains(bar)
@@ -418,6 +424,18 @@ class Model(object):
 
     def __str__(self):
         return "<{}> {}".format(self.__class__.__name__, Model.dumps(self, validate=False))
+
+    @classmethod
+    def custom_property(cls, custom_field_name):
+        # (str) -> CustomProperty
+        """
+        It is used to be search for property names which are not defined explicitly on the class.
+        Sample: project = Project.find_one(Project.custom_property('version') == 2)
+
+        Args:
+             custom_field_name(str): the name of the property
+        """
+        return CustomProperty(cls, custom_field_name)
 
     @staticmethod
     def init_model(instance, **kwargs):

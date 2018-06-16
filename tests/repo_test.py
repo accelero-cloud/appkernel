@@ -2,6 +2,7 @@ import json
 
 from pymongo.errors import WriteError
 
+from appkernel.model import CustomProperty
 from test_util import *
 from appkernel.configuration import config
 from pymongo import MongoClient
@@ -166,9 +167,6 @@ def test_schema_validation_success():
     print Model.dumps(project, pretty_print=True)
     project.save()
 
-# todo: add schema validation while ns is not there
-
-
 
 def test_schema_validation_rejected():
     Project.add_schema_validation(validation_action='error')
@@ -189,8 +187,14 @@ def test_basic_query():
     assert isinstance(results[0], User)
     assert results[0].name == 'John'
 
-# todo: test non existing property
-# Project.find_one(Project.version == '2')
+
+def test_find_with_custom_property():
+    projects = create_and_save_some_projects()
+    project = Project.find_one(Project.custom_property('version') == 2)
+    assert project is not None
+    print('Found Project {}'.format(project.dumps(pretty_print=True)))
+    none_project = Project.find_one(CustomProperty(Project, 'version') == 0)
+    assert none_project is None
 
 
 def test_basic_negative_query():
@@ -599,5 +603,4 @@ def test_query_simple_array_contains():
 #     # { $ and: [{price: { $ne: 1.99}}, {price: { $exists: true}}]}
 #     # { price: { $ne: 1.99, $exists: true } }
 #
-# todo: test missing fields / test fields which do exist
 # todo: test relationships.

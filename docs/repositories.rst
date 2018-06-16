@@ -299,6 +299,13 @@ Return all users which has description field: ::
 Smaller and bigger
 ''''''''''''''''''
 
+Query with custom properties
+''''''''''''''''''''''''''''
+    a ::
+
+    project = Project.find_one(Project.custom_property('version') == 2)
+
+
 Native Queries
 ..............
 
