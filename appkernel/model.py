@@ -196,11 +196,12 @@ class Marshaller(object):
             raise TypeError("the base Marsaller class may not be instantiated")
         return object.__new__(cls, *args, **kwargs)
 
-    def to_wireformat(self, class_value):
+    def to_wireformat(self, instance_value):
         pass
 
     def from_wire_format(self, wire_value):
         pass
+
 
 # class _Initialiser(type):
 #     """
@@ -439,7 +440,7 @@ class Model(object):
         return self
 
     def __str__(self):
-        return "<{}> {}".format(self.__class__.__name__, Model.dumps(self, validate=False))
+        return "<{}> {}".format(self.__class__.__name__, Model.to_dict(self, validate=False, marshal_values=False))
 
     @classmethod
     def custom_property(cls, custom_field_name):
@@ -708,7 +709,7 @@ class Model(object):
         return val_desc
 
     @staticmethod
-    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False):
+    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False, marshal_values=True):
         """
         Turns the python instance object into a dictionary after finalising and validating it.
 
@@ -726,10 +727,10 @@ class Model(object):
             return instance
         result = {}
         instance_items = instance.__dict__.items() if not isinstance(instance, dict) else instance.items()
+        cls_items = {k: v for k, v in instance.__class__.__dict__.iteritems() if isinstance(v, Property)}
         for param, obj in instance_items:
             if skip_omitted_fields:
                 # skip the omitted fields
-                cls_items = {k: v for k, v in instance.__class__.__dict__.iteritems() if isinstance(v, Property)}
                 parameter_def = cls_items.get(param)
                 if parameter_def and parameter_def.omit:
                     continue
@@ -740,10 +741,19 @@ class Model(object):
             elif isinstance(obj, list):
                 result[param] = [Model.to_dict(list_item, convert_id) for list_item in obj]
             else:
-                if convert_id and param == 'id':
-                    result['_id'] = obj
+                class_property = cls_items.get(param)
+                if class_property and isinstance(class_property, Property) and class_property.marshaller:
+                    if isinstance(class_property.marshaller, type) and issubclass(class_property.marshaller,
+                                                                                  Marshaller):
+                        class_property.marshaller = class_property.marshaller()
+                    if isinstance(class_property.marshaller, Marshaller) and marshal_values:
+                        result_value = class_property.marshaller.to_wireformat(obj)
                 else:
-                    result[param] = obj
+                    result_value = obj
+                if convert_id and param == 'id':
+                    result['_id'] = result_value
+                else:
+                    result[param] = result_value
         return result
 
     @staticmethod
@@ -769,6 +779,12 @@ class Model(object):
                 if key in class_variables:
                     parameter = getattr(cls, key)
                     if isinstance(parameter, Property):
+                        if parameter.marshaller:
+                            if isinstance(parameter.marshaller, type) and issubclass(parameter.marshaller,
+                                                                                          Marshaller):
+                                parameter.marshaller = parameter.marshaller()
+                            if isinstance(parameter.marshaller, Marshaller):
+                                val = parameter.marshaller.from_wire_format(val)
                         if issubclass(parameter.python_type, Model):
                             setattr(instance, key, Model.from_dict(val, parameter.python_type, convert_ids=convert_ids))
                         elif issubclass(parameter.python_type, list):

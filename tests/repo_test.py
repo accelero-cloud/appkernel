@@ -7,11 +7,11 @@ from test_util import *
 from appkernel.configuration import config
 from pymongo import MongoClient
 import pytest
-from datetime import timedelta
+from datetime import timedelta, date
 
 
 def setup_module(module):
-    config.mongo_database=MongoClient(host='localhost')['appkernel']
+    config.mongo_database = MongoClient(host='localhost')['appkernel']
 
 
 def setup_function(function):
@@ -103,11 +103,12 @@ def test_update():
     assert assertable_project.version == 2
     assert assertable_project.inserted < assertable_project.updated
 
+
 # todo: update previously deleted object
 
 
 def test_find_all():
-    project_count=10
+    project_count = 10
     for i in xrange(project_count):
         u = Project().update(name='multi_user_%s' % i).update(undefined_parameter='something undefined'). \
             append_to(groups='some group name').append_to(groups='some other group name')
@@ -152,7 +153,7 @@ def test_unique_index_creation():
     User.init_indexes()
     user = create_and_save_a_user('some user', 'some pass', 'some description')
     idx_info = User.get_collection().index_information()
-    #idx_info = config.mongo_database['Users'].index_information()
+    # idx_info = config.mongo_database['Users'].index_information()
     print('\n{}'.format(idx_info))
     assert 'name_idx' in idx_info
     assert 'sequence_idx' in idx_info
@@ -586,6 +587,11 @@ def test_query_simple_array_contains():
     assert len(project.tasks) == 5
 
 
+def test_mongo_persistence_with_date():
+    Application.delete_all()
+    application = Application(application_date=date.today())
+    application.save()
+
 # def test_array_size():
 #     create_and_save_some_projects()
 #     projects = Project.where(Project.tasks.length() >= 5).get()
@@ -604,4 +610,4 @@ def test_query_simple_array_contains():
 #     # { price: { $ne: 1.99, $exists: true } }
 #
 # todo: test relationships.
-# todo: test support converter into mongo
+# todo: test support converter into mongo date time

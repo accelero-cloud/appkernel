@@ -17,6 +17,7 @@ def setup_function(function):
     User.delete_all()
     Task.delete_all()
 
+
 def test_generator():
     task = Task()
     task.name = 'some task name'
@@ -42,12 +43,8 @@ def test_unix_time_marshaller():
     user.finalise_and_validate()
     print('\n\n')
     user_json = user.dumps(pretty_print=True)
-    # print(user_json)
-    # assert isinstance(User.to_dict(user).get('last_login'), float)
-    # reloaded_user = User.loads(user_json)
-    # print(str(reloaded_user))
-
-
-    # todo: test converters
-    # value_converter=to_unix_time, value_converter=to_time_unit
-    # todo: test with password converter (or other converters) but missing element
+    print(user_json)
+    assert isinstance(User.to_dict(user).get('last_login'), float)
+    reloaded_user = User.loads(user_json)
+    print(str(reloaded_user))
+    assert isinstance(reloaded_user.last_login, datetime)

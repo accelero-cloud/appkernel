@@ -1,8 +1,8 @@
 from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Model, Property, UniqueIndex, ServiceException
-from datetime import datetime
+from datetime import datetime, date
 from appkernel import AuditableRepository, Repository, MongoRepository
-from appkernel.generators import TimestampMarshaller
+from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
 from appkernel.service import link
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
 from passlib.hash import pbkdf2_sha256
@@ -49,6 +49,11 @@ class Portfolio(Model, MongoRepository):
     name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     stocks = Property(list, sub_type=Stock, validators=NotEmpty)
     owner = Property(User, required=False)
+
+
+class Application(Model, MongoRepository):
+    id = Property(str, required=True, generator=create_uuid_generator())
+    application_date = Property(date, required=True, marshaller=MongoDateTimeMarshaller)
 
 
 def create_portfolio(name):
