@@ -102,5 +102,3 @@ def test_getter_action(client):
             assert rsp.json.get('result') == 'test description'
             break
     assert get_description_included, 'Should contain get_description link'
-
-# todo: show type outside of the collection and not in the items or in the other way around

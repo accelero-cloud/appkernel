@@ -10,8 +10,6 @@ The framework is supposed to cover all or most of the requirements of the Micros
 - [x] value converters
 - [x] omitted fields
 
-
-
 ## Database features
 - [x] basic CRUD operations
 - [x] easy to use active record style queries

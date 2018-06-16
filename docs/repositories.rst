@@ -13,6 +13,7 @@ difference between **peewee** and the built-in **Appkernel** ORM is that the lat
 * :ref:`Index management`
 * :ref:`Schema Installation`
 * :ref:`MongoDB Aggregation Pipeline`
+* :ref:`Advanced Functionality`
 
 Basic CRUD (Created, Update, Delete) operations
 -----------------------------------------------
@@ -305,12 +306,19 @@ llll
 
 Index management
 ----------------
+    ::
+
+    User.init_indexes()
 
 Schema Installation
 -------------------
 
 MongoDB Aggregation Pipeline
 ----------------------------
+
+    ::
+
+    Project.add_schema_validation(validation_action='error')
 
 Auditable Repository
 --------------------
@@ -352,3 +360,13 @@ extended in the very beginning. This will bring a few additionalf features to th
 - *inserted*:
 - *updated*:
 - *version*:
+
+Advanced Functionality
+----------------------
+
+Accessing the  native pymongo collection: ::
+
+    User.get_collection().drop()
+    idx_info = User.get_collection().index_information()
+
+    config.mongo_database['Users'].index_information()

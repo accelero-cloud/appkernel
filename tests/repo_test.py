@@ -151,12 +151,16 @@ def test_find_some_by_query():
 
 
 def test_unique_index_creation():
+    User.get_collection().drop()
+    User.init_indexes()
     user = create_and_save_a_user('some user', 'some pass', 'some description')
-    idx_info = config.mongo_database['Users'].index_information()
+    idx_info = User.get_collection().index_information()
+    #idx_info = config.mongo_database['Users'].index_information()
+    print('\n{}'.format(idx_info))
     assert 'name_idx' in idx_info
-
-# todo: test index
-# todo: test text index
+    assert 'sequence_idx' in idx_info
+    assert 'description_idx' in idx_info
+    assert idx_info.get('name_idx').get('key')[0][0] == 'name'
 
 
 def test_schema_validation_success():
@@ -165,6 +169,9 @@ def test_schema_validation_success():
     project = create_rich_project()
     print Model.dumps(project, pretty_print=True)
     project.save()
+
+# todo: user schema validation
+# OperationFailure: $jsonSchema keyword 'format' is not currently supported
 
 
 def test_schema_validation_rejected():

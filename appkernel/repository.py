@@ -284,21 +284,25 @@ class Repository(object):
         raise NotImplemented('abstract method')
 
 
+
+
 class MongoRepository(Repository):
 
-    def __init__(self):
-        index_factories = {
-            Index: MongoRepository.create_index,
-            TextIndex: MongoRepository.create_text_index,
-            UniqueIndex: MongoRepository.create_unique_index
-        }
+    @classmethod
+    def init_indexes(cls):
+        if issubclass(cls, Model):
+            index_factories = {
+                Index: MongoRepository.create_index,
+                TextIndex: MongoRepository.create_text_index,
+                UniqueIndex: MongoRepository.create_unique_index
+            }
 
-        for key, value in self.__class__.__dict__.iteritems():
-            if isinstance(value, Property):
-                if value.index:
-                    fct = index_factories.get(value.index, MongoRepository.not_supported)
-                    fct(self.get_collection(), key,
-                        value.index.sort_order if hasattr(value.index, 'sort_order') else SortOrder.ASC)
+            for key, value in cls.__dict__.iteritems():
+                if isinstance(value, Property):
+                    if value.index:
+                        fct = index_factories.get(value.index, MongoRepository.not_supported)
+                        fct(cls.get_collection(), key,
+                            value.index.sort_order if hasattr(value.index, 'sort_order') else SortOrder.ASC)
 
     @staticmethod
     def version_check(required_version_tuple):
@@ -323,31 +327,41 @@ class MongoRepository(Repository):
         )
 
     @staticmethod
-    def create_index(collection, member_name, sort_order, unique=False):
-        if member_name not in collection.index_information():
-            direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
+    def create_index(collection, field_name, sort_order, unique=False):
+        # type: (pymongo.collection.Collection, str, SortOrder, bool) -> ()
+
+        """
+        Args:
+            collection(pymongo.collection.Collection): the collection to which the index is applied to
+            field_name(str): the name of the document field which is being indexed
+            sort_order(SortOrder): the sort order
+            unique(bool): if true (false by default) it will create a unique index
+        """
+        if field_name not in collection.index_information():
+            if isinstance(sort_order, SortOrder):
+                direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
+            else:
+                direction = sort_order
             collection.create_index(
-                [(member_name, direction)],
-                unique=unique, background=True, name='{}_idx'.format(member_name))
+                [(field_name, direction)],
+                unique=unique, background=True, name='{}_idx'.format(field_name))
 
     @staticmethod
-    def create_text_index(collection, member_name, *args):
-        pass
+    def create_text_index(collection, field_name, *args):
+        # type: (pymongo.collection.Collection, str, SortOrder, bool) -> ()
+        MongoRepository.create_index(collection, field_name, pymongo.TEXT)
 
     @staticmethod
-    def create_unique_index(collection, member_name, sort_order):
-        MongoRepository.create_index(collection, member_name, sort_order, unique=True)
+    def create_unique_index(collection, field_name, sort_order):
+        MongoRepository.create_index(collection, field_name, sort_order, unique=True)
 
     @staticmethod
     def not_supported(*args):
         pass
 
-    @property
-    def collection(self):
-        return self.__class__.get_collection()
-
     @classmethod
     def get_collection(cls):
+        # type: () -> pymongo.collection.Collection
         """
         :return: the collection for this model object
         :rtype: Collection
@@ -489,7 +503,7 @@ class MongoRepository(Repository):
         return self.id
 
     def delete(self):
-        return self.collection.delete_one({'_id': self.id}).deleted_count
+        return self.get_collection().delete_one({'_id': self.id}).deleted_count
 
 
 class AuditableRepository(MongoRepository):

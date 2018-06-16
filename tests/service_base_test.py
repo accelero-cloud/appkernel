@@ -210,6 +210,8 @@ def test_pagination(client):
         result_set = rsp.json
         assert len(result_set.get('_items')) == 5
         assert result_set.get('_items')[4].get('sequence') == page * 5, 'the sequence number should be a multiple of 5'
+        assert result_set.get('_type') == 'list', 'the type should be a list here'
+        assert result_set.get('_items')[0].get('_type') == 'User', 'the item type should be User'
 
 
 def test_pagination_with_sort(client):
@@ -321,7 +323,17 @@ def test_find_by_exact_match(client):
     assert rsp.status_code == 200
     assert rsp.json.get('_items')[0].get('name') == 'John'
 
-# todo: test search term with space in it
+
+def test_find_by_exact_match_with_space(client):
+    john_doe = create_and_save_a_user('John Doe', 'hihihih', 'John Doe is an unknown person')
+    rsp = client.get('/users/?name=John Doe')
+    print ('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 200
+    assert len(rsp.json.get('_items')) == 1
+    rsp = client.get('/users/?name=John Pullmannn')
+    print ('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 204
+
 
 def test_find_boolean(client):
     john = create_and_save_a_user('John Doe', 'a password', 'John is a random guy')
@@ -556,6 +568,7 @@ def test_metadata(client):
     assert 'label' in result.get('password')
     assert result.get('password').get('label') == 'Password'
 
+
 def test_schema(client):
     rsp = client.get('/users/schema')
     assert 200 <= rsp.status_code < 300
@@ -563,5 +576,18 @@ def test_schema(client):
     print '\n{}'.format(json.dumps(result, indent=2))
     assert '$schema' in result
 
-# todo: bad request sould be converted into json NOT html
-# curl -X GET "http://127.0.0.1:5000/users/?name='some user'"
+
+def test_not_found_url(client):
+    rsp = client.get('/users/bad_url')
+    result = rsp.json
+    print '\n{}'.format(json.dumps(result, indent=2))
+    assert rsp.status_code == 404
+    assert result.get('_type') == 'ErrorMessage'
+
+
+def test_bad_parameters(client):
+    rsp = client.get('/users/users?as')
+    result = rsp.json
+    print '\n{}'.format(json.dumps(result, indent=2))
+    assert rsp.status_code == 500
+    assert result.get('_type') == 'ErrorMessage'

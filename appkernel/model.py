@@ -183,6 +183,16 @@ class BackReference(object):
         self.array_parameter_name = None
 
 
+# class _Initialiser(type):
+#     """
+#     It calls a special purpose static __init method on all classes;
+#     """
+#     def __init__(cls, name, bases, dct):
+#         init_method = dct.get('_{}__init'.format(name), None)
+#         if isinstance(init_method, staticmethod):
+#             init_method.__func__(cls)
+
+
 class _TaggingMetaClass(type):
     def __new__(mcs, class_name, bases, dct):
         tags = {}
@@ -235,6 +245,7 @@ class Property(DslBase):
     """
     Metadata holder used by the Model classes.
     """
+
     def __init__(self, python_type,
                  required=False,
                  sub_type=None,

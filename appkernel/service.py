@@ -462,7 +462,7 @@ class Service(RbacMixin):
             return result_item
         elif isinstance(result_item, (list, set, tuple)):
             result = {
-                '_type': cls.__name__,
+                '_type': result_item.__class__.__name__,
                 '_items': [cls.xvert(item, generate_links=False) for item in result_item]
             }
             if cls.enable_hateoas:

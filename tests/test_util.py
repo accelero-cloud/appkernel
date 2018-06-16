@@ -1,4 +1,4 @@
-from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous
+from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Model, Property, UniqueIndex, ServiceException
 from datetime import datetime
 from appkernel import AuditableRepository, Repository, MongoRepository
@@ -15,10 +15,10 @@ class User(Model, MongoRepository, Service, IdentityMixin):
     name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     password = Property(str, required=True, validators=[NotEmpty],
                         value_converter=password_hasher(rounds=10), omit=True)
-    description = Property(str)
+    description = Property(str, index=TextIndex)
     roles = Property(list, sub_type=str)
     created = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
-    sequence = Property(int)
+    sequence = Property(int, index=Index)
 
     @link(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])
     def change_p(self, current_password, new_password):

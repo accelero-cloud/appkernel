@@ -14,8 +14,8 @@ class User(Model, MongoRepository, Service):
                         value_converter=password_hasher(), omit=True)
     roles = Property(list, sub_type=str, default_value=['Login'])
 
-    @link(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])
-    def change_p(self, current_password, new_password):
+    @link(http_method='POST', require=[CurrentSubject(), Role('admin')])
+    def change_password(self, current_password, new_password):
         if not pbkdf2_sha256.verify(current_password, self.password):
             raise ServiceException(403, _('Current password is not correct'))
         else:
