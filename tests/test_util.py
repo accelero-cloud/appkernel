@@ -15,7 +15,6 @@ class User(Model, MongoRepository, Service, IdentityMixin):
     name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     password = Property(str, required=True, validators=[NotEmpty],
                         value_converter=password_hasher(rounds=10), omit=True)
-    email = Property(str, validators=[Email], index=UniqueIndex)
     description = Property(str, index=TextIndex)
     roles = Property(list, sub_type=str)
     created = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
