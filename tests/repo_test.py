@@ -129,7 +129,7 @@ def test_find_all_by_query():
     assert Project.count() == 50
     counter = 0
     for _, u in zip(range(10), Project.find_by_query()):
-        print 'User name: {}'.format(u.name)
+        print 'Project name: {}'.format(u.name)
         counter += 1
     assert counter == 10
 
@@ -143,7 +143,7 @@ def test_find_some_by_query():
     assert Project.count() == 50, '>> should be 50, but was %s' % Project.count()
     counter = 0
     for p in Project.find_by_query({'counter': {'$gte': 0, '$lt': 10}}):
-        print 'User name: {} and counter: {}'.format(p.name, p.counter)
+        print 'Project name: {} and counter: {}'.format(p.name, p.counter)
         counter += 1
     assert counter == 10, "counter should be 10, was: {}".format(counter)
 
