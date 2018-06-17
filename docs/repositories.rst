@@ -216,6 +216,13 @@ Observe the property **completed** which now is set to True and the **closed_dat
         "version": 2
     }
 
+Bulk insert
+...........
+
+    ::
+
+    ids = User.bulk_insert(create_user_batch()
+
 Once we don't need the project anymore we can issue the **delete** command: ::
 
     project.delete()
@@ -239,6 +246,15 @@ A simple example: ::
 
     prj = Project.find_one(Project.name == 'some test project')
     print(prj.dumps(pretty_print=True))
+
+Or use property name chaining for searching all project which contain the word 'finish' in their task description: ::
+
+    prj = Project.find_one(Project.tasks.name % 'finish')
+    print(prj.dumps(pretty_print=True))
+
+An alternative way to achieve the same target: ::
+
+    prj2 = Project.find_one(Project.tasks[Task.name == 'finish the documentation'])
 
 Or you can iterate through all occurrences... ::
 
