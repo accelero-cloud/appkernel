@@ -342,8 +342,9 @@ def test_bigger_than_date_negative():
 
 def test_between_date():
     john, jane, max = create_and_save_john_jane_and_max()
-    user_iterator = User.find(
-        (User.created > (datetime.now() - timedelta(days=1))) & (User.created < (datetime.now() + timedelta(days=1))))
+    yesterday = (datetime.now() - timedelta(days=1))
+    tomorrow = (datetime.now() + timedelta(days=1))
+    user_iterator = User.find((User.created > yesterday) & (User.created < tomorrow))
     results = [user for user in user_iterator]
     print '\n>fetched: {}'.format(len(results))
     assert len(results) == 3
