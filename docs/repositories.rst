@@ -221,7 +221,7 @@ Once we don't need the project anymore we can issue the **delete** command: ::
     project.delete()
     1
 
-You can delete all Projects at once: ::
+You can delete all projects at once: ::
 
     Project.delete_all()
 
@@ -230,6 +230,7 @@ Queries
 
 Appkernel provides a simple abstraction over the native MongoDB queries, simplifying your job for most of the queries. The query expressions
 can be provided as parameter to the:
+
 * **find** method: returns a generator, which can be used to iterate over the result set;
 * **find_one** method: returns the first hit or None, if nothing matches the query criteria;
 * **where** method: returns the :class:`Query` object, which allows the chaining of further expressions, such as **sort**;

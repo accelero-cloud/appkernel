@@ -15,7 +15,7 @@ Features of a Model
 * :ref:`Introduction to the Model Class`
 * :ref:`Extensible Data Validation`
 * :ref:`Default Values and Generators`
-* :ref:`Value Converters`
+* :ref:`Converters`
 * :ref:`Dict and Json Converters`
 * :ref:`Marshallers`
 * :ref:`JSON Schema`
