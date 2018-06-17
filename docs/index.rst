@@ -122,4 +122,21 @@ Run the generators on the attributes and validate the resulting object (usually 
    user.finalise_and_validate()
 
 
-# todo: security and jwt token
+Setup role based access control
+-------------------------------
+
+Right after exposing the service as a REST endpoint, security rules can be added to it: ::
+
+    user_service = kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
+    user_service.deny_all().require(Role('user'), methods='GET').
+    require(Role('admin'), methods=['PUT', 'POST', 'PATCH', 'DELETE'])
+The configuration above will allow to GET `user` related endpoints by all users who has the **user** role. PUT, POST, PATCH and DELETE method are allowed
+to be called by users with the **admin** role.
+
+JWT Token
+.........
+
+Once the Model object extends the :class:`IdentityMixin`, it will feature a property called **auth_token** which will contain a valid JWT token.
+All **roles** from the model are added to the token. Accessing the jqt token is simple: ::
+
+    token = user.auth_token

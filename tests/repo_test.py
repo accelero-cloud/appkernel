@@ -609,5 +609,11 @@ def test_mongo_persistence_with_date():
 #     # { $ and: [{price: { $ne: 1.99}}, {price: { $exists: true}}]}
 #     # { price: { $ne: 1.99, $exists: true } }
 #
+
+# def test_relationships():
 # todo: test relationships.
-# todo: test support converter into mongo date time
+#     users = create_user_batch(5)
+#     admin_group = Group(name='admins')
+#     for u in users:
+#         u.group = admin_group
+#         u.save()

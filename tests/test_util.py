@@ -36,6 +36,12 @@ class User(Model, MongoRepository, Service, IdentityMixin):
         return self.description
 
 
+class Group(Model, MongoRepository):
+    id = Property(str, required=True, generator=create_uuid_generator('U'))
+    name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
+    users = Property(list, sub_type=User)
+
+
 class Stock(Model):
     code = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]'), Max(4)], index=UniqueIndex)
     open = Property(float, required=True, validators=[Min(0)])

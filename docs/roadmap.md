@@ -9,6 +9,7 @@ A `Model` is a central data object, representing the domain of our business logi
 - [x] json schema generator
 - [x] value generators
 - [x] value converters
+- [x] wire-format marshaller
 - [x] omitted fields
 
 ## ORM features
@@ -35,17 +36,16 @@ Appkernel features a thin and beautiful Object Relational Mapping (ORM/a.k.a dat
 - [x] role based account management (RBAC)
 - [x] basic authentication and JWT token support
 - [x] customised, machine readable error messages
+- [ ] OpenApi support
 - [ ] File Storage
-- [ ] simplified logging
 - [ ] JSONP
 - [ ] graphql support
-- [ ] OpenApi support
 - [ ] Conditional Requests
 - [ ] OAUTH
 - [ ] rate limiting and circuit breaker
 - [ ] API Versioning
 - [ ] GeoJSON
-- [ ] webflow a web state machine
+
 
 ## Performance controls
 - [ ] Data Integrity and Concurrency Control
@@ -54,12 +54,13 @@ Appkernel features a thin and beautiful Object Relational Mapping (ORM/a.k.a dat
 ## Microservice Infrastructure
 - [x] externalized configuration
 - [ ] scheduler and background task executor
-- [ ] logging, health checks
+- [ ] health checks
+- [ ] simplified logging
+- [ ] enhanced logging for ops teams
+- [ ] circuit breakers
 - [ ] CQRS
 - [ ] Event sourcing
 - [ ] SAGA Pattern
-- [ ] circuit breakers
 - [ ] metrics
 - [ ] service registration and discovery
-- [ ] Enhanced Logging
-- [ ] Operations Log
+- [ ] webflow a web state machine

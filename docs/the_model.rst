@@ -16,8 +16,8 @@ Features of a Model
 * :ref:`Extensible Data Validation`
 * :ref:`Default Values and Generators`
 * :ref:`Value Converters`
-* :ref:`Marshallers`
 * :ref:`Dict and Json Converters`
+* :ref:`Marshallers`
 * :ref:`JSON Schema`
 * :ref:`Meta-data generator`
 
@@ -223,32 +223,33 @@ Built-in generators
 
     owner = Property(datetime, generator=current_user_generator)
 
-Value Converters
-````````````````
+Converters
+``````````
 It is also needed to change already existing field values in way or another. Think about the following use-cases:
 
 - passwords need to be hashed before saving it into the database;
 - dates could be converted to and from UNIX time before saving or sending it over the wire so one needs to deal less with the data format;
 - some sensitive data fragments (such as GDPR controlled private data) might be encrypted/hashed upon saving as well;
 
-Therefore any function which returns a tuple of 2 other methods with the property value as input parameter can be used as a value converter.
+Therefore any function which returns a function with the property value as input parameter can be used as a converter.
 In case the converter works only in one direction (like the password hasher), None can be returned as the second method.
-Here's the code of the password hasher as an example: ::
+Here's the code of a hasher which an be used to secure passwords: ::
 
     def content_hasher(rounds=20000, salt_size=16):
-        def hash_content(password):
+        def hash_content(content):
             # type: (str) -> str
-            if password.startswith('$pbkdf2-sha256'):
-                return password
+            if content.startswith('$pbkdf2-sha256'):
+                return content
             else:
-                return pbkdf2_sha256.encrypt(password, rounds=rounds, salt_size=salt_size)
+                return pbkdf2_sha256.encrypt(content, rounds=rounds, salt_size=salt_size)
 
     return hash_content
+
 
 Dict and Json Converters
 ''''''''''''''''''''''''
 
-All Models can be easily converted back and forth to and from dict or json representation.
+All Models can be easily converted back and forth to and from dict or JSON representation (a.k.a wireformat).
 Writing JSON is as simple as: ::
 
     user.dumps()
@@ -292,6 +293,45 @@ Of course the opposite would work by using: ::
     User.from_dict(some_dict_object)
 
 One can use the **set_unmanaged_parameters=False** if values from the dict which do not belong to the Model should be ignored.
+
+Marshallers
+```````````
+Sometimes it is required to maintain different format on the instance and on the wire. An example is when the datetime instance is converted in unix timestampt in order
+to avoid possible complications due to date format conversions.
+Marshaller comes handy in such cases.
+
+Timestamp marshaller
+....................
+In the example below the `last_login` property of :class:`datetime` is converted to unix timestamp of type :class:`float` when
+generating JSON or upon saving it in the database. When converting JSON back (or loading from the repository) the timestamp will be converted back to :class:`datetime`. ::
+
+    class User(Model, MongoRepository):
+        last_login = Property(datetime, marshaller=TimestampMarshaller)
+
+Date to datetime marshaller
+...........................
+Mongo will throw an exception while trying to save documents (Model instances) wu=ith properties of type date, while this is not supported by Mongo's internal BSON type. In such
+cases you have two options: either refrain from the use of :class:`date` or use the built-in :class:`MongoDateTimeMarshaller`, which will automatically convert the date to datetime
+before saving in the database and convert it back to date upon loading: ::
+
+    class Application(Model, MongoRepository):
+        id = Property(str, required=True, generator=create_uuid_generator())
+        application_date = Property(date, required=True, marshaller=MongoDateTimeMarshaller)
+
+Writing your own mashaller
+..........................
+
+Writing your own marshaller is as simple as extending the builtin :class:`Marshaller` class and implement it's two method to convert to and from wire-format. ::
+
+    class MongoDateTimeMarshaller(Marshaller):
+        def to_wireformat(self, instance_value):
+            # the instance value is provided and the method should return the one to be sent over the wire (JSON or BSON)
+            ...
+
+        def from_wire_format(self, wire_value):
+            # the value received from the wire and to be converted to the format expected by the Model instance
+            ...
+
 
 JSON Schema
 '''''''''''
