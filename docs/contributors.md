@@ -1,6 +1,4 @@
-### Setting up the development environment
-
-After cloning the project:
+## Development environment
 
 Clone the project:
 ```bash
@@ -17,12 +15,14 @@ source venv/bin/activate
 pip install -e .
 ```
 
-*Hint*: in case you use PyCharm
+*Hint for PyCharm users*
 
-* you would want to set the Project Interpreter (in the project settings) to the virtual environment just have created
-* you might want to set to excluded your .idea, appkernel.egg-info and venv folder in case of using Pycharm.
+* you might want to set the Project Interpreter (in the project settings) to the virtual environment just have created;
+* you might want to set to excluded your .idea, appkernel.egg-info and venv folder in case of using Pycharm;
 
-Setup git hooks
+#### Setup git hooks
+
+The project features pre-commit and pre-push hooks for automatically running tests and pylint:
 
 ```bash
 cd .git/hooks
@@ -31,7 +31,7 @@ ln -sf ../../hooks/pre-push ./pre-push
 cd ../..
 ```
 
-### Preparing test execution
+#### Preparing test execution
 
 Some tests require compiled translations:
 
@@ -45,7 +45,7 @@ And many others a working local mongo db:
  docker create -v ~/data:/data/db -p 27017:27017 --name mongo mongo
  docker start mongo
  ```
-...where ~/data might be replaced by any folder where you would like to store
+...where `~/data` might be replaced by any folder where you would like to store
 database files;
 
 *Hint*: the schema installation feature expects a MongoDB version min. 3.6.

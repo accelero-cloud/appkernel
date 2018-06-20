@@ -142,7 +142,7 @@ Run the generators on the attributes and validate the object (usually not needed
 ```python
 user.finalise_and_validate()
 ```
-[I want to know the status](docs/roadmap.md)
+[I want to know the current status of the project](docs/roadmap.md)
 
 [For more details feel free to check out the documentation](http://appkernel.readthedocs.io)
 
