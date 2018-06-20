@@ -167,6 +167,9 @@ Currently supported (and fully tested) features:
 - MongoDB Aggregation Framework
 - Powered by Flask
 
+### Contribute
+Be part of the development: [contribute to the project :)](docs/contributors.md)
+
 ### Why did we built this?
 * We had the need to build a myriad of small services in our daily business, ranging from data-aggregation pipelines, to housekeeping services and
 other process automation services. These do share similar requirements and the underlying infrastructure needed to be rebuilt and tested over and over again. The question arose:
@@ -187,9 +190,3 @@ The first step is to define the validation and data generations rules. For makin
 Than one can extend several built-in classes in order to augment the model with extended functionality:
 * extending the Repository class (or its descendants) adds and ORM persistency capability to the model;
 * extending the Service class (or its descendants) add the capablity to expose the model over REST services;
-
-### How can I use it?
-TBD;
-
-### What is the current state?
-TBD;
