@@ -49,4 +49,9 @@ And many others a working local mongo db:
 database files;
 
 *Hint*: the schema installation feature expects a MongoDB version min. 3.6.
- In case you have an older version you might need to upgrade your mongo image.
+ In case you have an older version you might need to upgrade your mongo image (`docker pull mongo:latest`).
+
+Start in the test folder:
+```bash
+pytest
+```
