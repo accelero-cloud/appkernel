@@ -11,4 +11,5 @@
    authentication
    motivation_vision
    api
+   contributors
    license

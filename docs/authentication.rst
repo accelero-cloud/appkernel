@@ -1,4 +1,4 @@
-Rolbe Based Access Management
+Role Based Access Management
 =============================
 
 .. warning::
