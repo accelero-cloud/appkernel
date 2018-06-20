@@ -8,15 +8,16 @@ The vision of the project is to provide you with a full-fledged microservice cha
 * Full range of CRUD operations
 
 * :ref:`REST endpoints over HTTP`
-* Customizable resource endpoints
-* Filtering and Sorting
-* Pagination
+* :ref:`Filtering and Sorting`
+* :ref:`Pagination`
+* :ref:`Embedded Resource Serialization`
 * Projections
-* Embedded Resource Serialization
+* Customizable resource endpoints
+
 * :ref:`Powered by Flask`
 
 REST endpoints over HTTP
-````````````````````````
+````````````````````````clear
 USE CASE / MOTIVATION
 Let's assume that we have created a User class extending the :class:`Model` and the :class:`Service`. Now we'd like to expose it as a REST endpoint ::
 
