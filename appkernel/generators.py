@@ -13,7 +13,7 @@ class TimestampMarshaller(Marshaller):
             return instance_value
 
     def from_wire_format(self, wire_value):
-        if isinstance(wire_value, (str, basestring, unicode)):
+        if isinstance(wire_value, str):
             wire_value = float(wire_value)
         if isinstance(wire_value, (float, int)):
             return datetime.fromtimestamp(wire_value)

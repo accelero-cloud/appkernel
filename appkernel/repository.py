@@ -7,9 +7,10 @@ from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
 from appkernel.util import OBJ_PREFIX
-from model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex, \
+from .model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex, \
     CustomProperty
 from pymongo.collection import Collection
+from functools import reduce
 
 
 def xtract(cls):
@@ -304,7 +305,7 @@ class MongoRepository(Repository):
                 UniqueIndex: MongoRepository.create_unique_index
             }
 
-            for key, value in cls.__dict__.iteritems():
+            for key, value in cls.__dict__.items():
                 if isinstance(value, Property):
                     if value.index:
                         fct = index_factories.get(value.index, MongoRepository.not_supported)
@@ -314,10 +315,10 @@ class MongoRepository(Repository):
     @staticmethod
     def version_check(required_version_tuple):
         server_info = config.mongo_database.client.server_info()
-        current_version = tuple(server_info['version'].split('.'))
+        current_version = tuple(int(i) for i in server_info['version'].split('.'))
         if current_version < required_version_tuple:
             raise AppKernelException(
-                'This feature requires a min version of: {}'.format(u'.'.join(required_version_tuple)))
+                'This feature requires a min version of: {}'.format('.'.join(required_version_tuple)))
 
     @classmethod
     def add_schema_validation(cls, validation_action='warn'):
@@ -387,7 +388,7 @@ class MongoRepository(Repository):
     @classmethod
     def find_by_id(cls, object_id):
         assert object_id, 'the id of the lookup object must be provided'
-        if isinstance(object_id, (str, basestring, unicode)) and object_id.startswith(OBJ_PREFIX):
+        if isinstance(object_id, str) and object_id.startswith(OBJ_PREFIX):
             object_id = ObjectId(object_id.split(OBJ_PREFIX)[1])
         document_dict = cls.get_collection().find_one({'_id': object_id})
         return Model.from_dict(document_dict, cls, convert_ids=True) if document_dict else None

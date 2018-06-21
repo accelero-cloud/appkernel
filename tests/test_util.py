@@ -46,7 +46,7 @@ class Stock(Model):
     code = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]'), Max(4)], index=UniqueIndex)
     open = Property(float, required=True, validators=[Min(0)])
     updated = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
-    history = Property(list, sub_type=long)
+    history = Property(list, sub_type=int)
     sequence = Property(int, validators=[Min(1), Max(100)])
 
 
@@ -137,7 +137,7 @@ def create_rich_project():
 
 def create_five_tasks(seed='A'):
     tasks = []
-    for i in xrange(0, 5):
+    for i in range(0, 5):
         tasks.append(
             Task(name='sequential tasks {}-{}'.format(seed, i), description='some tasks description {}'.format(i),
                  priority=Priority.MEDIUM))
@@ -152,7 +152,7 @@ def create_and_save_a_project(project_name='Default project name', tasks=None):
 
 def create_and_save_some_projects():
     projects = []
-    for i in xrange(0, 50):
+    for i in range(0, 50):
         p = create_and_save_a_project('Project {}'.format(i), tasks=create_five_tasks(seed='{}'.format(i)))
         p.save()
         projects.append(p)
@@ -172,17 +172,17 @@ def create_and_save_a_user_with_no_roles(name, password, description=None):
     return u
 
 
-def create_and_save_some_users(range=51):
-    for i in xrange(1, range):
+def create_and_save_some_users(urange=51):
+    for i in range(1, urange):
         u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i)
         u.save()
-    assert User.count() == range - 1
+    assert User.count() == urange - 1
 
 
-def create_user_batch(range=51):
+def create_user_batch(urange=51):
     users = []
-    for i in xrange(1, range):
+    for i in range(1, urange):
         users.append(User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(
             sequence=i))
@@ -201,7 +201,7 @@ def check_portfolio(portfolio):
     portfolio_dict = Model.to_dict(portfolio, convert_id=True)
     stocks = portfolio_dict.get('stocks')
     assert len(stocks) == 2
-    msft_stock = list(filter(lambda stock: stock.get('code') == 'MSFT', stocks))[0]
+    msft_stock = list([stock for stock in stocks if stock.get('code') == 'MSFT'])[0]
     msft_stock_history = msft_stock.get('history')
     assert len(msft_stock_history)
     assert 120 in msft_stock_history

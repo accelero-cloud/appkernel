@@ -11,9 +11,9 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.exceptions import default_exceptions
 import appkernel
 from appkernel.configuration import config
-from validators import AppInitialisationError
-from authorisation import authorize_request
-from util import default_json_serializer
+from .validators import AppInitialisationError
+from .authorisation import authorize_request
+from .util import default_json_serializer
 import atexit, eventlet.debug
 from enum import Enum
 from cryptography.hazmat.backends import default_backend
@@ -274,7 +274,7 @@ class AppKernelEngine(object):
     def __init_web_layer(self):
         self.app.json_encoder = AppKernelJSONEncoder
         self.app.register_error_handler(Exception, self.generic_error_handler)
-        for code in default_exceptions.iterkeys():
+        for code in default_exceptions.keys():
             # add a default error handler for everything is unhandled
             self.app.register_error_handler(code, self.generic_error_handler)
 

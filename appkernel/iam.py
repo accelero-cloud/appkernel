@@ -72,7 +72,7 @@ class IdentityMixin(object):
             payload,
             key=config.private_key,
             algorithm='RS256'
-        )
+        ).decode('utf-8')
 
 
 class RbacMixin(object):
@@ -114,7 +114,7 @@ class RbacMixin(object):
         if isinstance(methods, list):
             for method in methods:
                 add_endpoint_and_permissions(method)
-        elif isinstance(methods, (str, basestring, unicode)):
+        elif isinstance(methods, str):
             add_endpoint_and_permissions(methods)
         else:
             raise TypeError('Methods must be of type list or string.')

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # pylint: skip-file
-from __future__ import absolute_import, division, unicode_literals
+
 import sys
 
 """
@@ -27,21 +27,21 @@ except NameError:
     set = set
 
 try:
-    unicode = unicode
+    str = str
 except NameError:
-    unicode = str
+    str = str
 
 try:
-    long = long
-    numeric_types = (int, long)
+    long = int
+    numeric_types = (int, int)
 except NameError:
     long = int
     numeric_types = (int,)
 
 try:
-    unichr = unichr
+    chr = chr
 except NameError:
-    unichr = chr
+    chr = chr
 
 
 try:
@@ -49,4 +49,4 @@ try:
     import queue
 except ImportError:
     # Python2
-    import Queue as queue
+    import queue as queue

@@ -69,7 +69,7 @@ class Regexp(Validator):
         super(Regexp, self).__init__(ValidatorType.REGEXP, value)
 
     def validate(self, parameter_name, validable_object):
-        if isinstance(validable_object, basestring):
+        if isinstance(validable_object, str):
             if not re.match(self.value, validable_object):
                 raise ValidationException(self.type, validable_object,
                                           _('The property %(prop_name)s cannot be validated against %(value)s.',
@@ -91,7 +91,7 @@ class Min(Validator):
         super(Min, self).__init__(ValidatorType.MIN, minimum)
 
     def validate(self, parameter_name, validable_object):
-        if isinstance(validable_object, (int, float, long)) and validable_object < self.value:
+        if isinstance(validable_object, (int, float)) and validable_object < self.value:
             raise ValidationException(self.type, validable_object,
                                       'The parameter {} should hava a min. value of {}'.format(parameter_name,
                                                                                                self.value))
@@ -102,7 +102,7 @@ class Max(Validator):
         super(Max, self).__init__(ValidatorType.MAX, maximum)
 
     def validate(self, parameter_name, validable_object):
-        if isinstance(validable_object, (int, float, long)) and validable_object > self.value:
+        if isinstance(validable_object, (int, float)) and validable_object > self.value:
             raise ValidationException(self.type, validable_object,
                                       'The parameter {} should have a max. value of {}'.format(parameter_name,
                                                                                                self.value))
@@ -143,7 +143,7 @@ class NotEmpty(Validator):
 
     def validate(self, parameter_name, validable_object):
         if not validable_object or not isinstance(validable_object,
-                                                  (basestring, str, unicode, list, set, dict, tuple)) or len(
+                                                  (str, list, set, dict, tuple)) or len(
             validable_object) == 0:
             raise ValidationException(self.type, validable_object,
                                       'The parameter *{}* is None or not String '.format(parameter_name))

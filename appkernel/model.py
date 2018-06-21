@@ -2,29 +2,31 @@ import inspect
 from bson import ObjectId
 from enum import Enum
 from datetime import datetime, date
-from validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
+from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
 from flask_babel import lazy_gettext
+import collections
 
 try:
     import simplejson as json
 except ImportError:
     import json
-from util import default_json_serializer, OBJ_PREFIX
+from .util import default_json_serializer, OBJ_PREFIX
 
 
 class AppKernelException(Exception):
     def __init__(self, message):
-        super(AppKernelException, self).__init__(message)
+        self.message = message
+        super().__init__()
 
 
 class PropertyRequiredException(AppKernelException):
     def __init__(self, value):
-        super(AppKernelException, self).__init__('The property {} is required.'.format(value))
+        super().__init__('The property {} is required.'.format(value))
 
 
 class ServiceException(AppKernelException):
     def __init__(self, http_error_code, message):
-        super(AppKernelException, self).__init__(message)
+        super().__init__(message)
         self.http_error_code = http_error_code
 
 
@@ -160,7 +162,7 @@ def get_argument_spec(provisioner_method):
         provisioner_method), 'The provisioner method must be a method'
     args = [name for name in getattr(inspect.getargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
     defaults = getattr(inspect.getargspec(provisioner_method), 'defaults')
-    return dict(zip(args, defaults or [None for arg in args]))
+    return dict(list(zip(args, defaults or [None for arg in args])))
 
 
 def create_tagging_decorator(tag_name):
@@ -216,7 +218,7 @@ class Marshaller(object):
 class _TaggingMetaClass(type):
     def __new__(mcs, class_name, bases, dct):
         tags = {}
-        for member_name, member in dct.iteritems():
+        for member_name, member in dct.items():
             if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
                 # if it is a tagged member
                 if member.member_tag[0] not in tags:
@@ -366,11 +368,10 @@ def default_convert(string):
     return string
 
 
-class Model(object):
+class Model(object, metaclass=_TaggingMetaClass):
     """
     The base class of all Model objects which are intended to be persisted in the database or served via REST;
     """
-    __metaclass__ = _TaggingMetaClass
 
     type_converters = {
         date: convert_date_time,
@@ -538,7 +539,7 @@ class Model(object):
         required_props = []
         definitions = {}
 
-        for name, spec in specs.iteritems():
+        for name, spec in specs.items():
             spec_type = spec.get('type')
             type_string = spec_type.__name__ if hasattr(spec_type, '__name__') else str(spec_type)
             if mongo_compatibility and (name == 'id' or name == '_id'):
@@ -568,14 +569,14 @@ class Model(object):
                     elif spec.get('type') == list and validator.get('type') == Unique:
                         properties[name].update(uniqueItems=True)
                     elif validator.get('type') == Min:
-                        if spec.get('type') in [int, float, long]:
+                        if spec.get('type') in [int, float, int]:
                             properties[name].update(minimum=validator.get('value'))
-                        elif spec.get('type') in [str, basestring, unicode]:
+                        elif spec.get('type') in [str, str, str]:
                             properties[name].update(minLength=validator.get('value'))
                     elif validator.get('type') == Max:
-                        if spec.get('type') in [int, float, long]:
+                        if spec.get('type') in [int, float, int]:
                             properties[name].update(maximum=validator.get('value'))
-                        elif spec.get('type') in [str, basestring, unicode]:
+                        elif spec.get('type') in [str, str, str]:
                             properties[name].update(maxLength=validator.get('value'))
                     elif validator.get('type') == Regexp:
                         properties[name].update(pattern=validator.get('value'))
@@ -726,8 +727,8 @@ class Model(object):
         if not hasattr(instance, '__dict__') and not isinstance(instance, dict):
             return instance
         result = {}
-        instance_items = instance.__dict__.items() if not isinstance(instance, dict) else instance.items()
-        cls_items = {k: v for k, v in instance.__class__.__dict__.iteritems() if isinstance(v, Property)}
+        instance_items = list(instance.__dict__.items()) if not isinstance(instance, dict) else list(instance.items())
+        cls_items = {k: v for k, v in instance.__class__.__dict__.items() if isinstance(v, Property)}
         for param, obj in instance_items:
             if skip_omitted_fields:
                 # skip the omitted fields
@@ -773,7 +774,7 @@ class Model(object):
         instance = cls()
         class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]
         if dict_obj and isinstance(dict_obj, dict):
-            for key, val in dict_obj.items():
+            for key, val in list(dict_obj.items()):
                 if convert_ids and key == '_id':
                     key = 'id'
                 if key in class_variables:
@@ -781,7 +782,7 @@ class Model(object):
                     if isinstance(parameter, Property):
                         if parameter.marshaller:
                             if isinstance(parameter.marshaller, type) and issubclass(parameter.marshaller,
-                                                                                          Marshaller):
+                                                                                     Marshaller):
                                 parameter.marshaller = parameter.marshaller()
                             if isinstance(parameter.marshaller, Marshaller):
                                 val = parameter.marshaller.from_wire_format(val)
@@ -791,15 +792,14 @@ class Model(object):
                             setattr(instance, key, Model.from_list(val, parameter.sub_type, convert_ids=convert_ids))
                         elif issubclass(parameter.python_type, Enum):
                             setattr(instance, key, parameter.python_type[val])
-                        elif isinstance(val, (basestring, str, unicode)):
+                        elif isinstance(val, str):
                             # convert json string elements into target types based on the Parameter class
                             setattr(instance, key,
                                     Model.type_converters.get(parameter.python_type, default_convert)(val))
                         else:
                             # set object elements on the target instance
                             setattr(instance, key, val)
-                elif (key == '_id' or key == 'id') and isinstance(val, (str, basestring)) and val.startswith(
-                        OBJ_PREFIX):
+                elif (key == '_id' or key == 'id') and isinstance(val, (str, bytes)) and val.startswith(OBJ_PREFIX):
                     # check if the object id is a mongo object id
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
                 elif set_unmanaged_parameters:
@@ -867,8 +867,8 @@ class Model(object):
         """
         obj_items = self.__dict__
         class_items = self.__class__.__dict__
-        cls_items = {k: v for k, v in class_items.iteritems() if isinstance(v, Property)}
-        for param_name, param_object in cls_items.items():
+        cls_items = {k: v for k, v in class_items.items() if isinstance(v, Property)}
+        for param_name, param_object in list(cls_items.items()):
             # initialise default values and generators for parameters which were not defined by the user
             if param_name not in obj_items:
                 if param_object.default_value is not None:
@@ -897,11 +897,12 @@ class Model(object):
         props = set(dir(self))
         # print '(P): %s' % dir(self)
         # obj_dict = {k: v for k, v in self.__dict__.items()}
-        print "params: %s" % [f for f in props if self.__is_param_field(f, self.__class__)]
+        print("params: %s" % [f for f in props if self.__is_param_field(f, self.__class__)])
         # print "vars :: %s" % vars(list).keys()
 
     def _include_instance(self, field):
-        return not field.startswith('__') and not callable(getattr(self, field)) and not isinstance(
+        return not field.startswith('__') and not isinstance(getattr(self, field),
+                                                             collections.Callable) and not isinstance(
             getattr(self, field), Property)
 
     @staticmethod

@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+.pytest_cache/
 env/
 build/
 develop-eggs/
@@ -25,7 +26,7 @@ wheels/
 .installed.cfg
 *.egg
 .idea
-venv
+venv*
 docs/_build
 #keys
 

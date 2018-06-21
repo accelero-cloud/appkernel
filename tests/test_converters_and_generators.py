@@ -23,13 +23,13 @@ def test_generator():
     task.name = 'some task name'
     task.description = 'some task description'
     task.finalise_and_validate()
-    print('\nTask:\n {}'.format(task))
+    print(('\nTask:\n {}'.format(task)))
     assert task.id is not None and task.id.startswith('U')
 
 
 def test_converter():
     user = create_and_save_a_user('test user', 'test password', 'test description')
-    print '\n{}'.format(user.dumps(pretty_print=True))
+    print('\n{}'.format(user.dumps(pretty_print=True)))
     assert user.password.startswith('$pbkdf2-sha256')
     hash1 = user.password
     user.save()
@@ -46,5 +46,5 @@ def test_unix_time_marshaller():
     print(user_json)
     assert isinstance(User.to_dict(user).get('last_login'), float)
     reloaded_user = User.loads(user_json)
-    print(str(reloaded_user))
+    print((str(reloaded_user)))
     assert isinstance(reloaded_user.last_login, datetime)

@@ -1,6 +1,6 @@
 import inspect, re
 
-from model import get_argument_spec
+from .model import get_argument_spec
 
 
 class QueryProcessor(object):
@@ -41,7 +41,7 @@ class QueryProcessor(object):
 
     @staticmethod
     def create_key_from_instance_method(provisioner_method):
-        return '{}_{}'.format(provisioner_method.im_self.__name__, provisioner_method.__name__)
+        return '{}_{}'.format(provisioner_method.__self__.__name__, provisioner_method.__name__)
 
     @staticmethod
     def supports_query(provisioner_method):

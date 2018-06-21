@@ -1,6 +1,6 @@
 # pylint: skip-file
 
-from compat import PY3
+from .compat import PY3
 import types
 import inspect
 import operator
@@ -12,7 +12,7 @@ Copied from Json Pickle: https://github.com/jsonpickle/jsonpickle/blob/master/js
 
 SEQUENCES = (list, set, tuple)
 SEQUENCES_SET = set(SEQUENCES)
-PRIMITIVES = set((unicode, bool, float, int, long))
+PRIMITIVES = set((str, bool, float, int, int))
 
 def is_type(obj):
     """Returns True is obj is a reference to a type.
@@ -28,7 +28,7 @@ def is_type(obj):
     if PY3:
         return isinstance(obj, type)
     else:
-        return isinstance(obj, (type, types.ClassType))
+        return isinstance(obj, type)
 
 
 def has_method(obj, name):
@@ -146,7 +146,7 @@ def is_bytes(obj):
 
 def is_unicode(obj):
     """Helper method to see if the object is a unicode string"""
-    return type(obj) is unicode
+    return type(obj) is str
 
 
 def is_tuple(obj):
@@ -303,4 +303,4 @@ def importable_name(cls):
 
 
 def itemgetter(obj, getter=operator.itemgetter(0)):
-    return unicode(getter(obj))
+    return str(getter(obj))

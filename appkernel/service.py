@@ -1,16 +1,14 @@
-from types import NoneType
-
 from enum import Enum
 from flask import jsonify, current_app, request, abort, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 from appkernel.configuration import config
-from iam import RbacMixin, Anonymous
-from query import QueryProcessor
-from validators import ValidationException
-from model import Model, PropertyRequiredException, create_tagging_decorator, _TaggingMetaClass, \
+from .iam import RbacMixin, Anonymous
+from .query import QueryProcessor
+from .validators import ValidationException
+from .model import Model, PropertyRequiredException, create_tagging_decorator, _TaggingMetaClass, \
     get_argument_spec, ServiceException, OPS
-from repository import Repository, xtract, MongoRepository
-from reflection import *
+from .repository import Repository, xtract, MongoRepository
+from .reflection import *
 from collections import defaultdict
 from datetime import datetime
 
@@ -157,8 +155,8 @@ class Service(RbacMixin):
 
     @staticmethod
     def __xtract_form():
-        target = dict((key, request.form.getlist(key)) for key in request.form.keys())
-        return dict((key, value[0] if len(value) == 1 else value) for key, value in target.iteritems())
+        target = dict((key, request.form.getlist(key)) for key in list(request.form.keys()))
+        return dict((key, value[0] if len(value) == 1 else value) for key, value in target.items())
 
     @staticmethod
     def get_merged_request_and_named_args(named_args):
@@ -229,7 +227,7 @@ class Service(RbacMixin):
                         for query_param_name in query_param_names:
                             if query_param_name in named_and_request_arguments:
                                 del named_and_request_arguments[query_param_name]
-                    elif 'query' in request.args.keys():
+                    elif 'query' in list(request.args.keys()):
                         named_and_request_arguments.update(query=json.loads(request.args.get('query')))
 
                 if request.method in ['POST', 'PUT']:
@@ -334,7 +332,7 @@ class Service(RbacMixin):
                 query_dict[arg] = request_args.getlist(arg)
 
         expression_list = []
-        for query_item in [[key, val] for key, val in query_dict.iteritems()]:
+        for query_item in [[key, val] for key, val in query_dict.items()]:
             # where query_item[0] is the key of the future structure and query_item[1] is the value
             if isinstance(query_item[1], list) and len(query_item[1]) > 1:
                 # it is a key with a list of values;
@@ -394,14 +392,14 @@ class Service(RbacMixin):
         :param arguments:
         :return:
         """
-        if isinstance(expression, (str, basestring, unicode)):
+        if isinstance(expression, str):
             if Service.qp.number_pattern.match(expression):
                 return int(expression)
             if Service.qp.boolean_pattern.match(expression):
                 return True if expression in ['true', 'True', 'y', 'yes'] else False
-            for date_pattern in Service.qp.date_patterns.iterkeys():
+            for date_pattern in Service.qp.date_patterns.keys():
                 if date_pattern.match(expression):
-                    for parser_format_matcher in Service.qp.date_separator_patterns.iterkeys():
+                    for parser_format_matcher in Service.qp.date_separator_patterns.keys():
                         if parser_format_matcher.match(expression):
                             date_parser_pattern = Service.qp.date_patterns.get(date_pattern)
                             separator = Service.qp.date_separator_patterns.get(parser_format_matcher)
@@ -411,13 +409,13 @@ class Service(RbacMixin):
     @staticmethod
     def __autobox_parameters(provisioner_method, arguments):
         method_structure = get_argument_spec(provisioner_method)
-        for arg_key, arg_value in arguments.iteritems():
+        for arg_key, arg_value in arguments.items():
             required_type = type(method_structure.get(arg_key))
             provided_type = type(arg_value)
-            if required_type is not NoneType and provided_type is not NoneType and required_type != provided_type:
+            if required_type is not type(None) and provided_type is not type(None) and required_type != provided_type:
                 if issubclass(required_type, Enum):
                     arguments[arg_key] = required_type[arg_value]
-                elif issubclass(required_type, list) and provided_type in [str, basestring, unicode]:
+                elif issubclass(required_type, list) and provided_type in [str, str, str]:
                     # if the required type should be a list
                     if Service.qp.csv_pattern.match(arg_value):
                         arguments[arg_key] = [int(item) if item.isdigit() else item.strip('"').strip('\'') for item in
@@ -432,7 +430,7 @@ class Service(RbacMixin):
                         except ValueError as verr:
                             # skip boxing
                             pass
-                elif issubclass(required_type, dict) and provided_type in [str, basestring, unicode]:
+                elif issubclass(required_type, dict) and provided_type in [str, str, str]:
                     # if the required type is dict, but provided string
                     try:
                         arguments[arg_key] = json.loads(arg_value)
@@ -468,7 +466,7 @@ class Service(RbacMixin):
             if cls.enable_hateoas:
                 result.update(_links={'self': {'href': url_for('{}_get_by_query'.format(xtract(cls).lower()))}})
             return result
-        elif is_primitive(result_item) or isinstance(result_item, (str, basestring, int)) or is_noncomplex(result_item):
+        elif is_primitive(result_item) or isinstance(result_item, (str, int)) or is_noncomplex(result_item):
             return {'_type': 'OperationResult', 'result': result_item}
 
     @classmethod
@@ -482,7 +480,7 @@ class Service(RbacMixin):
                 rel = this_link.get('decorator_kwargs').get('rel', func_name)
                 endpoint_name = '{}_{}'.format(clazz_name, rel)
                 href = '{}'.format(url_for(endpoint_name, object_id=object_id))
-                args = [key for key in this_link.get('argspec').iterkeys()]
+                args = [key for key in this_link.get('argspec').keys()]
 
                 links[rel] = {
                     'href': href,

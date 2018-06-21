@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from appkernel import PropertyRequiredException
 from appkernel import ValidationException
 from appkernel.configuration import config
-from test_util import *
+from .test_util import *
 import pytest
 from datetime import timedelta
 from jsonschema import validate
@@ -17,7 +17,7 @@ def setup_module(module):
 def setup_function(function):
     """ executed before each method call
     """
-    print ('\n\nSETUP ==> ')
+    print('\n\nSETUP ==> ')
     Project.delete_all()
     User.delete_all()
 
@@ -59,13 +59,13 @@ def test_past_validation():
         tasks=Task().update(name='some task', description='some description'))
     project.tasks[0].complete()
     project.finalise_and_validate()
-    print('{}'.format(project))
+    print(('{}'.format(project)))
     project.tasks[0].update(closed_date=(datetime.now() - timedelta(days=1)))
-    print('\n\n> one day in the past \n{}'.format(project))
+    print(('\n\n> one day in the past \n{}'.format(project)))
     project.finalise_and_validate()
     with pytest.raises(ValidationException):
         project.tasks[0].update(closed_date=(datetime.now() + timedelta(days=1)))
-        print('\n\n> one day in the in the future \n{}'.format(project))
+        print(('\n\n> one day in the in the future \n{}'.format(project)))
         project.finalise_and_validate()
 
 
@@ -77,7 +77,7 @@ def test_future_validation():
     test_model.finalise_and_validate()
     with pytest.raises(ValidationException):
         test_model.future_field = (datetime.now() - timedelta(days=1))
-        print('\n\n> one day in the in the future \n{}'.format(test_model))
+        print(('\n\n> one day in the in the future \n{}'.format(test_model)))
         test_model.finalise_and_validate()
 
 
@@ -88,7 +88,7 @@ def test_append_to_non_existing_non_defined_element():
     assert 'users' in project.__dict__
     assert len(project.users) == 1
     assert isinstance(project.users[0], Task)
-    print('{}'.format(project))
+    print(('{}'.format(project)))
 
 
 def test_append_to_non_existing_element():
@@ -98,7 +98,7 @@ def test_append_to_non_existing_element():
     assert 'tasks' in project.__dict__
     assert len(project.tasks) == 1
     assert isinstance(project.tasks[0], Task)
-    print('{}'.format(project))
+    print(('{}'.format(project)))
 
 
 def test_remove_non_existing_element():
@@ -126,10 +126,10 @@ def test_remove_existing_defined_element():
     project.append_to(tasks=task3)
     project.finalise_and_validate()
     assert len(project.tasks) == 3
-    print('{}'.format(project))
+    print(('{}'.format(project)))
     project.remove_from(tasks=task1)
     assert len(project.tasks) == 2
-    print('{}'.format(project))
+    print(('{}'.format(project)))
 
 
 def test_generator():
@@ -137,13 +137,13 @@ def test_generator():
     task.name = 'some task name'
     task.description = 'some task description'
     task.finalise_and_validate()
-    print('\nTask:\n {}'.format(task))
+    print(('\nTask:\n {}'.format(task)))
     assert task.id is not None and task.id.startswith('U')
 
 
 def test_converter():
     user = create_and_save_a_user('test user', 'test password', 'test description')
-    print '\n{}'.format(user.dumps(pretty_print=True))
+    print(('\n{}'.format(user.dumps(pretty_print=True))))
     assert user.password.startswith('$pbkdf2-sha256')
     hash1 = user.password
     user.save()
@@ -153,13 +153,13 @@ def test_converter():
 
 def test_nested_object_serialisation():
     portfolio = create_a_portfolion_with_owner()
-    print(portfolio.dumps(pretty_print=True))
+    print((portfolio.dumps(pretty_print=True)))
     check_portfolio(portfolio)
 
 
 def test_describe_model():
     user_spec = User.get_parameter_spec()
-    print User.get_paramater_spec_as_json()
+    print(User.get_paramater_spec_as_json())
     assert 'name' in user_spec
     assert user_spec.get('name').get('required')
     assert user_spec.get('name').get('type') == 'str'
@@ -172,7 +172,7 @@ def test_describe_model():
 
 def test_describe_rich_model():
     project_spec = Project.get_parameter_spec()
-    print Project.get_paramater_spec_as_json()
+    print(Project.get_paramater_spec_as_json())
     assert project_spec.get('created').get('required')
     assert project_spec.get('created').get('type') == 'datetime'
 
@@ -200,10 +200,10 @@ def test_describe_rich_model():
 
 def test_json_schema():
     json_schema = Project.get_json_schema()
-    print '\n{}'.format(json.dumps(json_schema, indent=2))
-    print '==========='
+    print('\n{}'.format(json.dumps(json_schema, indent=2)))
+    print('===========')
     project = create_rich_project()
-    print project.dumps(pretty_print=True)
+    print(project.dumps(pretty_print=True))
     assert json_schema.get('title') == 'Project'
     assert 'title' in json_schema
     assert json_schema.get('type') == 'object'
@@ -231,7 +231,7 @@ def test_json_schema():
 
 def test_json_schema_primitives_types():
     json_schema = Stock.get_json_schema()
-    print json.dumps(json_schema, indent=2)
+    print(json.dumps(json_schema, indent=2))
     props = json_schema.get('properties')
     assert props.get('open').get('type') == 'number'
     assert props.get('history').get('items').get('type') == 'number'
@@ -242,7 +242,7 @@ def test_json_schema_primitives_types():
 def test_json_schema_complex():
     # print json.dumps(Portfolio.get_parameter_spec(True), indent=2)
     json_schema = Portfolio.get_json_schema()
-    print json.dumps(json_schema, indent=2)
+    print(json.dumps(json_schema, indent=2))
     stock_definition = json_schema.get('definitions').get('Stock')
     assert stock_definition.get('properties').get('updated').get('format') == 'date-time'
     assert stock_definition.get('properties').get('code').get('pattern') == '[A-Za-z0-9-_]'
@@ -260,8 +260,8 @@ def test_json_schema_complex():
 
 def test_json_schema_in_mongo_compat_mode():
     json_schema = Project.get_json_schema(mongo_compatibility=True)
-    print '\n\n{}'.format(json.dumps(json_schema, indent=2))
-    print '==========='
+    print('\n\n{}'.format(json.dumps(json_schema, indent=2)))
+    print('===========')
     task_spec = json_schema.get('properties').get('tasks')
     assert len(task_spec.get('items').get('required')) == 4
     priority = task_spec.get('items').get('properties').get('priority')
@@ -270,12 +270,12 @@ def test_json_schema_in_mongo_compat_mode():
     assert 'id' not in json_schema
     assert '$schema' not in json_schema
     assert 'definitions' not in json_schema
-    for prop in json_schema.get('properties').iteritems():
+    for prop in json_schema.get('properties').items():
         assert 'format' not in prop[1]
         assert 'bsonType' in prop[1]
-    for prop in task_spec.get('items').get('properties').iteritems():
+    for prop in task_spec.get('items').get('properties').items():
         assert 'format' not in prop[1]
         assert 'bsonType' or 'enum' in prop[1]
     project = create_rich_project()
-    print project.dumps(pretty_print=True)
+    print(project.dumps(pretty_print=True))
     validate(json.loads(project.dumps()), json_schema)

@@ -3,7 +3,7 @@ import base64
 import itertools
 
 from bson import ObjectId
-from compat import PY3
+from .compat import PY3
 OBJ_PREFIX = 'OBJ_'  # pylint: disable-msg=C0103
 
 
@@ -12,7 +12,7 @@ def default_json_serializer(obj):
         return obj.isoformat()
     elif isinstance(obj, datetime.timedelta):
         return (datetime.datetime.min + obj).time().isoformat()
-    elif isinstance(obj, (str, basestring)):
+    elif isinstance(obj, str):
         return obj.decode('utf-8')
     elif isinstance(obj, ObjectId):
         return '{}{}'.format(OBJ_PREFIX, str(obj))
@@ -38,13 +38,13 @@ def sanitize(content):
     if content or content == 0:
         if content:
             try:
-                return (u'%s' % content).replace(',', ';').replace('\n', ' ').replace('"', '').replace('\\', '')
+                return ('%s' % content).replace(',', ';').replace('\n', ' ').replace('"', '').replace('\\', '')
             except:
                 raise
         else:
-            return u''
+            return ''
     else:
-        return u''
+        return ''
 
 
 def make_tar_file(source_file, output_name):
@@ -78,7 +78,7 @@ def merge_dicts(x_dict, y_dict):
 
 
 def extract_model_messages(fileobj, keywords, comment_tags, options):
-    """Extract messages from XXX files.
+    """Extract messages from python model container-files.
 
     :param fileobj: the file-like object the messages should be extracted
                     from

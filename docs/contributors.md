@@ -55,3 +55,16 @@ Run the following command in the test folder:
 ```bash
 pytest
 ```
+
+### Migration to Python3
+
+```bash
+sudo apt install python3-pip
+python -m pip install --upgrade pip
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python2.7 1
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.5 2
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.6 3
+update-alternatives --list python
+sudo pip install --upgrade pip
+virtualenv -p /usr/bin/python3.6 venv3
+```
