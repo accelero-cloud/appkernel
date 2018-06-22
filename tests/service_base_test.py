@@ -81,7 +81,7 @@ def test_get_basic(client):
     u = User().update(name='some_user', password='some_pass')
     user_id = u.save()
     rsp = client.get('/users/{}'.format(user_id))
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
     assert result.get('id') == user_id
@@ -91,14 +91,14 @@ def test_get_basic(client):
 
 def test_get_not_found(client):
     rsp = client.get('/users/1234')
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 404, 'the status code is expected to be 404'
     assert rsp.json.get('_type') == 'ErrorMessage'
 
 
 def test_get_invalid_url(client):
     rsp = client.get('/uzerz/1234')
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 404, 'the status code is expected to be 404'
     assert rsp.json.get('_type') == 'ErrorMessage'
 
@@ -107,7 +107,7 @@ def test_delete_basic(client):
     u = User().update(name='some_user', password='some_pass')
     user_id = u.save()
     rsp = client.delete('/users/{}'.format(user_id))
-    print(('\nResponse: {} -> {}'.format(rsp.status, rsp.data)))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     assert rsp.json.get('result') == 1
 
@@ -120,13 +120,13 @@ def test_find_by_object_id(client):
     p.tasks = [Task(name='some_task', description='some description')]
     proj_id = p.save()
     rsp = client.get('/projects/{}{}'.format(OBJ_PREFIX, proj_id))
-    print(('\nResponse: {} -> {}'.format(rsp.status, rsp.data)))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 200
 
 
 def test_delete_invalid_url(client):
     rsp = client.delete('/uzerz/1234')
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 404, 'the status code is expected to be 404'
     assert rsp.json.get('_type') == 'ErrorMessage'
 
@@ -139,7 +139,7 @@ def test_get_query_between_dates(client):
     user_id = u.save()
     print(('\nSaved user -> {}'.format(User.find_by_id(user_id))))
     rsp = client.get('/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND')
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
     assert result.get('_items')[0].get('id') == user_id
@@ -424,7 +424,7 @@ def test_post_user_as_json_payload(client, user_dict):
     user_json = json.dumps(user_dict)
     print('\nSending: {}'.format(user_json))
     rsp = client.post('/users/', data=user_json)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 201, 'the status code is expected to be 200'
     document_id = rsp.json.get('result')
     user = User.find_by_id(document_id)
@@ -451,7 +451,7 @@ def test_post_user_as_form(client):
         birth_date="1980-06-30T00:00:00",
         roles=["User", "Admin", "Operator"]
     ), follow_redirects=True)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
     assert rsp.status_code == 201
     user = User.find_by_id(rsp.json.get('result'))
     assert user is not None

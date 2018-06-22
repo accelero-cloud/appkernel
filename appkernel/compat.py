@@ -49,4 +49,4 @@ try:
     import queue
 except ImportError:
     # Python2
-    import queue as queue
+    import Queue as queue
