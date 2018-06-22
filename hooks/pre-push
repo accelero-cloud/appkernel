@@ -65,7 +65,7 @@ HOOK_DIR=$( dirname "${BASH_SOURCE[0]}" )
 PROJECT_DIR=${HOOK_DIR}/../..
 echo "hook dir: ${HOOK_DIR}"
 echo "project dir: ${PROJECT_DIR}"
-source  ${PROJECT_DIR}/venv/bin/activate
+source  ${PROJECT_DIR}/venv3/bin/activate
 check_result $? ">> Error: could not switch to virtualenv"
 
 pytest ${PROJECT_DIR}/tests -s -v --capture=no
