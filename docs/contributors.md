@@ -67,4 +67,6 @@ sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.6 3
 update-alternatives --list python
 sudo pip install --upgrade pip
 virtualenv -p /usr/bin/python3.6 venv3
+source ./venv3/bin/activate
+pip install pylint
 ```
