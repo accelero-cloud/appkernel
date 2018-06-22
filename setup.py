@@ -24,7 +24,7 @@ setup(
         'Flask==0.12.2', 'werkzeug', 'eventlet',
         'wrapt', 'passlib==1.7.1', 'jsonschema',
         'flask-babel', 'babel', 'pyjwt', 'cryptography',
-        'recommonmark'
+        'recommonmark', 'sets', 'queue'
         # 'requests', 'pymongo', 'Werkzeug==0.12.2',
         # , 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',
