@@ -4,8 +4,9 @@ Repositories
 .. warning::
     Work in progress section of documentation
 
-The repository API is influenced by **peewee**, a nice and small python API focusing on relational databases (sqlite, MySQL, PostgreSQL). The major
-difference between peewee_ and the built-in **Appkernel** ORM is that the later is optimised (and till this time) implemented only for MongoDB.
+The design of the repository API is influenced by peewee_, a nice and small python framework focusing on relational databases (sqlite, MySQL, PostgreSQL). The major
+difference between peewee_ and the built-in **Appkernel** ORM is that the later is optimised (and till this time) implemented only for MongoDB. However, it is possible
+to create your own implementation for SQL or any other database.
 
 .. _peewee: http://docs.peewee-orm.com/
 
@@ -23,8 +24,8 @@ Basic CRUD (Created, Update, Delete) operations
 .. note::
     You can follow all the examples in the Python's interactive interpreter using the imports and the configuration snippet from below.
 
-The following example describe a way for database initialisation which is only recommended for the interactive interpreter or for unit tests. In this case
-we will use the MongoDB instance accessible on the localhost and will create a database called **tutorial**. ::
+The following example is only required for the interactive interpreter or for unit tests. In this case
+we will use the MongoDB instance accessible on the **localhost** and will create a database called **tutorial**. ::
 
     from appkernel import Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email, AuditableRepository, NotEmpty, date_now_generator, Past
     from appkernel.configuration import config
@@ -35,13 +36,14 @@ we will use the MongoDB instance accessible on the localhost and will create a d
     config.mongo_database=MongoClient(host='localhost')['tutorial']
 
 For use in development or production you can choose between the following 2 options for configuration :
-- use the built-in :ref:`default configuration`, where the Mongo database should on `localhost` and the database name will be `app`
+
+- use the built-in :ref:`default configuration`, where the Mongo database must be available on `localhost` and the database name will be `app`
 - or use the built-in :ref:`file based configuration` management to provide more fine grained configuration;
 
 Default configuration
 .....................
-Once the :clas:`AppKernelEngine` is initialised with no configuration file and the **enable_defaults** parameter set to True, it will fall back to sensible
-defaults (localhost and **app** as database). ::
+Once the :class:`AppKernelEngine` is initialised with no specific configuration and the **enable_defaults** parameter set to `True`, sensible
+defaults are used (localhost and **app** as database). ::
 
     app = Flask(__name__)
     kernel = AppKernelEngine(application_id, app=app, enable_defaults=True)
@@ -49,14 +51,14 @@ defaults (localhost and **app** as database). ::
 File based configuration
 ........................
 
-Upon initialisation **Appkernel** will look for a file *../cfg.yml*, where the following parameters should be listed: ::
+Upon initialisation **Appkernel** looks for a file *../cfg.yml*, where the following parameters define a specific database connection: ::
 
     appkernel:
       mongo:
         host: localhost
         db: appkernel
 
-The **host** variable should contain the user and password parameters using the *mongodb://* url schema.
+The **host** variable may contain the user and password parameters using the *mongodb://* url schema.
 
 Building a base model structure
 ...............................
@@ -86,7 +88,11 @@ Let's create a simple project management app with some tasks in it: ::
         tasks = Property(list, sub_type=Task)
         created = Property(datetime, required=True, generator=date_now_generator)
 
-Now we are ready to define our first project: ::
+
+Saving and updating data
+........................
+
+Now we are ready to define our first `Project` with some `Task`s in it: ::
 
     project = Project(name='some test project')
     project.append_to(tasks=Task(name='finish the documentation', priority=Priority.HIGH))
@@ -124,65 +130,13 @@ And the output looks sleek: ::
         ]
     }
 
-Let's search for the the project which has at least one task containing the word 'finish' in its name : ::
 
-    reloaded_project = Project.find_one(Project.tasks.name % 'finish')
-    print(reloaded_project.dumps(pretty_print=True))
-
-It generates the following output: ::
-
-    {
-        "created": "2018-06-03T19:54:06.830000",
-        "id": "OBJ_5b142be00df7a9647023f0b1",
-        "inserted": "2018-06-03T19:56:48.794000",
-        "name": "some test project",
-        "tasks": [
-            {
-                "completed": false,
-                "created": "2018-06-03T19:53:38.149000",
-                "name": "finish the documentation",
-                "priority": "MEDIUM"
-            },
-            {
-                "completed": false,
-                "created": "2018-06-03T19:53:51.041000",
-                "name": "finish all todos",
-                "priority": "MEDIUM"
-            },
-            {
-                "completed": false,
-                "created": "2018-06-03T19:53:51.041000",
-                "name": "complete the unit tests",
-                "priority": "MEDIUM"
-            }
-        ],
-        "updated": "2018-06-03T19:56:48.794000",
-        "version": 1
-    }
-
-
-Auditable Repository
-....................
-
-You might have observed that there are a few extra fields, which we didn't defined on the model explicitly.
-This is happening due to the **AuditableRepository** class we've used in the very beginning. This will bring a few additional features to the mix:
-
-- *inserted*: the date and time when the object was inserted to the database;
-- *updated*: the date and time when the object was updated for the last time;
-- *version*: the number of updates on this class;
-
-Of course we could have stayed with the simpler :class:`MongoRepository` in case we are not needing the extra magic.
-
-We can check the number of projects quickly: ::
-
-    Project.count()
-    1
-
-Let's complete the first task: ::
+Now let's complete the first task: ::
 
     project.tasks[0].complete()
     project.save()
     ObjectId('5b1ee7050df7a9087e0e8952')
+    print(project.dumps(pretty_print=True))
 
 Observe the property **completed** which now is set to True and the **closed_date** having the value of the invocation date of the **complete()** method: ::
 
@@ -216,12 +170,26 @@ Observe the property **completed** which now is set to True and the **closed_dat
         "version": 2
     }
 
-Bulk insert
-...........
 
-    ::
+Auditable Repository
+....................
 
-    ids = User.bulk_insert(create_user_batch()
+You might have observed that there are a few extra fields, which we didn't defined on the model explicitly.
+This is happening due to the **AuditableRepository** class we've used in the very beginning. This will bring a few additional features to the mix:
+
+- *inserted*: the date and time when the object was inserted to the database;
+- *updated*: the date and time when the object was updated for the last time;
+- *version*: the number of updates on this class;
+
+Of course we could have stayed with the simpler :class:`MongoRepository` in case we are not in need of the extra magic for auditing our data model.
+
+Delete objects
+..............
+
+We can check the number of projects quickly: ::
+
+    Project.count()
+    1
 
 Once we don't need the project anymore we can issue the **delete** command: ::
 
@@ -232,8 +200,8 @@ You can delete all projects at once: ::
 
     Project.delete_all()
 
-Queries
--------
+Querying data
+.............
 
 Appkernel provides a simple abstraction over the native MongoDB queries, simplifying your job for most of the queries. The query expressions
 can be provided as parameter to the:
@@ -386,6 +354,13 @@ Alternatively you can also access PyMongo_'s (the Mongo client API implemented i
 
 For more details on what can you do via the collection reference, please consult the **pymongo** documentation.
 .. _PyMongo: https://api.mongodb.com/python/current/
+Bulk insert
+...........
+
+    ::
+
+    ids = User.bulk_insert(create_user_batch()
+
 Index management
 ----------------
 In order to speed up lookup for certain fields, one want to put indexes on certain properties. This can be easily achieved by using the **index** parameter of the :class:`Property` class.
@@ -459,3 +434,39 @@ Mongo features a very powerful map-reduce tool called `Aggregation Pipeline`_ fo
     Project.get_collection().aggregate(pipeline)
 
 .. Aggregation Pipeline_: https://docs.mongodb.com/manual/aggregation/
+
+Let's search for the the project which has at least one task containing the word **'finish'** in its name : ::
+
+    reloaded_project = Project.find_one(Project.tasks.name % 'finish')
+    print(reloaded_project.dumps(pretty_print=True))
+
+It generates the following output: ::
+
+    {
+        "created": "2018-06-03T19:54:06.830000",
+        "id": "OBJ_5b142be00df7a9647023f0b1",
+        "inserted": "2018-06-03T19:56:48.794000",
+        "name": "some test project",
+        "tasks": [
+            {
+                "completed": false,
+                "created": "2018-06-03T19:53:38.149000",
+                "name": "finish the documentation",
+                "priority": "MEDIUM"
+            },
+            {
+                "completed": false,
+                "created": "2018-06-03T19:53:51.041000",
+                "name": "finish all todos",
+                "priority": "MEDIUM"
+            },
+            {
+                "completed": false,
+                "created": "2018-06-03T19:53:51.041000",
+                "name": "complete the unit tests",
+                "priority": "MEDIUM"
+            }
+        ],
+        "updated": "2018-06-03T19:56:48.794000",
+        "version": 1
+    }
