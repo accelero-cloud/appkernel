@@ -15,6 +15,14 @@ source venv/bin/activate
 pip install -e .
 pip install pytest
 pip install pytest-flask
+pip install pylint
+```
+
+Since astroid (a dependency of pylint) is not supporting python 3.7 yet, you might need to run the
+command from above if your pylint analysis ends with `RuntimeError: generator raised StopIteration`.
+
+```bash
+pip install --pre -U pylint astroid
 ```
 
 *Hint for PyCharm users*
