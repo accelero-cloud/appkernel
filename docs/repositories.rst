@@ -268,7 +268,7 @@ Find a project knowing its exact id: ::
 
 Exact match
 '''''''''''
-Returns *'Project A'*: ::
+Returns where the field `name` exactly matches: *'Project A'*: ::
 
     prj = Project.find_one((User.name == 'Project A'))
 
@@ -354,10 +354,11 @@ Alternatively you can also access PyMongo_'s (the Mongo client API implemented i
 
 For more details on what can you do via the collection reference, please consult the **pymongo** documentation.
 .. _PyMongo: https://api.mongodb.com/python/current/
+
 Bulk insert
 ...........
 
-    ::
+    Sometimes you're in need to insert (upsert) multiple objects at once: ::
 
     ids = User.bulk_insert(create_user_batch()
 
