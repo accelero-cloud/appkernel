@@ -309,16 +309,16 @@ Would you not want to use the HATEOAS feature, you can chose to disable it at th
 Shema and metadata
 ``````````````````
 All models provide JSON schema and a metatada to help frontend UI generation and data validation in frontends.
-Accessing the JSON schema is easy by calling http://root_url/{model_name}/schema: ::
+Accessing the JSON schema is easy by calling **"http://root_url/{model_name}/schema"** ::
 
     curl http://localhost/users/schema
 
-Accessing the metadata by calling http://root_url/{model_name}/meta is easy too: ::
+Accessing the metadata by calling **"http://root_url/{model_name}/meta"** is easy too: ::
 
     curl http://localhost/users/meta
 
 Powered by Flask
 ````````````````
-The REST service engine uses `Flask`_ under the hood, therefore the reference to the flask app is always available at `kernel.app`.
+The REST service engine uses Flask_ under the hood, therefore the reference to the flask app is always available at `kernel.app`.
 
 .. Flask_: http://flask.pocoo.org/

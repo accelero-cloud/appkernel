@@ -62,7 +62,6 @@ def teardown_function(function):
 def test_create_token():
     user = create_and_save_a_user('test user', 'test password', 'test description')
     print(('\n{}'.format(user.dumps(pretty_print=True))))
-    #with flask_app.app_context():
     token = user.auth_token
     print(('token: {}'.format(token)))
     decoded_token = check_token(token)

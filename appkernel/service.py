@@ -1,16 +1,17 @@
-from enum import Enum
-from flask import jsonify, current_app, request, abort, url_for
-from werkzeug.datastructures import MultiDict, ImmutableMultiDict
-from appkernel.configuration import config
-from .iam import RbacMixin, Anonymous
-from .query import QueryProcessor
-from .validators import ValidationException
-from .model import Model, PropertyRequiredException, create_tagging_decorator, _TaggingMetaClass, \
-    get_argument_spec, ServiceException, OPS
-from .repository import Repository, xtract, MongoRepository
-from .reflection import *
 from collections import defaultdict
 from datetime import datetime
+from enum import Enum
+
+from flask import jsonify, request, url_for
+from werkzeug.datastructures import MultiDict, ImmutableMultiDict
+
+from appkernel.configuration import config
+from .iam import RbacMixin, Anonymous
+from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, ServiceException, OPS
+from .query import QueryProcessor
+from .reflection import *
+from .repository import Repository, xtract, MongoRepository
+from .validators import ValidationException
 
 try:
     import simplejson as json
