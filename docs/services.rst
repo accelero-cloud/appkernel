@@ -304,7 +304,7 @@ result-set includes browseable urls, exposing the existing methods to your API c
 
 Would you not want to use the HATEOAS feature, you can chose to disable it at the Model registration phase `kernel.register(User, enable_hateoas=False)`.
 
-.. HATEOAS_: https://en.wikipedia.org/wiki/HATEOAS
+.. _HATEOAS: https://en.wikipedia.org/wiki/HATEOAS
 
 Shema and metadata
 ``````````````````

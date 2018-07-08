@@ -447,4 +447,4 @@ Mongo features a very powerful map-reduce tool called `Aggregation Pipeline`_ fo
     pipeline = [{'$match': ...}, {'$group': ...}]
     Project.get_collection().aggregate(pipeline)
 
-.. Aggregation Pipeline_: https://docs.mongodb.com/manual/aggregation/
+.. _Aggregation Pipeline: https://docs.mongodb.com/manual/aggregation/
