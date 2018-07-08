@@ -54,12 +54,12 @@ def test_working_action(client):
             post_data = json.dumps({'current_password': 'test password', 'new_password': newpass})
             assert link_value.get('href') is not None
             rsp = client.post(link_value.get('href'), data=post_data)
-            print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+            print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode))
             assert rsp.status_code == 200, 'the status code is expected to be 200'
             break
     assert change_pass_included, 'Should contain change_password link'
     rsp = client.get('/users/{}'.format(user.id))
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
     assert 'password' not in result
@@ -69,7 +69,7 @@ def test_working_action(client):
 def test_failing_action(client):
     user = create_and_save_a_user('test user', 'test password', 'test description')
     rsp = client.get('/users/{}'.format(user.id))
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
     assert result.get('_links') is not None
@@ -79,7 +79,7 @@ def test_failing_action(client):
             change_pass_included = True
             post_data = json.dumps({'current_password': 'test wrong password', 'new_password': 'new pass'})
             rsp = client.post(link_value.get('href'), data=post_data)
-            print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+            print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
             assert rsp.status_code == 403
             break
     assert change_pass_included, 'Should contain change_password link'
@@ -88,7 +88,7 @@ def test_failing_action(client):
 def test_getter_action(client):
     user = create_and_save_a_user('test user', 'test password', 'test description')
     rsp = client.get('/users/{}'.format(user.id))
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
     assert result.get('_links') is not None
@@ -96,8 +96,7 @@ def test_getter_action(client):
     for link_name, link_value in result.get('_links').items():
         if link_name == 'get_description':
             get_description_included = True
-            rsp = client.get(link_value.get('href'))
-            print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+            print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
             assert rsp.status_code == 200
             assert rsp.json.get('result') == 'test description'
             break

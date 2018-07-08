@@ -10,10 +10,10 @@ The vision of the project is to provide you with a full-fledged microservice cha
 * :ref:`Full range of CRUD operations`
 * :ref:`Filtering and Sorting`
 * :ref:`Pagination`
-* :ref:`Embedded Resource Serialization`
-* :ref:`Projections`
 * :ref:`Custom resource endpoints`
 * :ref:`HATEOAS`
+* :ref:`Embedded Resource Serialization`
+* :ref:`Shema and metadata`
 * :ref:`Powered by Flask`
 
 REST endpoints over HTTP
@@ -149,58 +149,58 @@ Between
 .......
 Search users with a birth date between date: ::
 
-    curl -X GET http://localhost/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND
+    curl http://localhost/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND
 
 
 Contains
 ........
 Search for users which contain `Jane` in the name property: ::
 
-    curl -X GET http://localhost/users/?name=~Jane
+    curl http://localhost/users/?name=~Jane
 
 You can also search values within an array ::
 
-    curl -X GET http://localhost/users/?roles=~Admin
+    curl http://localhost/users/?roles=~Admin
 
 In
 ..
 
 Search value within an array: ::
 
-    curl -X GET http://localhost/users/?name=[Jane,John]
+    curl http://localhost/users/?name=[Jane,John]
 
 Or
 ..
 
 You can search for `Jane` or `John`: ::
 
-    curl -X GET http://localhost/users/?name=Jane&name=John&logic=OR
+    curl http://localhost/users/?name=Jane&name=John&logic=OR
 or: ::
 
-    curl -X GET http://localhost/users/?name=~Jane&&enabled=false
+    curl http://localhost/users/?name=~Jane&&enabled=false
 
 Not equal
 .........
 Search all users which does not contain `Max` in the name property: ::
 
-    curl -X GET http://localhost/users/?name=!Max
+    curl http://localhost/users/?name=!Max
 
 Using Mongo query expression
 ............................
 
 Native Mongo Queries can be always provided as query parameters: ::
 
-    curl -X GET http://localhost/users/?query={"$or":[{"name":"John"}, {"name":"Jane"}]}
+    curl http://localhost/users/?query={"$or":[{"name":"John"}, {"name":"Jane"}]}
 
 Sort
 ....
 Sorting the result set is also easy, by using the `sort_by` expression: ::
 
-    curl -X GET http://localhost/users/?birth_date=>1980-06-30&sort_by=birth_date
+    curl http://localhost/users/?birth_date=>1980-06-30&sort_by=birth_date
 
 Additionally you can specify the sort order: ::
 
-    curl -X GET http://localhost/users/?birth_date=>1980-06-30&sort_by=sequence&sort_order=DESC
+    curl http://localhost/users/?birth_date=>1980-06-30&sort_by=sequence&sort_order=DESC
 
 
 Pagination
@@ -208,28 +208,117 @@ Pagination
 
 Pagination is supported with the use of `page` and `page_size`: ::
 
-    curl -X GET http://localhost/users/?page=1&page_size=5
+    curl http://localhost/users/?page=1&page_size=5
 
 ... and of course sorting can be used in combination with pagination: ::
 
-    curl -X GET http://localhost/users/?page=1&page_size=5&sort_by=sequence&sort_order=DESC
+    curl http://localhost/users/?page=1&page_size=5&sort_by=sequence&sort_order=DESC
 
 Mongo Aggregation Pipeline
 ..........................
 
 Additionally to native queries, `Aggregation Pipeline`_ is supported too: ::
 
-    curl -X GET http://localhost/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]
+    curl http://localhost/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]
+
 
 .. Aggregation Pipeline_: https://docs.mongodb.com/manual/aggregation/
 
 Custom resource endpoints
 `````````````````````````
-The built-in CRUD operations might be a good start, however you;
+The built-in CRUD operations might be a good start, however we would quickly run into situation where we need to expose custom functionality to our API consumers.
+In such cases the `@link` decorator comes handy. Let's suppose we need to  ::
 
+    class User(Model, MongoRepository, Service):
+        ...
+
+        @link(require=Anonymous())
+        def get_description(self):
+            return self.description
+
+And we're ready to go, you have a new endpoint returning the description property of the value and any user with the role `Anonymous` can call it: ::
+
+    curl http://localhost/users/U32268472-d9e3-46d9-86a2-a80926bd770b/get_description
+
+Now one can argue, that this example is not utterly useful, a statement which in this case might not be very far from the common perception. However there's
+much more into it. Let's say that we'd like to enable the user and the admin to change the password: ::
+
+        @link(http_method='POST', require=[CurrentSubject(), Role('admin')])
+        def change_password(self, current_password, new_password):
+            if not pbkdf2_sha256.verify(current_password, self.password):
+                raise ServiceException(403, _('Current password is not correct'))
+            else:
+                self.password = new_password
+                self.save()
+            return _('Password changed')
+
+The :class:`CurrentSubject` and :class:`Role` authority controls who can access the method:
+
+- CurrentSubject: in case the JWT token subject is identical with the model id, the access to call the method is granted;
+- Role: enables any user having the required role type call the method;
 
 HATEOAS
 ```````
+By default `HATEOAS`_ support is enabled when a domain object is registered with Appkernel (`kernel.register(User)`). This means the return
+result-set includes browseable urls, exposing the existing methods to your API consumer. ::
+
+    {
+      "_links": {
+        "change_password": {
+          "args": [
+            "current_password",
+            "new_password"
+          ],
+          "href": "/users/Ua4453112-0e7a-4f10-b95b-0d9b88493193/change_password",
+          "methods": "POST"
+        },
+        "collection": {
+          "href": "/users/",
+          "methods": "GET"
+        },
+        "get_description": {
+          "href": "/users/Ua4453112-0e7a-4f10-b95b-0d9b88493193/get_description",
+          "methods": "GET"
+        },
+        "self": {
+          "href": "/users/Ua4453112-0e7a-4f10-b95b-0d9b88493193",
+          "methods": [
+            "GET",
+            "PUT",
+            "POST",
+            "PATCH",
+            "DELETE"
+          ]
+        }
+      },
+      "_type": "User",
+      "created": "2018-07-08T16:05:25.539000",
+      "description": "test description",
+      "id": "Ua4453112-0e7a-4f10-b95b-0d9b88493193",
+      "name": "test user",
+      "roles": [
+        "Admin",
+        "User",
+        "Operator"
+      ]
+    }
+
+Would you not use the HATEOAS feature
+.. HATEOAS_: https://en.wikipedia.org/wiki/HATEOAS
+
+Shema and metadata
+``````````````````
+All models provide JSON schema and a metatada to help frontend generation and data validation in frontends.
+Accessing the JSON schema is easy by calling http://root_url+model+'schema': ::
+
+    curl http://localhost/users/schema
+
+Accessing the metadata by calling http://root_url+model+'meta' is easy too: ::
+
+    curl http://localhost/users/meta
 
 Powered by Flask
 ````````````````
+The REST service engine uses `Flask`_ under the hood, therefore the reference to the flask app is always available at `kernel.app`.
+
+.. Flask_: http://flask.pocoo.org/
