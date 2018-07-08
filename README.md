@@ -1,12 +1,11 @@
 # appkernel - microservices made easy
 License: [Apache 2](docs/license.md)
 
-- [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
-- [Roadmap](docs/roadmap.md)
-
-
 ## What is Appkernel?
 A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
+
+- [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
+- [Roadmap](docs/roadmap.md)
 
 ## How does it helps you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
