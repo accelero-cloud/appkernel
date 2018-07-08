@@ -11,12 +11,12 @@ to create your own implementation for SQL or any other database.
 .. _peewee: http://docs.peewee-orm.com/
 
 * :ref:`Basic CRUD (Created, Update, Delete) operations`
-* :ref:`Queries`
+* :ref:`Query expressions`
 * :ref:`Auditable Repository`
 * :ref:`Index management`
 * :ref:`Schema Installation`
-* :ref:`MongoDB Aggregation Pipeline`
 * :ref:`Advanced Functionality`
+* :ref:`Aggregation Pipeline`
 
 Basic CRUD (Created, Update, Delete) operations
 -----------------------------------------------

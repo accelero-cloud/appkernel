@@ -31,8 +31,8 @@ Let's assume that we have created a User class extending the :class:`Model` and 
         kernel.register(User)
         kernel.run()
 
-The `register` method from the above example will expose the User at `http://localhost/users` with the GET method supported by default (list all, some or one user).
-In case you would like to add support for the rest of the HTTP methods (so you can create new users or delete existing ones), you would need to explicitly specify them in the register method body
+The `register` method from the above example will expose the `User` entity at `http://localhost/users` with the GET method supported by default (list all, some or one user).
+In case you would like to add support for the rest of the HTTP methods (pun intended) - so you can create new users or delete existing ones - you would need to explicitly specify them in the `register` method body
 (for more details check out the :ref:`Full range of CRUD operations` section). ::
 
     kernel.register(User methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
@@ -46,12 +46,13 @@ Securing service access is also no-brainer: ::
 
 The configuration above will permit the access of the GET method to all clients authenticated with the role `user`, however it requires the role
 `admin` for the rest of the HTTP methods.
-More details are available in the :ref:`Role Based Access Management` section.
+Check out the details in the :ref:`Role Based Access Management` section.
 
 
 Full range of CRUD operations
 `````````````````````````````
 Appkernel follows the REST convention for CRUD ((CR)eate(U)pdate(D)elete) operations. Use the method:
+
 * GET: to retrieve all, some or one model instance (entity);
 * POST: to create a new entity or update an existing one;
 * PUT: to replace an existing model instance;
@@ -114,7 +115,7 @@ Deleting an object is as simple is returning it. Only the method needs to be cha
 Create (POST)
 .............
 
-    ::
+Use json body for creating new instances: ::
 
     curl -X POST --data {"birth_date": "1980-06-30T00:00:00", "description": "some description", "name": "some_user", "password": "some_pass", "roles": ["User", "Admin", "Operator"]} http://localhost/users/
 
@@ -123,10 +124,7 @@ Create (POST)
         "result": "U956c0b3c-cf5d-4bf5-beef-370cd7217383"
     }
 
-Create (POST) as multipart form data
-....................................
-
-    ::
+Alternatively you can send data as multi-part form data: ::
 
     curl -X POST \
         -F name="some_user" \
@@ -135,8 +133,6 @@ Create (POST) as multipart form data
         -F birth_date="1980-06-30T00:00:00" \
         -F roles=["User", "Admin", "Operator"] \
         http://localhost/users
-
-With expected outcome: ::
 
     Response: 201 CREATED ->
     {
@@ -148,6 +144,7 @@ Filtering and Sorting
 `````````````````````
 Query parameters are added to the end of the URL with a '?' mark. You can use any of the properties defined on the Model class.
 You can chain multiple parameters with the '&' (and) mark.
+
 Between
 .......
 Search users with a birth date between date: ::
@@ -157,7 +154,7 @@ Search users with a birth date between date: ::
 
 Contains
 ........
-    ::
+Search for users which contain `Jane` in the name property: ::
 
     curl -X GET http://localhost/users/?name=~Jane
 
@@ -175,7 +172,7 @@ Search value within an array: ::
 Or
 ..
 
-    ::
+You can search for `Jane` or `John`: ::
 
     curl -X GET http://localhost/users/?name=Jane&name=John&logic=OR
 or: ::
@@ -184,14 +181,14 @@ or: ::
 
 Not equal
 .........
-    ::
+Search all users which does not contain `Max` in the name property: ::
 
     curl -X GET http://localhost/users/?name=!Max
 
 Using Mongo query expression
 ............................
 
-    ::
+Native Mongo Queries can be always provided as query parameters: ::
 
     curl -X GET http://localhost/users/?query={"$or":[{"name":"John"}, {"name":"Jane"}]}
 
@@ -201,7 +198,7 @@ Sorting the result set is also easy, by using the `sort_by` expression: ::
 
     curl -X GET http://localhost/users/?birth_date=>1980-06-30&sort_by=birth_date
 
-Additionally ::
+Additionally you can specify the sort order: ::
 
     curl -X GET http://localhost/users/?birth_date=>1980-06-30&sort_by=sequence&sort_order=DESC
 
@@ -209,37 +206,30 @@ Additionally ::
 Pagination
 ``````````
 
-    ::
+Pagination is supported with the use of `page` and `page_size`: ::
 
     curl -X GET http://localhost/users/?page=1&page_size=5
 
-
-    ::
+... and of course sorting can be used in combination with pagination: ::
 
     curl -X GET http://localhost/users/?page=1&page_size=5&sort_by=sequence&sort_order=DESC
 
 Mongo Aggregation Pipeline
 ..........................
-    ::
+
+Additionally to native queries, `Aggregation Pipeline`_ is supported too: ::
 
     curl -X GET http://localhost/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]
 
-
-Embedded Resource Serialization
-```````````````````````````````
-
-Projections
-```````````
+.. Aggregation Pipeline_: https://docs.mongodb.com/manual/aggregation/
 
 Custom resource endpoints
 `````````````````````````
+The built-in CRUD operations might be a good start, however you;
+
 
 HATEOAS
 ```````
-
-Powered by Flask
-````````````````
-
 
 Powered by Flask
 ````````````````
