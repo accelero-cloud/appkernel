@@ -12,7 +12,6 @@ The vision of the project is to provide you with a full-fledged microservice cha
 * :ref:`Pagination`
 * :ref:`Custom resource endpoints`
 * :ref:`HATEOAS`
-* :ref:`Embedded Resource Serialization`
 * :ref:`Shema and metadata`
 * :ref:`Powered by Flask`
 
@@ -303,17 +302,18 @@ result-set includes browseable urls, exposing the existing methods to your API c
       ]
     }
 
-Would you not use the HATEOAS feature
+Would you not want to use the HATEOAS feature, you can chose to disable it at the Model registration phase `kernel.register(User, enable_hateoas=False)`.
+
 .. HATEOAS_: https://en.wikipedia.org/wiki/HATEOAS
 
 Shema and metadata
 ``````````````````
-All models provide JSON schema and a metatada to help frontend generation and data validation in frontends.
-Accessing the JSON schema is easy by calling http://root_url+model+'schema': ::
+All models provide JSON schema and a metatada to help frontend UI generation and data validation in frontends.
+Accessing the JSON schema is easy by calling http://root_url/{model_name}/schema: ::
 
     curl http://localhost/users/schema
 
-Accessing the metadata by calling http://root_url+model+'meta' is easy too: ::
+Accessing the metadata by calling http://root_url/{model_name}/meta is easy too: ::
 
     curl http://localhost/users/meta
 
