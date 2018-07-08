@@ -66,6 +66,43 @@ Run the following command in the test folder:
 pytest
 ```
 
+### Publish the project to PyPi
+Make sure yuo have the latest twine version:
+```bash
+python3 -m pip install --upgrade twine
+```
+Make a test run:
+```bash
+python setup.py build -vf && python setup.py bdist_wheel
+twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+```
+Once we are ready we can upload the package the repo:
+```bash
+python setup.py build -vf && python setup.py bdist_wheel
+twine upload dist/*
+```
+In case you have a ~/.pypirc you can use the shortcut names:
+```bash
+[distutils]
+index-servers=
+	pypi
+	pypitest
+
+[pypi]
+#repository=https://pypi.python.org/pypi
+username=user
+password=pass
+
+[pypitest]
+#repository=https://testpypi.python.org/pypi
+username=user
+password=pass
+```
+
+```bash
+twine upload -r pypitest dist/*
+```
+
 ### Migration to Python3
 
 ```bash
