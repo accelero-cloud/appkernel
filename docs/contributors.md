@@ -10,7 +10,6 @@ After cloning the project, you might want to setup a virtual environment:
 ```bash
 cd appkernel
 virtualenv -p python3 venv3
-virtualenv venv
 source venv/bin/activate
 pip install -e .
 pip install pytest
