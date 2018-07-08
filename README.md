@@ -1,9 +1,8 @@
 # appkernel - microservices made easy
 License: [Apache 2](docs/license.md)
 
-[Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
-
-[Roadmap](docs/roadmap.md)
+- [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
+- [Roadmap](docs/roadmap.md)
 
 
 ## What is Appkernel?
