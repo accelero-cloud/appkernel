@@ -96,6 +96,7 @@ def test_getter_action(client):
     for link_name, link_value in result.get('_links').items():
         if link_name == 'get_description':
             get_description_included = True
+            rsp = client.get(link_value.get('href'))
             print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
             assert rsp.status_code == 200
             assert rsp.json.get('result') == 'test description'
