@@ -1,8 +1,8 @@
 language: python
 python:
   - "3.7"
-#    dist: xenial  # required for Python 3.7
-#    sudo: true    # required for Python 3.7
+    dist: xenial  # required for Python 3.7
+    sudo: true    # required for Python 3.7
 matrix:
   allow_failures:
     - 3.7
