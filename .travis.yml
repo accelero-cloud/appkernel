@@ -26,7 +26,6 @@ script:
 before_deploy:
   - "python setup.py build -vf"
 
-
 #  deploy:
 #  - provider: pypi
 #    user: $REPO_USER
