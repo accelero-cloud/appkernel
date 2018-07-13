@@ -9,12 +9,14 @@ After cloning the project, you might want to setup a virtual environment:
 
 ```bash
 cd appkernel
+pip install --user pipenv
 virtualenv -p python3 venv3
 source venv/bin/activate
 pip install -e .
 pip install pytest
 pip install pytest-flask
 pip install pylint
+pip install flake8
 ```
 
 Since astroid (a dependency of pylint) is not supporting python 3.7 yet, you might need to run the

@@ -9,7 +9,7 @@ matrix:
 
 services:
   - mongodb
-#  - redis-server
+  - redis-server
 
 before_script:
   - "pip install -U pip setuptools pytest pylint flake8"
