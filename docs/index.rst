@@ -3,22 +3,14 @@ Welcome to Appkernel- microservices made easy!
 
 What is Appkernel?
 ------------------
-A beautiful python framework "for humans", enabling to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
+A beautiful python framework "safe for human consumption", enabling to deliver a REST based micro-services from zero to production within minutes (no kidding: literally within minutes).
 It is powered by Flask and it offers native support for MongoDB repositories.
 
 The codebase is thoroughly tested under Python 3.6 (Python 2.7 support was dropped somewhere on the road).
 
-How does it helps you?
-----------------------
-**We did the heavy lifting so you can focus on the things that matter :)**
 
-We believe you wish to focus entirely on delivering business value on day one and being the rockstar of your project.
-Therefore we took care of the boilerplate: analysed the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on,
-so you don't have to: **just lay back, fasten your seatbelts and enjoy the ride! ;)**
-
-
-Read the docs
-=============
+Read the docs :)
+================
 .. include:: contents.rst.inc
 
 ****

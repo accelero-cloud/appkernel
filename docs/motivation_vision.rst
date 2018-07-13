@@ -7,3 +7,11 @@ Why did we built this?
 * There are several initiatives out there (Flask Admin, Flask Rest Extension and so), which do target parts of the problem, but they either need substantial effort to make them play nice together, either they feel complicated and uneasy to use. We wanted something simple and beautiful, which we love working with.
 
 * These were the major driving question, which lead to the development of App Kernel.
+
+How does it helps you?
+----------------------
+**We did the heavy lifting so you can focus on the things that matter :)**
+
+We believe you wish to focus entirely on delivering business value on day one and being the rockstar of your project.
+Therefore we took care of the boilerplate: analysed the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on,
+so you don't have to: **just lay back, fasten your seatbelts and enjoy the ride! ;)**
