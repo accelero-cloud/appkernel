@@ -14,7 +14,7 @@ services:
   - redis-server
 
 before_script:
-  - pip install -U pip setuptools pytest flake8
+  - pip install -U pip setuptools pytest pytest-flask flake8
   # trying to include unreleased fixes for pylint in combination w. Python 3.7
   - pip install --pre -U pylint astroid
   - pylint --rcfile=./pylintrc appkernel
