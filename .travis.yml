@@ -18,7 +18,7 @@ install:
   # trying to include unreleased fixes for pylint in combination w. Python 3.7
   - pip install --pre -U pylint astroid
   - pip install --editable .
-  - cd tests && pybabel compile -d ./translations
+  - cd tests && pybabel compile -d ./translations && cd ..
 
 script:
   - pytest tests/ -v --capture=no

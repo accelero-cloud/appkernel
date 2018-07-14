@@ -1,7 +1,9 @@
 # appkernel - microservices made easy
-License: [Apache 2](docs/license.md)
+
 
 ![alt build_status](https://travis-ci.org/accelero-cloud/appkernel.svg?branch=master "build status")
+![alt issues](https://img.shields.io/github/issues/accelero-cloud/appkernel.svg "Open issues")
+![GitHub license](https://img.shields.io/github/license/accelero-cloud/appkernel.svg "license")
 
 ## What is Appkernel?
 A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
@@ -12,6 +14,8 @@ A beautiful python framework "for humans", enabling you to deliver a REST enable
 ## How does it helps you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
 you don't have to. You can focus entirely on delivering business value from day one and being the rockstar of your project.
+
+License: [Apache 2](docs/license.md)
 
 ## Crash Course
 Let's build a mini identity service:
