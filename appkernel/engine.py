@@ -40,8 +40,6 @@ class AppKernelJSONEncoder(json.JSONEncoder):
             return default_json_serializer(obj)
         except TypeError:
             pass
-        else:
-            return list(iterable)
         return json.JSONEncoder.default(self, obj)
 
 

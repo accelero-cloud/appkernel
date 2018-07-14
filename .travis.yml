@@ -7,7 +7,7 @@ python:
 
 matrix:
   allow_failures:
-	- 3.7
+    - 3.7
 
 services:
   - mongodb

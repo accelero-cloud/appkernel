@@ -7,7 +7,7 @@ import sys
 Copied from Json Pickle: https://github.com/jsonpickle/jsonpickle/blob/master/jsonpickle/util.py
 """
 
-__all__ = ('bytes', 'set', 'unicode', 'long', 'unichr', 'queue')
+__all__ = ('bytes', 'set', 'long', 'queue')
 
 PY_MAJOR = sys.version_info[0]
 PY_MINOR = sys.version_info[1]
