@@ -1,6 +1,5 @@
 Services
 ========
-The vision of the project is to provide you with a full-fledged microservice chassis, as defined by Chris Richardson.
 
 .. warning::
     Work in progress section of documentation.
@@ -30,8 +29,8 @@ Let's assume that we have created a User class extending the :class:`Model` and 
         kernel.register(User)
         kernel.run()
 
-The `register` method from the above example will expose the `User` entity at `http://localhost/users` with the GET method supported by default (list all, some or one user).
-In case you would like to add support for the rest of the HTTP methods (pun intended) - so you can create new users or delete existing ones - you would need to explicitly specify them in the `register` method body
+The `register` method from the above example will expose the `User` entity at `http://localhost/users` with the GET method supported by default.
+In case we would like to add support for the rest of the HTTP methods (pun intended), we would need to explicitly specify them in the `register` method
 (for more details check out the :ref:`Full range of CRUD operations` section). ::
 
     kernel.register(User methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
@@ -45,12 +44,12 @@ Securing service access is also no-brainer: ::
 
 The configuration above will permit the access of the GET method to all clients authenticated with the role `user`, however it requires the role
 `admin` for the rest of the HTTP methods.
-Check out the details in the :ref:`Role Based Access Management` section.
+Check out the details in the :ref:`Role Based Access Management` section for more details.
 
 
 Full range of CRUD operations
 `````````````````````````````
-Appkernel follows the REST convention for CRUD ((CR)eate(U)pdate(D)elete) operations. Use the method:
+Appkernel follows the REST convention for CRUD ((CR)eate(U)pdate(D)elete) operations:
 
 * GET: to retrieve all, some or one model instance (entity);
 * POST: to create a new entity or update an existing one;
@@ -58,19 +57,22 @@ Appkernel follows the REST convention for CRUD ((CR)eate(U)pdate(D)elete) operat
 * PATCH: to add or remove selected properties from an existing model instance;
 * DELETE: to delete an existing model instance;
 
-The url path is the lowercase class-name by convention (possibly prefixed with the `url_base` segment.
+The path is automatically created from the class-name by convention.
+
 Examples: ::
 
     kernel.register(User)
 
-Will expose the User model under: `http://localhost/user`.
+This will expose the User model under: `http://localhost/user`.
+
 The user with ID 12345678912 will be accessible at: `http://localhost/user/12345678912`
 
 In case you would like to use a path prefix (eg. for verioning the API) you can register the model with a `url_base` segment: ::
 
     kernel.register(User, url_base='/api/v1/')
 
-In this case the Use model is available at `http://localhost/api/v1/user` and `http://localhost/api/v1/user/12345678912` respectively.
+In this case the User model is available at `http://localhost/api/v1/user` and `http://localhost/api/v1/user/12345678912` respectively.
+
 Let's check out one example with `curls -X get http://localhost/api/v1/user/U9dbd7a25-8059-4005-8067-09093d9e4b06`::
 
     {
@@ -103,7 +105,7 @@ In case the ID is not found in the database, a 404 Not found error will be retur
 Delete Model
 ............
 
-Deleting an object is as simple is returning it. Only the method needs to be changed from GET to DELETE. ::
+Deleting an object is simple as well. Only that the method needs to be changed from GET to DELETE in the request. ::
 
     curl -X DELETE http://localhost/U9dbd7a25-8059-4005-8067-09093d9e4b06
     Response: 200 OK -> {
@@ -225,8 +227,9 @@ Additionally to native queries, `Aggregation Pipeline`_ is supported too: ::
 
 Custom resource endpoints
 `````````````````````````
-The built-in CRUD operations might be a good start, however we would quickly run into situation where we need to expose custom functionality to our API consumers.
-In such cases the `@link` decorator comes handy. Let's suppose we need to  ::
+The built-in CRUD operations might be a good start for your application, however we would quickly run into situation where
+custom functionality needs to be exposed to the API consumers.
+In such cases the `@link` decorator comes handy. Let's suppose we need to provide the result of a specific method on the User: ::
 
     class User(Model, MongoRepository, Service):
         ...
@@ -235,12 +238,12 @@ In such cases the `@link` decorator comes handy. Let's suppose we need to  ::
         def get_description(self):
             return self.description
 
-And we're ready to go, you have a new endpoint returning the description property of the value and any user with the role `Anonymous` can call it: ::
+And we're ready to go, you have a new endpoint returning the description property of the value and any user with the role `Anonymous` can access it: ::
 
     curl http://localhost/users/U32268472-d9e3-46d9-86a2-a80926bd770b/get_description
 
 Now one can argue, that this example is not utterly useful, a statement which in this case might not be very far from the common perception. However there's
-much more into it. Let's say that we'd like to enable the user and the admin to change the password: ::
+much more into it. Let's say that we'd like to enable the user and the admin to change the password for the User: ::
 
         @link(http_method='POST', require=[CurrentSubject(), Role('admin')])
         def change_password(self, current_password, new_password):
@@ -253,8 +256,8 @@ much more into it. Let's say that we'd like to enable the user and the admin to 
 
 The :class:`CurrentSubject` and :class:`Role` authority controls who can access the method:
 
-- CurrentSubject: in case the JWT token subject is identical with the model id, the access to call the method is granted;
-- Role: enables any user having the required role type call the method;
+- **CurrentSubject**: in case the JWT token subject is identical with the model id, the access to the method is granted;
+- **Role**: enables any user having the required role type call the method;
 
 HATEOAS
 ```````

@@ -353,6 +353,7 @@ Alternatively you can also access a reference to a `PyMongo`_ :class:`Collection
     mongo_document = Project.get_collection().find_one(filter)
 
 For more details on what can you do via the collection reference, please consult the **pymongo** documentation.
+
 .. _PyMongo: https://api.mongodb.com/python/current/
 
 Bulk insert
