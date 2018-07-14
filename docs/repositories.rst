@@ -1,9 +1,6 @@
 Repositories
 ============
 
-.. warning::
-    Work in progress section of documentation
-
 The design of the repository API is influenced by peewee_, a nice and small python framework focusing on relational databases (sqlite, MySQL, PostgreSQL). The major
 difference between peewee_ and the built-in **Appkernel** ORM is that the later is optimised (and till this time) implemented only for MongoDB. However, it is possible
 to create your own implementation for SQL or any other database.
@@ -27,17 +24,19 @@ Basic CRUD (Created, Update, Delete) operations
 The following example is only required for the interactive interpreter or for unit tests. In this case
 we will use the MongoDB instance accessible on the **localhost** and will create a database called **tutorial**. ::
 
-    from appkernel import Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email, AuditableRepository, NotEmpty, date_now_generator, Past
+    from appkernel import AppKernelEngine, Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email, AuditableRepository, NotEmpty, date_now_generator, Past
     from appkernel.configuration import config
     from pymongo import MongoClient
     from enum import Enum
     from datetime import datetime, date, timedelta
+    from flask import Flask
+
 
     config.mongo_database=MongoClient(host='localhost')['tutorial']
 
 For use in development or production you can choose between the following 2 options for configuration :
 
-- use the built-in :ref:`default configuration`, where the Mongo database must be available on `localhost` and the database name will be `app`
+- use the built-in :ref:`default configuration`, where the Mongo database must be available on `localhost` and the database name will be **app**;
 - or use the built-in :ref:`file based configuration` management to provide more fine grained configuration;
 
 Default configuration
@@ -45,8 +44,9 @@ Default configuration
 Once the :class:`AppKernelEngine` is initialised with no specific configuration and the **enable_defaults** parameter set to `True`, sensible
 defaults are used (localhost and **app** as database). ::
 
-    app = Flask(__name__)
-    kernel = AppKernelEngine(application_id, app=app, enable_defaults=True)
+    app_id='demo'
+    app = Flask(app_id)
+    kernel = AppKernelEngine(app_id, app=app, enable_defaults=True)
 
 File based configuration
 ........................
@@ -240,7 +240,7 @@ Or iterate through the ones which fit a query condition: ::
     for prj in query.find():
         print(prj.dumps(pretty_print=True))
 
-Chaining multiple expressions is also possible: ::
+Adding multiple expressions to the query is also straightforward: ::
 
     yesterday = datetime.combine(date(2018, 6, 10), datetime.min.time())
     today = datetime.combine(date(2018, 6, 11), datetime.min.time())
@@ -250,7 +250,7 @@ Chaining multiple expressions is also possible: ::
 Pagination
 ..........
 
-Sometimes it is a good approach to define a range (a page) which is gonna be queried, in this way you avoid filling up the memory with huge result sets.
+Sometimes it is a good approach to define a range (a page) which is gonna be queried, in this way we avoid filling up the memory with a huge result set.
 The following query will return the first 10 Projects from the database: ::
 
     for prj in Project.find(page=0, page_size=10):
@@ -315,8 +315,8 @@ Return all users which have no defined **description** field: ::
 
     User.find(User.description == None)
 
-Value exists
-''''''''''''
+Value exists (not None)
+'''''''''''''''''''''''
 Return all users which has description field: ::
 
     User.find(User.description != None)
@@ -348,7 +348,7 @@ and very complex query, we might want to fallback to MongoDB's native query. ::
     for p in Project.find_by_query({'counter': {'$gte': 0, '$lt': 10}}):
         print 'Project name: {} and counter: {}'.format(p.name, p.counter)
 
-Alternatively you can also access PyMongo_'s (the Mongo client API implemented in Python) reference to :class:`Collection` via the :class:`Model`'s **get_collection** method. ::
+Alternatively you can also access a reference to a `PyMongo`_ :class:`Collection` object via the :class:`Model`'s **get_collection** method. ::
 
     mongo_document = Project.get_collection().find_one(filter)
 
@@ -415,34 +415,36 @@ Supported Repository Types
 --------------------------
 All repositories are extending the :class:`Repository` base class. This class serves as an Interface (so a sort of an implementation guideline, since
 the Interface concept is not supported by Python) for all other repository implementations.
-:class:`MongoRepository` - standard repository functionality atop of MongoDB
-:class:`AuditableRepository` - an extended repository, which will save the user, document createion date and some other, useful metadata information;
+
+- :class:`MongoRepository` - standard repository functionality providing access to MongoDB;
+- :class:`AuditableRepository` - an extended repository, which will save the user, document creation date and some other, useful metadata information;
 
 Advanced Functionality
 ----------------------
 
-Accessing the  native **pymongo** :class:`collection` class opens a lot of opportunities.
+Accessing the  native **pymongo** :class:`collection` class opens a lot of new opportunities.
 
 Dropping the collection
 .......................
 
-    ::
+Will drop the complete collection: ::
 
     User.get_collection().drop()
 
 Check index information
 .......................
 
-    ::
+The index information can be retrieved: ::
 
     idx_info = User.get_collection().index_information()
+
 ... or alternatively: ::
 
     config.mongo_database['Users'].index_information()
 
 Aggregation Pipeline
 .....................
-Mongo features a very powerful map-reduce tool called `Aggregation Pipeline`_ for complicated queries: ::
+Mongo features a very powerful map-reduce tool called `Aggregation Pipeline`_, very useful for complicated queries: ::
 
     pipeline = [{'$match': ...}, {'$group': ...}]
     Project.get_collection().aggregate(pipeline)
