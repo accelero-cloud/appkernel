@@ -1,6 +1,8 @@
 # appkernel - microservices made easy
 License: [Apache 2](docs/license.md)
 
+![alt build_status] (https://travis-ci.org/accelero-cloud/appkernel.svg?branch=master "build status")
+
 ## What is Appkernel?
 A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
 
