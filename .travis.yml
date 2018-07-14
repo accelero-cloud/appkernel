@@ -13,23 +13,26 @@ services:
   - mongodb
   - redis-server
 
-before_script:
+install:
   - pip install -U pip setuptools pytest pytest-flask flake8
   # trying to include unreleased fixes for pylint in combination w. Python 3.7
   - pip install --pre -U pylint astroid
+  - pip install --editable .
+  - cd tests && pybabel compile -d ./translations
+
+script:
+  - pytest tests/ -v --capture=no
   - pylint --rcfile=./pylintrc appkernel
-  # stop the build if there are Python syntax errors or undefined names
   - flake8 ./appkernel --show-source --statistics --count
+
+after_script:
+  # show an overall report, including the tests
   # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
   - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-script:
-  - "pip install --editable ."
-  - "pytest tests/ -s -v --capture=no"
-  - "pylint appkernel"
 
 before_deploy:
-  - "python setup.py build -vf"
+  - python setup.py build -vf
 
 #  deploy:
 #  - provider: pypi
