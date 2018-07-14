@@ -7,13 +7,13 @@ from tests.test_util import User, create_and_save_a_user, Task
 
 
 def setup_module(module):
-    config.mongo_database=MongoClient(host='localhost')['appkernel']
+    config.mongo_database = MongoClient(host='localhost')['appkernel']
 
 
 def setup_function(function):
     """ executed before each method call
     """
-    print ('\n\nSETUP ==> ')
+    print('\n\nSETUP ==> ')
     User.delete_all()
     Task.delete_all()
 

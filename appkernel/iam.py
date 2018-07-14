@@ -108,8 +108,7 @@ class RbacMixin(object):
                     permissions]
 
         if (not isinstance(permissions, list) and not isinstance(permissions, Permission)) or (
-                isinstance(permissions, list) and len(
-            [perm for perm in permissions if isinstance(perm, Permission)]) == 0):
+                isinstance(permissions, list) and len([perm for perm in permissions if isinstance(perm, Permission)]) == 0):
             raise AttributeError('The permission must be a subclass of a Permission or list of Permissions')
         if isinstance(methods, list):
             for method in methods:

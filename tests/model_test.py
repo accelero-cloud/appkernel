@@ -11,7 +11,7 @@ from jsonschema import validate
 
 
 def setup_module(module):
-    config.mongo_database=MongoClient(host='localhost')['appkernel']
+    config.mongo_database = MongoClient(host='localhost')['appkernel']
 
 
 def setup_function(function):

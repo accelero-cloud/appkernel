@@ -73,7 +73,7 @@ def setup_module(module):
 def setup_function(function):
     """ executed before each method call
     """
-    print ('\n\nSETUP ==> ')
+    print('\n\nSETUP ==> ')
     User.delete_all()
 
 
@@ -281,7 +281,7 @@ def test_find_in_array(client):
     assert rsp.status_code == 200
 
 
-def test_find_in_array(client):
+def test_find_in_array_with_fixed_options(client):
     create_and_save_john_jane_and_max()
     rsp = client.get('/users/?name=[Jane,John]')
     print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))

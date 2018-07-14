@@ -14,6 +14,7 @@ SEQUENCES = (list, set, tuple)
 SEQUENCES_SET = set(SEQUENCES)
 PRIMITIVES = set((str, bool, float, int, int))
 
+
 def is_type(obj):
     """Returns True is obj is a reference to a type.
     >>> is_type(1)
@@ -249,6 +250,7 @@ def is_module(obj):
     """
     return isinstance(obj, types.ModuleType)
 
+
 def translate_module_name(module):
     """Rename builtin modules to a consistent (Python2) module name
     This is used so that references to Python's `builtins` module can
@@ -278,6 +280,7 @@ def untranslate_module_name(module):
             module = 'builtins'
     return module
 
+
 def importable_name(cls):
     """
     >>> class Example(object):
@@ -297,9 +300,6 @@ def importable_name(cls):
     name = cls.__name__
     module = translate_module_name(cls.__module__)
     return '%s.%s' % (module, name)
-
-
-
 
 
 def itemgetter(obj, getter=operator.itemgetter(0)):

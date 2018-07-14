@@ -31,7 +31,7 @@ def setup_module(module):
 def setup_function(function):
     """ executed before each method call
     """
-    print ('\n\nSETUP ==> ')
+    print('\n\nSETUP ==> ')
     User.delete_all()
 
 

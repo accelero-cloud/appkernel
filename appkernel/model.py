@@ -680,11 +680,8 @@ class Model(object, metaclass=_TaggingMetaClass):
                 attr_desc.update(
                     sub_type=attribute.sub_type.__name__ if convert_types_to_string else attribute.sub_type)
         if attribute.validators:
-            if not isinstance(attribute.validators, list) and ((
-                                                                       inspect.isclass(
-                                                                           attribute.validators) and issubclass(
-                                                                   attribute.validators, Validator))
-                                                               or (isinstance(attribute.validators, Validator))):
+            if not isinstance(attribute.validators, list) and ((inspect.isclass(attribute.validators) and issubclass(
+                    attribute.validators, Validator)) or (isinstance(attribute.validators, Validator))):
                 attribute.validators = [attribute.validators]
             attr_desc.update(
                 validators=[clazz.__describe_validator(val, convert_types_to_string=convert_types_to_string) for val in

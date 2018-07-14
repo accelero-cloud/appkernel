@@ -36,7 +36,7 @@ def setup_module(module):
 def setup_function(function):
     """ executed before each method call
     """
-    print ('\n\nSETUP ==> ')
+    print('\n\nSETUP ==> ')
 
     global flask_app
     global kernel
@@ -249,7 +249,6 @@ def test_enable_all(client):
     rsp = client.get('/users/{}'.format(user.id))
     print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
     assert rsp.status_code == 200, 'should be enabled'
-
 
 # def test_exempt(client, current_file_path):
 #     user_service = kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])

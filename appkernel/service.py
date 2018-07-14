@@ -9,7 +9,7 @@ from appkernel.configuration import config
 from .iam import RbacMixin, Anonymous
 from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, ServiceException, OPS
 from .query import QueryProcessor
-from .reflection import *
+from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
 from .repository import Repository, xtract, MongoRepository
 from .validators import ValidationException
 
@@ -245,7 +245,8 @@ class Service(RbacMixin):
                 if request.method in ['GET', 'PUT', 'PATCH']:
                     if result is None:
                         object_id = named_args.get('object_id', None)
-                        return app_engine.create_custom_error(404, 'Document{} is not found.'.format(' with id {}'.format(object_id) if object_id else ''))
+                        return app_engine.create_custom_error(404, 'Document{} is not found.'.format(
+                            ' with id {}'.format(object_id) if object_id else ''))
                 if request.method == 'DELETE' and isinstance(result, int) and result == 0:
                     return app_engine.create_custom_error(404, 'Document with id {} was not deleted.'.format(
                         named_args.get('object_id', '-1')))

@@ -143,8 +143,7 @@ class NotEmpty(Validator):
 
     def validate(self, parameter_name, validable_object):
         if not validable_object or not isinstance(validable_object,
-                                                  (str, list, set, dict, tuple)) or len(
-            validable_object) == 0:
+                                                  (str, list, set, dict, tuple)) or len(validable_object) == 0:
             raise ValidationException(self.type, validable_object,
                                       'The parameter *{}* is None or not String '.format(parameter_name))
 

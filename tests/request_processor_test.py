@@ -1,6 +1,7 @@
 from appkernel import Service
 from werkzeug.datastructures import ImmutableMultiDict
 
+
 # test query AND and OR and NOT
 # test date pattern recognition and conversion
 
@@ -34,7 +35,8 @@ def test_simple_query_with_less_then():
 
 
 def test_simple_query_with_between_query():
-    query_expression=ImmutableMultiDict([('birth_date', '>1980-07-01'), ('birth_date', '<1980-07-31'), ('logic', 'AND')])
+    query_expression = ImmutableMultiDict(
+        [('birth_date', '>1980-07-01'), ('birth_date', '<1980-07-31'), ('logic', 'AND')])
     res = Service.convert_to_query(['birth_date'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
@@ -62,7 +64,8 @@ def test_or_logic():
 
 def test_complex_query_processing():
     query_expression = ImmutableMultiDict(
-        [('first_name', 'first Name'), ('last_name', 'last Name'), ('birth_date', '>1980-07-01'), ('birth_date', '<1980-07-31'), ('logic', 'AND')])
+        [('first_name', 'first Name'), ('last_name', 'last Name'), ('birth_date', '>1980-07-01'),
+         ('birth_date', '<1980-07-31'), ('logic', 'AND')])
     res = Service.convert_to_query(['last_name', 'first_name', 'birth_date'], query_expression)
     print(('\n{}'.format(res)))
     assert '$and' in res, 'it should contain a key $and'

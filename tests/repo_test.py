@@ -1,7 +1,7 @@
 import json
 
 from pymongo.errors import WriteError
-
+import time
 from appkernel.model import CustomProperty
 from .test_util import *
 from appkernel.configuration import config
@@ -17,7 +17,7 @@ def setup_module(module):
 def setup_function(function):
     """ executed before each method call
     """
-    print ('\n\nSETUP ==> ')
+    print('\n\nSETUP ==> ')
     Project.delete_all()
     User.delete_all()
 
@@ -310,6 +310,7 @@ def test_is_not_none():
 
 def test_smaller_than_date():
     john, jane, max = create_and_save_john_jane_and_max()
+    time.sleep(1)
     user_iterator = User.find(User.created < datetime.now())
     results = [user for user in user_iterator]
     print(('\n>fetched: {}'.format(len(results))))

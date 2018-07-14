@@ -39,8 +39,8 @@ def sanitize(content):
         if content:
             try:
                 return ('%s' % content).replace(',', ';').replace('\n', ' ').replace('"', '').replace('\\', '')
-            except:
-                raise
+            except Exception as ex:
+                raise ex
         else:
             return ''
     else:

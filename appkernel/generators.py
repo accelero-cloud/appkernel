@@ -36,7 +36,6 @@ class MongoDateTimeMarshaller(Marshaller):
             return wire_value
 
 
-
 class CypherMarshaller(Marshaller):
 
     def to_wireformat(self, instance_value):

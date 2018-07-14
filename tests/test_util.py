@@ -183,9 +183,10 @@ def create_and_save_some_users(urange=51):
 def create_user_batch(urange=51):
     users = []
     for i in range(1, urange):
-        users.append(User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
-            append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(
-            sequence=i))
+        users.append(User().update(name='multi_user_{}'.format(i)).update(password='some default password').
+            append_to(roles=['Admin', 'User', 'Operator']).
+            update(description='some description').
+            update(sequence=i))
     return users
 
 
