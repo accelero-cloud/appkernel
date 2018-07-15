@@ -37,6 +37,7 @@ def setup_function(function):
 
 def test_custom_message_xtractor():
     current_file_path = os.path.dirname(os.path.realpath(__file__))
+    print('reading test_util py from {}'.format(current_file_path))
     with open('{}/test_util.py'.format(current_file_path), 'rb') as file:
         print('------------------------------ \n')
         for tple in extract_model_messages(file, ['_l'], [], {}):
