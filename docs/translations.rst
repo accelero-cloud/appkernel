@@ -4,17 +4,19 @@ I18n (Internationalisation)
 .. warning::
     Work in progress section of documentation
 
-Writing code which will be translated using babel
--------------------------------------------------
+The translation support of appkernel is built on `babel`_ and `flask-babel`_.
 
-Strings which need to be translated should be marked with the babel specific translation marker function (eg. _('username')). ::
+.. _babel: http://babel.pocoo.org/en/latest/
+.. _flask-babel: https://pythonhosted.org/Flask-Babel/
+
+Strings which need to be internationalized should be marked with the babel specific '_' (underscore) marker function (eg. _('username')). ::
 
     from flask_babel import _
 
     def some_function():
         raise ServiceException(403, _('Current password is not correct'))
 
-This method will work within the request context, however when you need to work outside of that context you might need to use the ``lazy_gettext`` function: ::
+This method will work within the request context of flask, however when in need to work outside the request context we might need to use the ``lazy_gettext`` function: ::
 
     from flask_babel import lazy_gettext as _l
 
