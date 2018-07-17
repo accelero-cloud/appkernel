@@ -7,7 +7,6 @@ from appkernel.authorisation import check_token
 import os
 import pytest
 from flask import Flask
-from werkzeug.test import Client
 from tests.test_util import User, create_and_save_a_user
 
 try:
