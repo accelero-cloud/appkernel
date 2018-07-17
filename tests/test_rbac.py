@@ -86,7 +86,7 @@ def test_auth_basic_deny_without_token(client):
     headers = Headers()
     headers.add('X-Tenant', 'rockee')
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 401, 'should be unauthorized'
     assert rsp.json.get('message') == 'The authorisation header is missing.'
 
@@ -97,7 +97,7 @@ def test_auth_basic_garbage_token(client):
     user.update(roles=['user', 'admin'])
     headers.add('Authorization', 'Bearer {}'.format('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.'))
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be forbidden'
     assert rsp.json.get('message') == 'Not enough segments'
 
@@ -109,7 +109,7 @@ def test_auth_basic_missing_signature(client):
     headers.add('Authorization', 'Bearer {}'.format(
         'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1Mjc0Mjc3NDcsInJvbGVzIjpbIkFkbWluIiwiVXNlciIsIk9wZXJhdG9yIl0sInN1YiI6IlVjNzZkMjEyNy1iM2Y2LTQ1ZGUtYmU4YS0xMjg5MWMwMzM4YmYiLCJleHAiOjE1Mjc0MzEzNDd9.'))
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be forbidden'
     assert rsp.json.get('message') == 'Signature verification failed'
 
@@ -117,10 +117,10 @@ def test_auth_basic_missing_signature(client):
 def test_auth_basic_deny_with_token_without_roles(client):
     user = default_config()
     headers = Headers()
-    headers.add('X-Custom', 'rockee')
+    headers.add('X-Custom', 'rookie')
     headers.add('Authorization', 'Bearer {}'.format(user.auth_token))
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be forbidden'
     assert rsp.json.get('message') == 'The required permission is missing.'
 
@@ -132,7 +132,7 @@ def test_auth_basic_with_token_and_roles(client):
     user.update(roles=['user', 'admin'])
     headers.set('Authorization', 'Bearer {}'.format(user.auth_token))
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'should be accepted'
 
 
@@ -144,7 +144,7 @@ def test_auth_basic_with_expired_token(client):
     headers.add('Authorization', 'Bearer {}'.format(user.auth_token))
     time.sleep(2)
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be forbidden'
     assert rsp.json.get('message') == 'Signature has expired'
 
@@ -155,7 +155,7 @@ def test_auth_decorated_link_missing_token(client):
     headers.add('X-Tenant', 'rockee')
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
     rsp = client.post('/users/{}/change_password'.format(user.id), data=post_data, headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 401, 'should be unauthorized'
 
 
@@ -166,7 +166,7 @@ def test_auth_decorated_link_good_token_correct_authority(client):
     headers.set('Authorization', 'Bearer {}'.format(user.auth_token))
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
     rsp = client.post('/users/{}/change_password'.format(user.id), data=post_data, headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'should be ok'
 
 
@@ -178,7 +178,7 @@ def test_auth_decorated_link_good_token_wrong_authority(client):
     headers.set('Authorization', 'Bearer {}'.format(user2.auth_token))
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
     rsp = client.post('/users/{}/change_password'.format(user1.id), data=post_data, headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be ok'
 
 
@@ -190,7 +190,7 @@ def test_auth_decorated_link_good_token_admin_role(client):
     headers.set('Authorization', 'Bearer {}'.format(user2.auth_token))
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
     rsp = client.post('/users/{}/change_password'.format(user1.id), data=post_data, headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'should be ok'
     assert rsp.json.get('result') == 'Password changed'
 
@@ -206,7 +206,7 @@ def test_auth_explicit_anonymous(client):
     user.save()
     headers = Headers()
     rsp = client.get('/users/{}/get_description'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'should be ok'
     assert rsp.json.get('result') == 'A dummy user'
 
@@ -219,12 +219,12 @@ def test_deny_all(client):
     headers = Headers()
     headers.set('Authorization', 'Bearer {}'.format(user.auth_token))
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be accepted'
     assert rsp.json.get('message') == 'Not allowed to access method.'
 
     rsp = client.delete('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be accepted'
     assert rsp.json.get('message') == 'Not allowed to access method.'
 
@@ -237,7 +237,7 @@ def test_default_state_with_enabled_security(client):
     headers = Headers()
     headers.set('Authorization', 'Bearer {}'.format(user.auth_token))
     rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 403, 'should be accepted'
     assert rsp.json.get('message') == 'Not allowed to access method.'
 
@@ -247,7 +247,7 @@ def test_enable_all(client):
     user_service.allow_all()
     user = create_basic_user()
     rsp = client.get('/users/{}'.format(user.id))
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'should be enabled'
 
 # def test_exempt(client, current_file_path):
