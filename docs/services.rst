@@ -1,10 +1,6 @@
 Services
 ========
 
-.. warning::
-    Work in progress section of documentation.
-
-
 * :ref:`REST endpoints over HTTP`
 * :ref:`Full range of CRUD operations`
 * :ref:`Filtering and Sorting`
@@ -223,7 +219,7 @@ Additionally to native queries, `Aggregation Pipeline`_ is supported too: ::
     curl http://localhost/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]
 
 
-.. Aggregation Pipeline_: https://docs.mongodb.com/manual/aggregation/
+.. _Aggregation Pipeline: https://docs.mongodb.com/manual/aggregation/
 
 Custom resource endpoints
 `````````````````````````
@@ -324,4 +320,4 @@ Powered by Flask
 ````````````````
 The REST service engine uses Flask_ under the hood, therefore the reference to the flask app is always available at `kernel.app`.
 
-.. Flask_: http://flask.pocoo.org/
+.. _Flask: http://flask.pocoo.org/

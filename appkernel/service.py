@@ -1,10 +1,12 @@
 from collections import defaultdict
 from datetime import datetime
 from enum import Enum
+from typing import Callable
 
 from flask import jsonify, request, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
+from appkernel import AppKernelEngine
 from appkernel.configuration import config
 from .iam import RbacMixin, Anonymous
 from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, ServiceException, OPS
@@ -195,7 +197,7 @@ class Service(RbacMixin):
         return create_executor
 
     @classmethod
-    def execute(cls, app_engine, provisioner_method, model_class):
+    def execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, model_class: Model):
         """
         :param app_engine: the app engine instance
         :param provisioner_method: the method on our service object which will be executed by the Flask reflection
@@ -205,20 +207,10 @@ class Service(RbacMixin):
 
         def create_executor(**named_args):
             try:
-                # print('named args: {}'.format(named_args))
-                # print '>>> current app name: {}'.format(current_app.name)
-                # print 'current object: {}'.format(current_app._get_current_object())
-                # print 'Request method: {}'.format(request.method)
-                # print 'request form: {}'.format(request.form)
-                # print 'request args: {}'.format(request.args)
-                # print 'request form: {}'.format(request.form)
-                # #request.form | request.args | request.files
-                # #request.values: combined args and form, preferring args if keys overlap
-                # print 'request json {}'.format(request.json)
                 return_code = 200
                 named_and_request_arguments = Service.get_merged_request_and_named_args(named_args)
                 if QueryProcessor.supports_query(provisioner_method):
-                    query_param_names = Service.get_query_param_names(provisioner_method)
+                    query_param_names = QueryProcessor.get_query_param_names(provisioner_method)
                     if query_param_names and len(query_param_names) > 0:
                         # in case there are parameters on the query which do not belong to a service
                         named_and_request_arguments.update(
@@ -267,17 +259,6 @@ class Service(RbacMixin):
         # These won't be added to query expressions (because they are already arguments of methods);
         Service.qp.add_reserved_keywords(provisioner_method)
         return create_executor
-
-    @staticmethod
-    def get_query_param_names(provisioner_method):
-        """
-        Extract all parameters which are not required directly by the method signature and could be used in building a query
-        :param provisioner_method: the method which will get the parameters
-        :return: the difference between 2 sets: a.) the argument names of the method and b.) the query parameters handed over by the client request
-        """
-        request_set = set(request.args.keys())
-        return request_set.difference(
-            Service.qp.reserved_param_names.get(QueryProcessor.create_key_from_instance_method(provisioner_method)))
 
     @staticmethod
     def convert_to_query(query_param_names, request_args):

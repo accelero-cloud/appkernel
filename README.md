@@ -6,16 +6,15 @@
 ![GitHub license](https://img.shields.io/github/license/accelero-cloud/appkernel.svg "license")
 
 ## What is Appkernel?
-A beautiful python framework "for humans", enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
+A beautiful python framework enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
 
 - [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
 - [Roadmap](docs/roadmap.md)
+- [Apache 2 License](docs/license.md)
 
 ## How does it helps you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
 you don't have to. You can focus entirely on delivering business value from day one and being the rockstar of your project.
-
-License: [Apache 2](docs/license.md)
 
 ## Crash Course
 Let's build a mini identity service:

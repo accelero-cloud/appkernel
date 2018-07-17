@@ -4,7 +4,7 @@ I18n (Internationalisation)
 .. warning::
     Work in progress section of documentation
 
-The translation support of appkernel is built on `babel`_ and `flask-babel`_.
+The translation support of **appkernel** is built on `babel`_ and `flask-babel`_.
 
 .. _babel: http://babel.pocoo.org/en/latest/
 .. _flask-babel: https://pythonhosted.org/Flask-Babel/
