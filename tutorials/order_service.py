@@ -17,8 +17,9 @@ class Order(Model, MongoRepository, Service):
 
 
     @classmethod
-    def on_post(cls, *args, **kwargs):
+    def before_post(cls, *args, **kwargs):
         print(request.args)
+        print(request.headers)
 
 
 if __name__ == '__main__':
