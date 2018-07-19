@@ -78,13 +78,13 @@ def get_cmdline_options():
 class AppKernelEngine(object):
 
     def __init__(self,
-                 app_id,
-                 app=None,
-                 root_url='/',
+                 app_id: str,
+                 app: Flask = None,
+                 root_url: str = '/',
                  log_level=logging.DEBUG,
-                 cfg_dir=None,
-                 development=None,
-                 enable_defaults=False):
+                 cfg_dir: str = None,
+                 development: bool = None,
+                 enable_defaults: bool = False):
         """
         Initialiser of Flask Engine.
         :param app: the Flask App
@@ -99,7 +99,7 @@ class AppKernelEngine(object):
         assert app_id is not None, 'The app_id must be provided'
         assert re.match('[A-Za-z0-9-_]',
                         app_id), 'The app_id must be a single word, no space or special characters except - or _ .'
-        self.app = app or current_app
+        self.app: Flask = app or current_app
         assert self.app is not None, 'The Flask App must be provided as init parameter.'
         try:
             config.service_registry = {}

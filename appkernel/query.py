@@ -1,4 +1,5 @@
 import inspect, re
+import types
 
 from flask import request
 
@@ -39,12 +40,18 @@ class QueryProcessor(object):
         self.reserved_param_names = {}
 
     def add_reserved_keywords(self, provisioner_method):
-        self.reserved_param_names[QueryProcessor.create_key_from_instance_method(provisioner_method)] = set(
+        key = QueryProcessor.create_key_from_instance_method(provisioner_method)
+        self.reserved_param_names[key] = set(
             getattr(inspect.getargspec(provisioner_method), 'args'))
 
     @staticmethod
     def create_key_from_instance_method(provisioner_method):
-        return '{}_{}'.format(provisioner_method.__self__.__name__, provisioner_method.__name__)
+        if isinstance(provisioner_method, types.FunctionType) and hasattr(provisioner_method, 'inner_function'):
+            return '{}_{}'.format(provisioner_method.inner_function.__self__.__name__, provisioner_method.__name__)
+        elif isinstance(provisioner_method, types.FunctionType):
+            return '{}'.format(provisioner_method.__name__)
+        else:
+            return '{}_{}'.format(provisioner_method.__self__.__name__, provisioner_method.__name__)
 
     @staticmethod
     def supports_query(provisioner_method):

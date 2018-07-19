@@ -17,14 +17,14 @@ setup(
     # 1.2.0b1     # Beta Release
     # 1.2.0rc1    # Release Candidate
     # 1.2.0       # Final Release
-    version='1.0.0',
+    version='1.0.1',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=[
         'pyyaml', 'enum34', 'pymongo==3.6.1', 'simplejson',
         'Flask==0.12.2', 'werkzeug', 'eventlet',
         'wrapt', 'passlib==1.7.1', 'jsonschema',
         'flask-babel', 'babel', 'pyjwt', 'cryptography',
-        'recommonmark', 'sets'
+        'recommonmark', 'sets', 'money'
         # 'requests', 'pymongo', 'Werkzeug==0.12.2',
         # , 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',

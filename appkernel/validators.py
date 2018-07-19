@@ -25,6 +25,9 @@ class AppKernelException(Exception):
         """
         super(AppKernelException, self).__init__(message)
 
+    def __str__(self):
+        return self.message if 'message' in self else self.__class__.__name__
+
 
 class AppInitialisationError(AppKernelException):
 

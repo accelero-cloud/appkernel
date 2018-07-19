@@ -139,7 +139,7 @@ def test_get_query_between_dates(client):
     user_id = u.save()
     print(('\nSaved user -> {}'.format(User.find_by_id(user_id))))
     rsp = client.get('/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND')
-    print('\nResponse: {} -> {}'.format(rsp.status, json.dumps(rsp.json, indent=4, sort_keys=True)))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json
     assert result.get('_items')[0].get('id') == user_id
@@ -162,7 +162,7 @@ def test_find_date_range(client):
         u.save()
     assert User.count() == 12
     rsp = client.get('/users/?birth_date=>1980-03-01&birth_date=<1980-05-30&logic=AND')
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     response_list = rsp.json
     assert len(response_list) == 3
 
@@ -170,7 +170,7 @@ def test_find_date_range(client):
 def test_find_range_in_user_sequence(client):
     create_and_save_some_users()
     rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     response_object = rsp.json
     assert len(response_object.get('_items')) == 6
 
@@ -513,7 +513,7 @@ def test_patch_user_with_form_data(client):
     maxx = create_and_save_a_user('Maxx', 'some pass', 'user description')
     user_url = '/users/{}'.format(maxx.id)
     rsp = client.patch(user_url, data=dict({'description': 'patched description'}))
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.json))
     assert rsp.status_code == 200
     assert rsp.json.get('result') == maxx.id
     patched_user = User.find_by_id(maxx.id)
@@ -524,9 +524,9 @@ def test_patch_nonexistent_field(client):
     john = create_and_save_a_user('John Doe', 'some pass', 'a silly description')
     user_url = '/users/{}'.format(john.id)
     rsp = client.patch(user_url, data=json.dumps({'locked': True}))
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.json))
     rsp = client.get(user_url)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.json))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     assert rsp.json.get('locked')
 
