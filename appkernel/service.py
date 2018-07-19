@@ -52,25 +52,16 @@ class Service(RbacMixin):
     #     allowed_methods = frozenset(['GET', 'PUT', 'POST', 'DELETE'])
 
     @classmethod
-    def __get(cls, inner_function):
+    def __hook(cls, inner_function: Callable, hook_method: str):
         def wrapper(*args, **kws):
-            if hasattr(cls, 'on_get'):
-                cls.on_get()
+            if hasattr(cls, hook_method):
+                getattr(cls, hook_method)(*args, **kws)
             if not args:
                 return inner_function(**kws)
             else:
                 return inner_function(*args, **kws)
 
         wrapper.inner_function = inner_function
-        return wrapper
-
-    @classmethod
-    def __post(cls, inner_function):
-        def wrapper(*args, **kws):
-            if hasattr(cls, 'on_post'):
-                cls.on_post(*args, **kws)
-            return inner_function(*args, **kws)
-
         return wrapper
 
     @classmethod
@@ -105,28 +96,28 @@ class Service(RbacMixin):
             # generate get by id
             if 'find_by_query' in class_methods:
                 cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
-                                   cls.execute(app_engine, cls.__get(cls.find_by_query), cls),
+                                   cls.execute(app_engine, Service.__hook(cls.find_by_query, 'on_get'), cls),
                                    methods=['GET'])
             if 'find_by_id' in class_methods:
                 cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
-                                   cls.execute(app_engine, cls.__get(cls.find_by_id), cls),
+                                   cls.execute(app_engine, Service.__hook(cls.find_by_id, 'on_get'), cls),
                                    methods=['GET'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
             cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
-                               cls.execute(app_engine, cls.__post(cls.save_object), cls),
+                               cls.execute(app_engine, Service.__hook(cls.save_object, 'on_post'), cls),
                                methods=['POST'])
         if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
             cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
-                               cls.execute(app_engine, cls.replace_object, cls),
+                               cls.execute(app_engine, Service.__hook(cls.replace_object, 'on_put'), cls),
                                methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
             cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
-                               cls.execute(app_engine, cls.patch_object, cls),
+                               cls.execute(app_engine, Service.__hook(cls.patch_object, 'on_patch'), cls),
                                methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
             cls.__add_app_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
-                               cls.execute(app_engine, cls.delete_by_id, cls),
+                               cls.execute(app_engine, Service.__hook(cls.delete_by_id, 'on_delete'), cls),
                                methods=['DELETE'])
         if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
             cls.__add_app_rule('{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),

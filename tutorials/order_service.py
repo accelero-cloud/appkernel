@@ -15,11 +15,6 @@ class Order(Model, MongoRepository, Service):
     products = Property(list, sub_type=Product, required=True)
     order_date = Property(datetime, required=True, generator=date_now_generator)
 
-    # @classmethod
-    # def save_object(cls, document, object_id=None, insert_if_none_found=True):
-    #     #with Service.app.request_context():
-    #     print(request.args)
-    #     return super(MongoRepository, cls).save_object(document=document, object_id=object_id, insert_if_none_found=insert_if_none_found)
 
     @classmethod
     def on_post(cls, *args, **kwargs):
