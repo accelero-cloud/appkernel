@@ -161,7 +161,8 @@ class AppKernelEngine(object):
 
     def __init_event_loop(self):
         config.event_loop = asyncio.get_event_loop()
-        #config.event_loop.run_forever()
+
+        # config.event_loop.run_forever()
 
         def shutdown_eventloop():
             if config.event_loop and config.event_loop.is_running():
@@ -325,13 +326,17 @@ class AppKernelEngine(object):
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-    def create_custom_error(self, code, message):
-        return make_response(jsonify({'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}), code)
+    def create_custom_error(self, code: int, message: str, upstream_service: str=None):
+        rsp = {'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}
+        if upstream_service:
+            rsp.update(upstream_service=upstream_service)
+        return make_response(jsonify(rsp), code)
 
-    def generic_error_handler(self, ex=None):
+    def generic_error_handler(self, ex: Exception=None, upstream_service: str=None):
         """
         Takes a generic exception and returns a json error message which will be returned to the client
-        :param ex:
+        :param ex: the exception which is reported by this method
+        :param upstream_service: the servicr name which generated this error
         :return:
         """
         code = (ex.code if isinstance(ex, HTTPException) else 500)
@@ -341,7 +346,7 @@ class AppKernelEngine(object):
         else:
             msg = 'Generic server error.'
             self.logger.warn('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
-        return self.create_custom_error(code, msg)
+        return self.create_custom_error(code, msg, upstream_service=upstream_service)
 
     def teardown(self, exception):
         """

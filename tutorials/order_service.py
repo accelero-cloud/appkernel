@@ -1,7 +1,6 @@
 from datetime import datetime
-from flask import request, Flask
-from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, Service, \
-    AppKernelException
+from flask import request
+from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, Service
 from appkernel.http_client import HttpClientServiceProxy
 from tutorials.inventory_service import Reservation
 

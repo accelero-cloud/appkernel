@@ -134,8 +134,8 @@ class Service(RbacMixin):
         def create_action_executor(function_name):
             def action_executor(**named_args):
                 if 'object_id' not in named_args:
-                    return Service.app_engine.create_custom_error(400,
-                                                                  'The object_id property is required for this action to execute')
+                    msg = 'The object_id property is required for this action to execute'
+                    return Service.app_engine.create_custom_error(400, msg, cls.__name__)
                 else:
                     try:
                         instance = cls.find_by_id(named_args['object_id'])
@@ -148,10 +148,10 @@ class Service(RbacMixin):
                         return jsonify(result_dic_tentative), 200
                     except ServiceException as sexc:
                         Service.app_engine.logger.warn('Service error: {}'.format(str(sexc)))
-                        return Service.app_engine.create_custom_error(sexc.http_error_code, sexc.message)
+                        return Service.app_engine.create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
                     except Exception as exc:
                         Service.app_engine.logger.exception(exc)
-                        return Service.app_engine.generic_error_handler(exc)
+                        return Service.app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
 
             return action_executor
 
@@ -221,7 +221,7 @@ class Service(RbacMixin):
                 result = provisioner_method(*args, **named_args)
                 return jsonify(result), 200
             except Exception as genex:
-                return app_engine.generic_error_handler(genex)
+                return app_engine.generic_error_handler(genex, upstream_service=cls.__name__)
 
         return create_executor
 
@@ -270,22 +270,22 @@ class Service(RbacMixin):
                     if result is None:
                         object_id = named_args.get('object_id', None)
                         return app_engine.create_custom_error(404, 'Document{} is not found.'.format(
-                            ' with id {}'.format(object_id) if object_id else ''))
+                            ' with id {}'.format(object_id) if object_id else ''), cls.__name__)
                 if request.method == 'DELETE' and isinstance(result, int) and result == 0:
                     return app_engine.create_custom_error(404, 'Document with id {} was not deleted.'.format(
-                        named_args.get('object_id', '-1')))
+                        named_args.get('object_id', '-1')), cls.__name__)
                 if result is None or isinstance(result, list) and len(result) == 0:
                     return_code = 204
                 result_dic_tentative = {} if result is None else cls.xvert(result)
                 return jsonify(result_dic_tentative), return_code
             except PropertyRequiredException as pexc:
                 app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
-                return app_engine.create_custom_error(400, str(pexc))
+                return app_engine.create_custom_error(400, str(pexc), cls.__name__)
             except ValidationException as vexc:
                 app_engine.logger.warn('validation error: {}'.format(str(vexc)))
-                return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)))
+                return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)), cls.__name__)
             except Exception as exc:
-                return app_engine.generic_error_handler(exc)
+                return app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
 
         # add supported method parameter names to the list of reserved keywords;
         # These won't be added to query expressions (because they are already arguments of methods);

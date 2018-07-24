@@ -5,6 +5,7 @@ from flask import request
 from aiohttp import ClientSession
 from appkernel import Model, AppKernelException
 from appkernel.configuration import config
+from appkernel.engine import MessageType
 
 
 class RequestHandlingException(AppKernelException):
@@ -32,9 +33,23 @@ class RequestWrapper(object):
         return headers
 
     def post(self, request_object: Model, stream: bool = False, timeout: int = 3):
-        response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=self.get_headers(),
-                                 timeout=timeout)
-        return response.status_code, Model.to_dict(response.json())
+        try:
+            response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=self.get_headers(),
+                                     timeout=timeout)
+            if response.status_code is requests.codes.ok:
+                return response.status_code, Model.to_dict(response.json())
+            else:
+                content = response.json()
+                if '_type' in content and content.get('_type') == MessageType.ErrorMessage.name:
+                    msg = content.get('message')
+                    upstream = content.get('upstream_service')
+                    exc = RequestHandlingException(response.status_code, msg)
+                    exc.upstream_service = upstream
+                    raise exc
+                else:
+                    raise RequestHandlingException(response.status_code, 'Error while calling service.')
+        except Exception as exc:
+            raise RequestHandlingException(500, str(exc))
 
     def get(self, request_object: Model):
         pass
