@@ -2,15 +2,14 @@
 import asyncio
 
 from babel.support import Translations
-from flask import Flask, jsonify, current_app, request, g, make_response
+from flask import Flask, current_app, request, g, make_response, jsonify
 import logging
 from flask_babel import Babel, get_locale, _
 from pymongo import MongoClient
 import sys, os, yaml, re
 import getopt
 from logging.handlers import RotatingFileHandler
-from werkzeug.exceptions import HTTPException
-from werkzeug.exceptions import default_exceptions
+from werkzeug.exceptions import default_exceptions, HTTPException
 import appkernel
 from appkernel.configuration import config
 from .validators import AppInitialisationError

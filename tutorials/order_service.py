@@ -1,6 +1,7 @@
 from datetime import datetime
 from flask import request, Flask
-from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, Service
+from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, Service, \
+    AppKernelException
 from appkernel.http_client import HttpClientServiceProxy
 from tutorials.inventory_service import Reservation
 
@@ -17,6 +18,6 @@ class Order(Model, MongoRepository, Service):
         print(request.args)
         print(request.headers)
         client = HttpClientServiceProxy('http://127.0.0.1:5000/')
-        order = kwargs['document']
-        status, rsp_dict = client.reservation.post(Reservation(order_id=order.get('_id'), products=order.get('products')))
+        order = kwargs['object']
+        status_code, rsp_dict = client.reservation.post(Reservation(order_id=order.id, products=order.products))
         print(f'status: {status} -> {rsp_dict}')

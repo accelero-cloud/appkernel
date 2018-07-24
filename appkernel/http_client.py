@@ -3,8 +3,15 @@ import asyncio
 import requests
 from flask import request
 from aiohttp import ClientSession
-from appkernel import Model
+from appkernel import Model, AppKernelException
 from appkernel.configuration import config
+
+
+class RequestHandlingException(AppKernelException):
+    def __init__(self, status_code, message):
+        super().__init__(message)
+        self.status_code: int = status_code
+        self.upstream_service: str = None
 
 
 class RequestWrapper(object):
@@ -24,8 +31,9 @@ class RequestWrapper(object):
         headers['Accept-Language'] = accept_lang.best
         return headers
 
-    def post(self, request_object: Model, stream: bool = False, timeout: int =3):
-        response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=self.get_headers(), timeout=timeout)
+    def post(self, request_object: Model, stream: bool = False, timeout: int = 3):
+        response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=self.get_headers(),
+                                 timeout=timeout)
         return response.status_code, Model.to_dict(response.json())
 
     def get(self, request_object: Model):

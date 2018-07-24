@@ -421,7 +421,7 @@ class MongoRepository(Repository):
         return cls.save_object(document, object_id=object_id, insert_if_none_found=False)
 
     @classmethod
-    def save_object(cls, document, object_id=None, insert_if_none_found=True):
+    def save_object(cls, document: dict, object_id: str=None, insert_if_none_found: bool=True):
         # type: (object) -> object
         assert document, 'the document must be handed over as a parameter'
         has_id, document_id, document = MongoRepository.prepare_document(document, object_id)

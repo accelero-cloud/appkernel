@@ -163,8 +163,8 @@ def get_argument_spec(provisioner_method):
     """
     assert inspect.ismethod(provisioner_method) or inspect.isfunction(
         provisioner_method), 'The provisioner method must be a method'
-    args = [name for name in getattr(inspect.getargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
-    defaults = getattr(inspect.getargspec(provisioner_method), 'defaults')
+    args = [name for name in getattr(inspect.getfullargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
+    defaults = getattr(inspect.getfullargspec(provisioner_method), 'defaults')
     return dict(list(zip(args, defaults or [None for arg in args])))
 
 

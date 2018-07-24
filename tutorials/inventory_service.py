@@ -25,6 +25,10 @@ class Reservation(Model, MongoRepository, Service):
     state = Property(ReservationState, required=True, default_value=ReservationState.RESERVED)
 
     @classmethod
-    def before_post(self, *args, **kwargs):
+    def before_post(cls, *args, **kwargs):
         print('aaaa')
         #Stock.find()
+
+    @classmethod
+    def after_post(cls, *args, **kwargs):
+        print('bbbb')

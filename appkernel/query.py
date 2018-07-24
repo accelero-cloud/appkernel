@@ -42,7 +42,7 @@ class QueryProcessor(object):
     def add_reserved_keywords(self, provisioner_method):
         key = QueryProcessor.create_key_from_instance_method(provisioner_method)
         self.reserved_param_names[key] = set(
-            getattr(inspect.getargspec(provisioner_method), 'args'))
+            getattr(inspect.getfullargspec(provisioner_method), 'args'))
 
     @staticmethod
     def create_key_from_instance_method(provisioner_method):

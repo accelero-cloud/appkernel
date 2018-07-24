@@ -3,12 +3,10 @@ from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from typing import Callable
-
 from flask import jsonify, request, url_for, Flask
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
-
-from appkernel import AppKernelEngine
-from appkernel.configuration import config
+from .engine import AppKernelEngine
+from .configuration import config
 from .iam import RbacMixin, Anonymous
 from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, ServiceException, OPS
 from .query import QueryProcessor
@@ -230,6 +228,7 @@ class Service(RbacMixin):
     @classmethod
     def execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, model_class: Model):
         """
+        The main view function for flask routes.
         :param app_engine: the app engine instance
         :param provisioner_method: the method on our service object which will be executed by the Flask reflection
         :param model_class: the class of the model
@@ -264,8 +263,8 @@ class Service(RbacMixin):
                     named_and_request_arguments.update(document=Model.to_dict(model_instance, convert_id=True))
                     return_code = 201
                 elif request.method == 'PATCH':
-                    named_and_request_arguments.update(document=Service.__extract_dict_from_payload())
 
+                    named_and_request_arguments.update(document=Service.__extract_dict_from_payload())
                 result = provisioner_method(
                     **Service.__autobox_parameters(executable_method, named_and_request_arguments))
                 if request.method in ['GET', 'PUT', 'PATCH']:
