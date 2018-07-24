@@ -753,8 +753,25 @@ class Model(object, metaclass=_TaggingMetaClass):
                     result_value = obj
                 if convert_id and param == 'id':
                     result['_id'] = result_value
+                elif hasattr(result_value, '__dict__') or hasattr(result_value, '__slots__'):
+                    result[param] = Model.__xtract_custom_object_to_dict(result_value)
                 else:
                     result[param] = result_value
+        return result
+
+    @staticmethod
+    def __xtract_custom_object_to_dict(custom_object):
+        result = {}
+        result.update(_type=custom_object.__class__.__name__)
+        instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
+        for prop_name, prop_value in instance_items:
+            if hasattr(prop_value, '__dict__') or hasattr(prop_value, '__slots__'):
+                result[prop_name] = Model.__xtract_custom_object_to_dict(prop_value)
+            else:
+                result[prop_name] = prop_value
+        properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
+        for prop_name, prop_value in properties:
+            result[prop_name] = getattr(custom_object, prop_name)
         return result
 
     @staticmethod
