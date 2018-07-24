@@ -421,9 +421,9 @@ class MongoRepository(Repository):
         return cls.save_object(document, object_id=object_id, insert_if_none_found=False)
 
     @classmethod
-    def save_object(cls, document: dict, object_id: str=None, insert_if_none_found: bool=True):
-        # type: (object) -> object
-        assert document, 'the document must be handed over as a parameter'
+    def save_object(cls, model: Model, object_id: str=None, insert_if_none_found: bool=True) -> object:
+        assert model, 'the document must be handed over as a parameter'
+        document = Model.to_dict(model, convert_id=True)
         has_id, document_id, document = MongoRepository.prepare_document(document, object_id)
         if has_id:
             update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document},
@@ -434,8 +434,9 @@ class MongoRepository(Repository):
             return insert_result.inserted_id  # pylint: disable=C0103
 
     @classmethod
-    def replace_object(cls, document):
-        assert document, 'the document must be provided before replacing'
+    def replace_object(cls, model: Model):
+        assert model, 'the document must be provided before replacing'
+        document = Model.to_dict(model, convert_id=True)
         has_id, document_id, document = MongoRepository.prepare_document(document, None)
         update_result = cls.get_collection().replace_one({'_id': document_id}, document, upsert=False)
         return (update_result.upserted_id or document_id) if update_result.matched_count > 0 else None
