@@ -36,7 +36,7 @@ class RequestWrapper(object):
         try:
             response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=self.get_headers(),
                                      timeout=timeout)
-            if response.status_code is requests.codes.ok:
+            if 200 <= response.status_code <= 299:
                 return response.status_code, Model.to_dict(response.json())
             else:
                 content = response.json()
