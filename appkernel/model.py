@@ -829,7 +829,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                     return_list.append(item)
         return return_list
 
-    def dumps(self, validate: bool=True, pretty_print: bool =False) -> str:
+    def dumps(self, validate: bool = True, pretty_print: bool = False) -> str:
         """
         Returns the json representation of the object.
 
@@ -881,14 +881,20 @@ class Model(object, metaclass=_TaggingMetaClass):
                     '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
             if param_object.converter and param_name in self.__dict__:
                 setattr(self, param_name, param_object.converter(getattr(self, param_name)))
-            if param_object.validators is not None and isinstance(param_object.validators, list):
+            if param_object.validators and isinstance(param_object.validators, (list, set)):
                 for val in param_object.validators:
-                    if isinstance(val, Validator) and param_name in obj_items:
-                        val.validate(param_name, obj_items[param_name])
-                    elif isinstance(val, type) and issubclass(val, Validator) and param_name in obj_items:
-                        val().validate(param_name, obj_items.get(param_name))
+                    Model.__check_validity(val, param_name, obj_items)
+            elif param_object.validators:
+                Model.__check_validity(param_object.validators, param_name, obj_items)
             if issubclass(param_object.python_type, Model) and param_name in obj_items:
                 obj_items[param_name].finalise_and_validate()
+
+    @staticmethod
+    def __check_validity(val, param_name, obj_items):
+        if isinstance(val, Validator) and param_name in obj_items:
+            val.validate(param_name, obj_items[param_name])
+        elif isinstance(val, type) and issubclass(val, Validator) and param_name in obj_items:
+            val().validate(param_name, obj_items.get(param_name))
 
     def dump_spec(self):
         """

@@ -14,7 +14,7 @@ class RequestWrapper(object):
     def __init__(self, url: str):
         self.url = url
 
-    def post(self, request_object: Model, stream: bool = False, timeout: int =3):
+    def get_headers(self):
         headers = {}
         if request:
             auth_header = request.headers.get('Authorization')
@@ -22,8 +22,10 @@ class RequestWrapper(object):
                 headers.update(Authorization=auth_header)
         accept_lang = request.accept_languages if request else 'en'
         headers['Accept-Language'] = accept_lang.best
-        response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=headers, timeout=timeout)
+        return headers
 
+    def post(self, request_object: Model, stream: bool = False, timeout: int =3):
+        response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=self.get_headers(), timeout=timeout)
         return response.status_code, Model.to_dict(response.json())
 
     def get(self, request_object: Model):

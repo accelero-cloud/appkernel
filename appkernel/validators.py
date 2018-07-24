@@ -24,9 +24,10 @@ class AppKernelException(Exception):
         :param message: the cause of the failure
         """
         super(AppKernelException, self).__init__(message)
+        self.message = message
 
     def __str__(self):
-        return self.message if 'message' in self else self.__class__.__name__
+        return self.message if 'message' in self.__dict__ else self.__class__.__name__
 
 
 class AppInitialisationError(AppKernelException):
@@ -148,7 +149,7 @@ class NotEmpty(Validator):
         if not validable_object or not isinstance(validable_object,
                                                   (str, list, set, dict, tuple)) or len(validable_object) == 0:
             raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is None or not String '.format(parameter_name))
+                                      'The parameter *{}* is None or empty.'.format(parameter_name))
 
 
 class Past(Validator):
