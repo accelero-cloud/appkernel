@@ -18,15 +18,3 @@ class Product(Model, MongoRepository):
     description = Property(str)
     size = Property(ProductSize, required=True)
     price = Property(Money, required=True)
-
-
-class StockItem(Model, MongoRepository):
-    id = Property(str, generator=create_uuid_generator('S'))
-    product = Property(Product, required=True)
-    stock = Property(int, required=True, default_value=0)
-
-
-
-
-class Reservation(Model, MongoRepository):
-    id = Property(str, generator=create_uuid_generator())

@@ -1,13 +1,10 @@
 from datetime import datetime
 from flask import request, Flask
-from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, Service, \
-    AppKernelEngine
+from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, Service
+from appkernel.http_client import HttpClientServiceProxy
+from tutorials.inventory_service import Reservation
 
 from tutorials.models import Product
-
-
-class Reservation(Model):
-    pass
 
 
 class Order(Model, MongoRepository, Service):
@@ -15,15 +12,11 @@ class Order(Model, MongoRepository, Service):
     products = Property(list, sub_type=Product, required=True)
     order_date = Property(datetime, required=True, generator=date_now_generator)
 
-
     @classmethod
     def before_post(cls, *args, **kwargs):
         print(request.args)
         print(request.headers)
-
-
-if __name__ == '__main__':
-    app_id = "{} Service".format(Order.__name__)
-    kernel = AppKernelEngine(app_id, app=Flask(app_id))
-    kernel.register(Order, methods=['GET', 'POST', 'DELETE'])
-    kernel.run()
+        client = HttpClientServiceProxy('http://127.0.0.1:5000/')
+        order = kwargs['document']
+        status, rsp_dict = client.reservation.post(Reservation(order_id=order.get('_id'), products=order.get('products')))
+        print(f'status: {status} -> {rsp_dict}')

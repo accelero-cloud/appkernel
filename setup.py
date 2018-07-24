@@ -24,13 +24,14 @@ setup(
         'Flask==0.12.2', 'werkzeug', 'eventlet',
         'wrapt', 'passlib==1.7.1', 'jsonschema',
         'flask-babel', 'babel', 'pyjwt', 'cryptography',
-        'recommonmark', 'sets', 'money'
+        'recommonmark', 'sets', 'money',
+        'aiohttp', 'cchardet', 'aiodns'
         # 'requests', 'pymongo', 'Werkzeug==0.12.2',
         # , 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',
         # 'python-engineio==1.7.0', 'python-socketio==1.8.1',
         # 'flasgger', 'eventlet', 'six==1.10.0',
-        # 'watson-developer-cloud==0.26.1', "jsonstruct==0.2a1", "mockito"
+        # "jsonstruct==0.2a1", "mockito"
         # 'redis',
     ],
     tests_require=['pytest', 'pytest-flask'],

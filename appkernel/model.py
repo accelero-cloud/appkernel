@@ -829,7 +829,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                     return_list.append(item)
         return return_list
 
-    def dumps(self, validate=True, pretty_print=False):
+    def dumps(self, validate: bool=True, pretty_print: bool =False) -> str:
         """
         Returns the json representation of the object.
 

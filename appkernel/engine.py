@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import asyncio
+
 from babel.support import Translations
 from flask import Flask, jsonify, current_app, request, g, make_response
 import logging
@@ -115,6 +117,7 @@ class AppKernelEngine(object):
             config.cfg_engine = self.cfg_engine
             self.__init_babel()
             self.__init_cross_cutting_concerns()
+            self.__init_event_loop()
             self.development = development or self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
             self.init_logger(log_folder=cwd, level=log_level)
@@ -156,6 +159,18 @@ class AppKernelEngine(object):
 
     def add_after_request_function(self, func):
         self.after_request_functions.append(func)
+
+    def __init_event_loop(self):
+        config.event_loop = asyncio.get_event_loop()
+        #config.event_loop.run_forever()
+
+        def shutdown_eventloop():
+            if config.event_loop and config.event_loop.is_running():
+                logging.info('shutting down the event loop.')
+                config.event_loop.shutdown_asyncgens()
+                config.event_loop.stop()
+
+        atexit.register(shutdown_eventloop)
 
     def __init_cross_cutting_concerns(self):
         def create_function_chain_executor(chain):
@@ -214,7 +229,9 @@ class AppKernelEngine(object):
 
     def run(self):
         self.app.logger.info('===== Starting {} ====='.format(self.app_id))
-        self.app.run(debug=self.development)
+        # todo: make this configurable
+        self.app.run(debug=self.development, threaded=True)
+        # self.app.run(debug=self.development, processes=8)
 
     def shutdown_hook(self):
         if config.mongo_database:

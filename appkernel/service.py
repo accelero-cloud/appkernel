@@ -101,28 +101,28 @@ class Service(RbacMixin):
             # generate get by id
             if 'find_by_query' in class_methods:
                 cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
-                                   cls.execute(app_engine, Service.__hook(cls.find_by_query, 'on_get'), cls),
+                                   cls.execute(app_engine, cls.__hook(cls.find_by_query, 'on_get'), cls),
                                    methods=['GET'])
             if 'find_by_id' in class_methods:
                 cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
-                                   cls.execute(app_engine, Service.__hook(cls.find_by_id, 'get'), cls),
+                                   cls.execute(app_engine, cls.__hook(cls.find_by_id, 'get'), cls),
                                    methods=['GET'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
             cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
-                               cls.execute(app_engine, Service.__hook(cls.save_object, 'post'), cls),
+                               cls.execute(app_engine, cls.__hook(cls.save_object, 'post'), cls),
                                methods=['POST'])
         if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
             cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
-                               cls.execute(app_engine, Service.__hook(cls.replace_object, 'put'), cls),
+                               cls.execute(app_engine, cls.__hook(cls.replace_object, 'put'), cls),
                                methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
             cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
-                               cls.execute(app_engine, Service.__hook(cls.patch_object, 'patch'), cls),
+                               cls.execute(app_engine, cls.__hook(cls.patch_object, 'patch'), cls),
                                methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
             cls.__add_app_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
-                               cls.execute(app_engine, Service.__hook(cls.delete_by_id, 'delete'), cls),
+                               cls.execute(app_engine, cls.__hook(cls.delete_by_id, 'delete'), cls),
                                methods=['DELETE'])
         if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
             cls.__add_app_rule('{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
