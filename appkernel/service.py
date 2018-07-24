@@ -261,7 +261,6 @@ class Service(RbacMixin):
                     model_instance = Model.from_dict(Service.__extract_dict_from_payload(), model_class)
                     # save or update the object
                     named_and_request_arguments.update(document=Model.to_dict(model_instance, convert_id=True))
-                    named_and_request_arguments.update(object=model_instance)
                     return_code = 201
                 elif request.method == 'PATCH':
                     named_and_request_arguments.update(document=Service.__extract_dict_from_payload())
