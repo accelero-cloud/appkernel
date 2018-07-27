@@ -165,6 +165,7 @@ def test_schema_validation_success():
     print(('\n{}\n'.format(json.dumps(Project.get_json_schema(mongo_compatibility=True)), indent=2, sort_keys=True)))
     Project.add_schema_validation(validation_action='error')
     project = create_rich_project()
+    project.append_to(tasks=[Task(name='some_task', description='some description', closed_date=None)])
     print((Model.dumps(project, pretty_print=True)))
     project.save()
 

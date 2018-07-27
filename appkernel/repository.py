@@ -132,16 +132,19 @@ class MongoQuery(Query):
         hit = self.connection.find_one(self.filter_expr)
         return Model.from_dict(hit, self.user_class, convert_ids=True) if hit else None
 
-    def delete(self):
+    def delete(self) -> int:
+        """
+        :return: the delete count
+        """
         return self.connection.delete_many(self.filter_expr).deleted_count
 
-    def count(self):
+    def count(self) -> int:
         return self.connection.count(self.filter_expr)
 
 
 class RepositoryException(AppKernelException):
-    def __init__(self, value):
-        super(AppKernelException, self).__init__('The parameter {} is required.'.format(value))
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class Repository(object):
@@ -289,7 +292,7 @@ class Repository(object):
     def delete(self):
         """
         Delete the current instance.
-        :return:
+        :raises RepositoryException: in case the instance was not deleted.
         """
         raise NotImplemented('abstract method')
 
@@ -418,20 +421,27 @@ class MongoRepository(Repository):
 
     @classmethod
     def patch_object(cls, document, object_id=None):
-        return cls.save_object(document, object_id=object_id, insert_if_none_found=False)
+        return cls.__save_or_update_dict(document, object_id=object_id, insert_if_none_found=False)
 
     @classmethod
-    def save_object(cls, model: Model, object_id: str=None, insert_if_none_found: bool=True) -> object:
-        assert model, 'the document must be handed over as a parameter'
-        document = Model.to_dict(model, convert_id=True)
+    def __save_or_update_dict(cls, document, object_id=None, insert_if_none_found: bool=True):
         has_id, document_id, document = MongoRepository.prepare_document(document, object_id)
         if has_id:
             update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document},
                                                             upsert=insert_if_none_found)
-            return update_result.upserted_id or (document_id if update_result.matched_count > 0 else None)
+            db_id = update_result.upserted_id or (document_id if update_result.matched_count > 0 else None)
         else:
             insert_result = cls.get_collection().insert_one(document)
-            return insert_result.inserted_id  # pylint: disable=C0103
+            db_id = insert_result.inserted_id  # pylint: disable=C0103
+        return db_id
+
+    @classmethod
+    def save_object(cls, model: Model, object_id: str=None, insert_if_none_found: bool=True) -> object:
+        assert model, 'the object must be handed over as a parameter'
+        assert isinstance(model, Model), 'the object should be a Model'
+        document = Model.to_dict(model, convert_id=True)
+        model.id = cls.__save_or_update_dict(document=document, object_id=object_id)
+        return model.id
 
     @classmethod
     def replace_object(cls, model: Model):
@@ -519,12 +529,14 @@ class MongoRepository(Repository):
         return [result for result in cursor]
 
     def save(self):
-        document = Model.to_dict(self, convert_id=True)
-        self.id = self.__class__.save_object(document)  # pylint: disable=C0103
+        self.id = self.__class__.save_object(self)  # pylint: disable=C0103
         return self.id
 
     def delete(self):
-        return self.get_collection().delete_one({'_id': self.id}).deleted_count
+        assert self.id is not None
+        deleted_count = self.get_collection().delete_one({'_id': self.id}).deleted_count
+        if deleted_count != 1:
+            raise RepositoryException("the instance couldn't be deleted")
 
 
 class AuditableRepository(MongoRepository):
@@ -533,8 +545,8 @@ class AuditableRepository(MongoRepository):
         super(AuditableRepository, self).__init__()
 
     @classmethod
-    def save_object(cls, document, object_id=None):
-
+    def save_object(cls, model: Model, object_id=None):
+        document = Model.to_dict(model, convert_id=True)
         has_id, doc_id, document = MongoRepository.prepare_document(document, object_id)
         now = datetime.now()
         document.update(updated=now)
@@ -551,13 +563,15 @@ class AuditableRepository(MongoRepository):
                 '$inc': {'version': 1}
             }
             update_result = cls.get_collection().update_one({'_id': doc_id}, upsert_expression, upsert=True)
-            return update_result.upserted_id or doc_id
+            db_id = update_result.upserted_id or doc_id
         else:
             # it is an insert for sure, we initialise the audit fields
             document.update(inserted=now, version=1)
             insert_result = cls.get_collection().insert_one(document)
-            return insert_result.inserted_id
+            db_id = insert_result.inserted_id
+        model.id = db_id
+        return model.id
 
     def save(self):
-        self.id = self.__class__.save_object(Model.to_dict(self, convert_id=True))
+        self.__class__.save_object(self)
         return self.id

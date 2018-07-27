@@ -157,7 +157,9 @@ class Past(Validator):
         super(Past, self).__init__(ValidatorType.PAST)
 
     def validate(self, parameter_name, validable_object):
-        if validable_object is None or not self._is_date(validable_object):
+        if validable_object is None:
+            return
+        elif not self._is_date(validable_object):
             raise ValidationException(self.type, validable_object,
                                       'The parameter *{}* is none or not date type.'.format(parameter_name))
         elif validable_object >= datetime.now():

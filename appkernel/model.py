@@ -466,8 +466,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             raise TypeError('The Model initialisation works only with instances which inherit from Model.')
 
     @classmethod
-    def get_json_schema(cls, additional_properties=True, mongo_compatibility=False):
-        # type: (bool, bool) -> dict
+    def get_json_schema(cls, additional_properties: bool = True, mongo_compatibility: bool = False) -> dict:
         """
         Generates a JSON Schema document from the Model.
 
@@ -475,7 +474,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             additional_properties(bool): if True the schema will have an additional parameter called 'additionalProperties':true (this will allow to have extra elements in the json schema)
             mongo_compatibility(bool): if true, the generated json schema will be compatible with mongo
         Returns:
-             str: the schema of the current object as a string
+             dict: the schema of the current object as a dictionary object
         """
         specs = cls.get_parameter_spec(convert_types_to_string=False)
         properties, required_props, definitions = Model.__prepare_json_schema_properties(specs,
@@ -483,7 +482,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         type_label = 'type' if not mongo_compatibility else 'bsonType'
 
         schema = {
-            'title': cls.__name__,
+            'title': '{} Schema'.format(cls.__name__),
             type_label: 'object',
             'properties': properties,
             'required': required_props
@@ -547,22 +546,19 @@ class Model(object, metaclass=_TaggingMetaClass):
             type_string = spec_type.__name__ if hasattr(spec_type, '__name__') else str(spec_type)
             if mongo_compatibility and (name == 'id' or name == '_id'):
                 continue
-            if issubclass(spec.get('type'), Enum):
+            elif issubclass(spec.get('type'), Enum):
                 properties[name] = {'enum': describe_enum(spec.get('type'))}
-                properties[name][type_label] = 'string'
-                continue
             else:
                 if not mongo_compatibility:
-                    properties[name] = {type_label: type_map.get(type_string, 'string')}
+                    properties[name] = {type_label: [type_map.get(type_string, 'string')]}
+                    # -- define formats --
+                    xtra_type = format_map.get(type_string)
+                    if xtra_type:
+                        properties[name].update(format=xtra_type)
                 else:
-                    properties[name] = {type_label: bson_type_map.get(type_string, 'string')}
+                    properties[name] = {type_label: [bson_type_map.get(type_string, 'string')]}
                 if type_string == 'int':
                     properties[name].update(multipleOf=1.0)
-            # -- define formats --
-            if not mongo_compatibility:
-                xtra_type = format_map.get(type_string)
-                if xtra_type:
-                    properties[name].update(format=xtra_type)
 
             if 'validators' in spec:
                 for validator in spec.get('validators'):
@@ -600,15 +596,16 @@ class Model(object, metaclass=_TaggingMetaClass):
                         properties[name].update(items={type_label: bson_type_map.get(subtype_string, 'string')})
                 elif isinstance(spec.get('sub_type'), dict):
                     # subtype is a Model
-                    props, req_props, defs = Model.__prepare_json_schema_properties(spec.get('sub_type').get('props'),
-                                                                                    mongo_compatibility=mongo_compatibility)
+                    props, req_props, defs = Model.__prepare_json_schema_properties(
+                        spec.get('sub_type').get('props'),
+                        mongo_compatibility=mongo_compatibility)
                     def_name = spec.get('sub_type').get('type').__name__
                     definitions[def_name] = {}
                     if not mongo_compatibility:
                         definitions[def_name].update(required=req_props)
                         definitions[def_name].update(properties=props)
                         definitions.update(defs)
-                        properties[name].update(type='array')
+                        properties[name].update(type=['array'])
                         properties[name].update(items={'oneOf': [{"$ref": "#/definitions/{}".format(def_name)}]})
                     else:
                         # the schema needs to be generated in mongo compatible way
@@ -619,13 +616,15 @@ class Model(object, metaclass=_TaggingMetaClass):
                 properties[name].update(items={type_label: 'string'})
 
             # -- build required elements --
-            if spec.get('required'):
+            if spec.get('required', False):
                 required_props.append(name)
+            elif isinstance(properties[name][type_label], list):
+                properties[name][type_label].append('null')
 
-            # -- process the validators --
-            # validators = spec.get('validators')
-            # if validators:
-            #     for validator in validators:
+                # -- process the validators --
+                # validators = spec.get('validators')
+                # if validators:
+                #     for validator in validators:
         return properties, required_props, definitions
 
     @classmethod
@@ -753,29 +752,29 @@ class Model(object, metaclass=_TaggingMetaClass):
                     result_value = obj
                 if convert_id and param == 'id':
                     result['_id'] = result_value
-                elif hasattr(result_value, '__dict__') or hasattr(result_value, '__slots__'):
-                    result[param] = Model.__xtract_custom_object_to_dict(result_value)
                 else:
-                    result[param] = result_value
+                    result[param] = Model.__xtract_custom_object_to_dict(result_value)
+
         return result
 
     @staticmethod
     def __xtract_custom_object_to_dict(custom_object):
+        if hasattr(custom_object, '__dict__'):
+            instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
+        else:
+            return custom_object
         result = {}
         result.update(_type=custom_object.__class__.__name__)
-        instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
+
         for prop_name, prop_value in instance_items:
-            if hasattr(prop_value, '__dict__') or hasattr(prop_value, '__slots__'):
-                result[prop_name] = Model.__xtract_custom_object_to_dict(prop_value)
-            else:
-                result[prop_name] = prop_value
+            result[prop_name] = Model.__xtract_custom_object_to_dict(prop_value)
         properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
         for prop_name, prop_value in properties:
             result[prop_name] = getattr(custom_object, prop_name)
         return result
 
     @staticmethod
-    def from_dict(dict_obj, cls, convert_ids=False, set_unmanaged_parameters=True):
+    def from_dict(dict_obj: dict, cls, convert_ids=False, set_unmanaged_parameters=True):
         # type: (dict, cls) -> Model
         """
         Reads a dictionary representation of the model and turns it into a python object model.
@@ -790,6 +789,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         """
         instance = cls()
         class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]
+        unmanaged_parameters = set()
         processed_properties = set()
         # todo: initialise with none the properties which have no value in the dict
         if dict_obj and isinstance(dict_obj, dict):
@@ -823,8 +823,9 @@ class Model(object, metaclass=_TaggingMetaClass):
                     # check if the object id is a mongo object id
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
                 elif set_unmanaged_parameters:
+                    unmanaged_parameters.add(key)
                     setattr(instance, key, val)
-            for nullable in processed_properties.symmetric_difference(set(class_variables)):
+            for nullable in (set(class_variables).union(unmanaged_parameters) - processed_properties):
                 setattr(instance, nullable, None)
         return instance
 
@@ -893,7 +894,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         for param_name, param_object in list(cls_items.items()):
             # initialise default values and generators for parameters which were not defined by the user
             if param_name not in obj_items or getattr(self, param_name, None) is None:
-                if param_object.default_value:
+                if param_object.default_value is not None:
                     setattr(self, param_name, param_object.default_value)
                 elif param_object.generator:
                     setattr(self, param_name, param_object.generator())

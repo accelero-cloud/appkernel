@@ -204,7 +204,7 @@ def test_json_schema():
     print('===========')
     project = create_rich_project()
     print(project.dumps(pretty_print=True))
-    assert json_schema.get('title') == 'Project'
+    assert json_schema.get('title') == 'Project Schema'
     assert 'title' in json_schema
     assert json_schema.get('type') == 'object'
     assert 'name' in json_schema.get('required')
@@ -213,13 +213,15 @@ def test_json_schema():
     assert json_schema.get('additionalProperties')
     definitions = json_schema.get('definitions')
     assert 'Task' in definitions
-    assert len(definitions.get('Task').get('required')) == 5
+    assert len(definitions.get('Task').get('required')) == 6
     assert 'id' in definitions.get('Task').get('properties')
     closed_date = definitions.get('Task').get('properties').get('closed_date')
-    assert closed_date.get('type') == 'string'
+    assert 'string' in closed_date.get('type')
+    assert len(closed_date.get('type')) == 2
     assert closed_date.get('format') == 'date-time'
     completed = definitions.get('Task').get('properties').get('completed')
-    assert completed.get('type') == 'boolean'
+    assert 'boolean' in completed.get('type')
+    assert len(completed.get('type')) == 1
 
     validate(json.loads(project.dumps()), json_schema)
     # todo: check the enum / make a negative test
@@ -233,8 +235,12 @@ def test_json_schema_primitives_types():
     json_schema = Stock.get_json_schema()
     print(json.dumps(json_schema, indent=2))
     props = json_schema.get('properties')
-    assert props.get('open').get('type') == 'number'
-    assert props.get('history').get('items').get('type') == 'number'
+    opentypes = props.get('open').get('type')
+    assert  'number' in opentypes
+    assert len(opentypes) == 1
+    item_types = props.get('history').get('items').get('type')
+    assert 'number' in item_types
+    len(item_types) == 1
     stock = create_a_stock()
     validate(json.loads(stock.dumps()), json_schema)
 
@@ -248,12 +254,18 @@ def test_json_schema_complex():
     assert stock_definition.get('properties').get('code').get('pattern') == '[A-Za-z0-9-_]'
     assert stock_definition.get('properties').get('code').get('maxLength') == 4
     assert stock_definition.get('properties').get('open').get('minimum') == 0
-    assert stock_definition.get('properties').get('open').get('type') == 'number'
-    assert stock_definition.get('properties').get('sequence').get('type') == 'number'
+    open_types = stock_definition.get('properties').get('open').get('type')
+    assert 'number' in open_types
+    assert len(open_types) == 1
+    sequence_types = stock_definition.get('properties').get('sequence').get('type')
+    assert  'number' in sequence_types
+    assert len(sequence_types) == 2
     assert stock_definition.get('properties').get('sequence').get('minimum') == 1
     assert stock_definition.get('properties').get('sequence').get('maximum') == 100
     assert stock_definition.get('properties').get('sequence').get('multipleOf') == 1.0
-    assert stock_definition.get('properties').get('history').get('type') == 'array'
+    history_types = stock_definition.get('properties').get('history').get('type')
+    assert 'array' in history_types
+    assert len(history_types) == 2
     portfolio = create_portfolio('My Portfolio')
     validate(json.loads(portfolio.dumps()), json_schema)
 
@@ -263,9 +275,11 @@ def test_json_schema_in_mongo_compat_mode():
     print('\n\n{}'.format(json.dumps(json_schema, indent=2)))
     print('===========')
     task_spec = json_schema.get('properties').get('tasks')
-    assert len(task_spec.get('items').get('required')) == 4
-    priority = task_spec.get('items').get('properties').get('priority')
-    assert len(priority.get('enum')) == 3
+    assert len(task_spec.get('items').get('required')) == 5
+    priority_spec = task_spec.get('items').get('properties').get('priority')
+    assert len(priority_spec.get('enum')) == 3
+    closed_date_spec = task_spec.get('items').get('properties').get('closed_date')
+    assert len(closed_date_spec.get('bsonType')) == 2
     assert 'bsonType' in json_schema
     assert 'id' not in json_schema
     assert '$schema' not in json_schema
