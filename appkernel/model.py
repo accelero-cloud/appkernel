@@ -790,10 +790,13 @@ class Model(object, metaclass=_TaggingMetaClass):
         """
         instance = cls()
         class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]
+        processed_properties = set()
+        # todo: initialise with none the properties which have no value in the dict
         if dict_obj and isinstance(dict_obj, dict):
             for key, val in list(dict_obj.items()):
                 if convert_ids and key == '_id':
                     key = 'id'
+                processed_properties.add(key)
                 if key in class_variables:
                     parameter = getattr(cls, key)
                     if isinstance(parameter, Property):
@@ -821,6 +824,8 @@ class Model(object, metaclass=_TaggingMetaClass):
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
                 elif set_unmanaged_parameters:
                     setattr(instance, key, val)
+            for nullable in processed_properties.symmetric_difference(set(class_variables)):
+                setattr(instance, nullable, None)
         return instance
 
     @staticmethod
@@ -887,8 +892,8 @@ class Model(object, metaclass=_TaggingMetaClass):
         cls_items = {k: v for k, v in class_items.items() if isinstance(v, Property)}
         for param_name, param_object in list(cls_items.items()):
             # initialise default values and generators for parameters which were not defined by the user
-            if param_name not in obj_items:
-                if param_object.default_value is not None:
+            if param_name not in obj_items or getattr(self, param_name, None) is None:
+                if param_object.default_value:
                     setattr(self, param_name, param_object.default_value)
                 elif param_object.generator:
                     setattr(self, param_name, param_object.generator())
