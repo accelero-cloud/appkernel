@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from pymongo import MongoClient
 from appkernel import PropertyRequiredException
@@ -236,7 +237,7 @@ def test_json_schema_primitives_types():
     print(json.dumps(json_schema, indent=2))
     props = json_schema.get('properties')
     opentypes = props.get('open').get('type')
-    assert  'number' in opentypes
+    assert 'number' in opentypes
     assert len(opentypes) == 1
     item_types = props.get('history').get('items').get('type')
     assert 'number' in item_types
@@ -258,7 +259,7 @@ def test_json_schema_complex():
     assert 'number' in open_types
     assert len(open_types) == 1
     sequence_types = stock_definition.get('properties').get('sequence').get('type')
-    assert  'number' in sequence_types
+    assert 'number' in sequence_types
     assert len(sequence_types) == 2
     assert stock_definition.get('properties').get('sequence').get('minimum') == 1
     assert stock_definition.get('properties').get('sequence').get('maximum') == 100
@@ -293,3 +294,41 @@ def test_json_schema_in_mongo_compat_mode():
     project = create_rich_project()
     print(project.dumps(pretty_print=True))
     validate(json.loads(project.dumps()), json_schema)
+
+
+def __assert_product_dict(product_dict: dict):
+    assert 'id' in product_dict
+    assert 'name' in product_dict
+    assert 'description' in product_dict
+    assert 'size' in product_dict
+    assert product_dict.get('size') == 'M'
+    assert 'price' in product_dict
+    assert isinstance(product_dict.get('price'), dict)
+    price_dict = product_dict.get('price')
+    assert '_type' in price_dict
+    assert price_dict.get('_type') == 'money.money.Money'
+    amount = price_dict.get('amount')
+    assert isinstance(amount, Decimal)
+    assert amount == 10.5
+    assert price_dict.get('currency') == 'EUR'
+
+
+def test_custom_object_marshalling():
+    product = Product(name='White T-Shirt', description='a stylish white shirt', size=ProductSize.M,
+                      price=Money(10.50, 'EUR'))
+    product_dict = Model.to_dict(product)
+    __assert_product_dict(product_dict)
+    product_json = product.dumps(pretty_print=True)
+    print('JSON: \n{}'.format(product_json))
+    reloaded_product = Product.loads(product_json)
+    assert reloaded_product is not None and isinstance(reloaded_product, Product)
+    assert reloaded_product.id == product.id
+    assert reloaded_product.name == product.name
+    assert reloaded_product.description == product.description
+    assert reloaded_product.size == product.size
+    assert isinstance(reloaded_product.price, Money)
+    assert reloaded_product.price == product.price
+
+
+def test_custom_converter_function():
+    pass

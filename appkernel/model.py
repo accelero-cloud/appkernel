@@ -1,4 +1,6 @@
 import inspect
+from typing import Callable
+
 from bson import ObjectId
 from enum import Enum
 from datetime import datetime, date
@@ -371,15 +373,16 @@ def default_convert(string):
     return string
 
 
+string_to_type_converters = {
+    date: convert_date_time,
+    datetime: convert_date_time,
+}
+
+
 class Model(object, metaclass=_TaggingMetaClass):
     """
     The base class of all Model objects which are intended to be persisted in the database or served via REST;
     """
-
-    type_converters = {
-        date: convert_date_time,
-        datetime: convert_date_time
-    }
 
     def __init__(self, **kwargs):
         self.update(**kwargs)
@@ -709,7 +712,8 @@ class Model(object, metaclass=_TaggingMetaClass):
         return val_desc
 
     @staticmethod
-    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False, marshal_values=True):
+    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False, marshal_values=True,
+                converter_func=None) -> dict:
         """
         Turns the python instance object into a dictionary after finalising and validating it.
 
@@ -718,6 +722,9 @@ class Model(object, metaclass=_TaggingMetaClass):
             validate(bool): if False (default: True), the validation of the object will be skipped
             convert_id(bool): it will convert id fields to _id representation for fitting Mongodb's requirements
             instance(Model): the python instance object
+            skip_omitted_fields(bool): False by default. Used to avoid sending over specific values through the wire;
+            marshal_values(bool): use the Marshallers to convert some values specific to the wireformat;
+            converter_func(Callable): a function which will take one instance variable as input and return a possibly converted one;
         Returns:
             dict: a dictionary representing the python Model object
         """
@@ -750,31 +757,40 @@ class Model(object, metaclass=_TaggingMetaClass):
                         result_value = class_property.marshaller.to_wireformat(obj)
                 else:
                     result_value = obj
+
+                # setting the final key-value pair on the dict object
                 if convert_id and param == 'id':
                     result['_id'] = result_value
                 else:
-                    result[param] = Model.__xtract_custom_object_to_dict(result_value)
+                    result_value = Model.__xtract_custom_object_to_dict(result_value)
+                    result[param] = result_value
 
         return result
 
     @staticmethod
-    def __xtract_custom_object_to_dict(custom_object):
+    def __xtract_custom_object_to_dict(custom_object, converter_func=None):
         if hasattr(custom_object, '__dict__'):
             instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
         else:
-            return custom_object
+            if converter_func and isinstance(converter_func, Callable):
+                return converter_func(custom_object)
+            else:
+                return custom_object
         result = {}
-        result.update(_type=custom_object.__class__.__name__)
+        result.update(_type=f'{custom_object.__module__}.{custom_object.__class__.__qualname__}')
 
         for prop_name, prop_value in instance_items:
             result[prop_name] = Model.__xtract_custom_object_to_dict(prop_value)
         properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
         for prop_name, prop_value in properties:
-            result[prop_name] = getattr(custom_object, prop_name)
+            if converter_func and isinstance(converter_func, Callable):
+                result[prop_name] = converter_func(getattr(custom_object, prop_name))
+            else:
+                result[prop_name] = getattr(custom_object, prop_name)
         return result
 
     @staticmethod
-    def from_dict(dict_obj: dict, cls, convert_ids=False, set_unmanaged_parameters=True):
+    def from_dict(dict_obj: dict, cls, convert_ids=False, set_unmanaged_parameters=True, converter_func=None):
         # type: (dict, cls) -> Model
         """
         Reads a dictionary representation of the model and turns it into a python object model.
@@ -814,11 +830,10 @@ class Model(object, metaclass=_TaggingMetaClass):
                             setattr(instance, key, parameter.python_type[val])
                         elif isinstance(val, str):
                             # convert json string elements into target types based on the Parameter class
-                            setattr(instance, key,
-                                    Model.type_converters.get(parameter.python_type, default_convert)(val))
+                            setattr(instance, key, string_to_type_converters.get(parameter.python_type, default_convert)(val))
                         else:
                             # set object elements on the target instance
-                            setattr(instance, key, val)
+                            setattr(instance, key, Model.__load_and_or_convert_object(val))
                 elif (key == '_id' or key == 'id') and isinstance(val, (str, bytes)) and val.startswith(OBJ_PREFIX):
                     # check if the object id is a mongo object id
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
@@ -828,6 +843,42 @@ class Model(object, metaclass=_TaggingMetaClass):
             for nullable in (set(class_variables).union(unmanaged_parameters) - processed_properties):
                 setattr(instance, nullable, None)
         return instance
+
+    @staticmethod
+    def __get_custom_class(fqdn):
+        parts = fqdn.split('.')
+        module_str = ".".join(parts[:-1])
+        module = __import__(module_str)
+        for comp in parts[1:]:
+            module = getattr(module, comp)
+        return module
+
+    @staticmethod
+    def __instantiate_custom_class(clazz, param_dict: dict):
+        assert inspect.isclass(clazz)
+        const_args = inspect.getfullargspec(clazz.__init__).args
+        if len(const_args) > 1:
+            constructor_dict = {}
+            for c_arg in const_args:
+                if c_arg != 'self':
+                    constructor_dict[c_arg] = param_dict.pop(c_arg)
+            custom_instance = clazz(**constructor_dict)
+        else:
+            custom_instance = clazz()
+        for key, value in param_dict.items():
+            if key != '_type':
+                setattr(custom_instance, key, value)
+        return custom_instance
+
+    @staticmethod
+    def __load_and_or_convert_object(custom_value, converter_func=None):
+        if custom_value and isinstance(custom_value, dict) and '_type' in custom_value:
+            custom_class = Model.__get_custom_class(custom_value.get('_type'))
+            custom_value = Model.__instantiate_custom_class(custom_class, custom_value)
+        if converter_func and isinstance(converter_func, Callable):
+            return converter_func(custom_value)
+        else:
+            return custom_value
 
     @staticmethod
     def from_list(list_obj, item_cls, convert_ids=False):
@@ -852,18 +903,21 @@ class Model(object, metaclass=_TaggingMetaClass):
                     return_list.append(item)
         return return_list
 
-    def dumps(self, validate: bool = True, pretty_print: bool = False) -> str:
+    def dumps(self, validate: bool = True, pretty_print: bool = False, json_serialiser_func: Callable = None) -> str:
         """
         Returns the json representation of the object.
 
         Args:
             validate(bool): if True (default), will validate the object before converting it to Json;
             pretty_print(bool):  if True (False by default) it will format the json object upon conversion;
+            json_serialiser_func(Callable): a custom function which can be used to serialise variables
         Returns:
             str: the json object as a string
         """
         model_as_dict = Model.to_dict(self, validate=validate, skip_omitted_fields=True)
-        return json.dumps(model_as_dict, default=default_json_serializer, indent=4 if pretty_print else None,
+        default_serialiser_func = json_serialiser_func if json_serialiser_func and isinstance(json_serialiser_func,
+                                                                                              Callable) else default_json_serializer
+        return json.dumps(model_as_dict, default=default_serialiser_func, indent=4 if pretty_print else None,
                           sort_keys=True)
 
     @classmethod

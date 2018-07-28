@@ -1,7 +1,6 @@
-from datetime import datetime
 from enum import Enum
 
-from appkernel import Model, Property, create_uuid_generator, MongoRepository, date_now_generator
+from appkernel import Model, Property, create_uuid_generator, MongoRepository, date_now_generator, UniqueIndex
 from money import Money
 
 

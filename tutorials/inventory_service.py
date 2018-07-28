@@ -7,7 +7,8 @@ from tutorials.models import Product
 class Stock(Model, MongoRepository):
     id = Property(str, generator=create_uuid_generator('S'))
     product = Property(Product, required=True)
-    stock = Property(int, required=True, default_value=0)
+    available = Property(int, required=True, default_value=0)
+    reserved = Property(int, required=True, default_value=0)
 
 
 class ReservationState(Enum):
@@ -26,8 +27,7 @@ class Reservation(Model, MongoRepository, Service):
 
     @classmethod
     def before_post(cls, *args, **kwargs):
-        print('aaaa')
-        #Stock.find()
+        Stock.find()
 
     @classmethod
     def after_post(cls, *args, **kwargs):

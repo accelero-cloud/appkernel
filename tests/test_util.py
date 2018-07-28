@@ -1,3 +1,5 @@
+from money import Money
+
 from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Model, Property, UniqueIndex, ServiceException
 from datetime import datetime, date
@@ -60,6 +62,21 @@ class Portfolio(Model, MongoRepository):
 class Application(Model, MongoRepository):
     id = Property(str, required=True, generator=create_uuid_generator())
     application_date = Property(date, required=True, marshaller=MongoDateTimeMarshaller)
+
+
+class ProductSize(Enum):
+    S = 1,
+    M = 2,
+    L = 3,
+    XXL = 4
+
+
+class Product(Model, MongoRepository):
+    id = Property(str, generator=create_uuid_generator('P'))
+    name = Property(str, required=True)
+    description = Property(str)
+    size = Property(ProductSize, required=True)
+    price = Property(Money, required=True)
 
 
 def create_portfolio(name):
