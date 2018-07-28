@@ -1,10 +1,12 @@
 import json
 from decimal import Decimal
 
+from bson import Decimal128
 from pymongo import MongoClient
 from appkernel import PropertyRequiredException
 from appkernel import ValidationException
 from appkernel.configuration import config
+from appkernel.repository import mongo_type_converter_to_dict, mongo_type_converter_from_dict
 from .test_util import *
 import pytest
 from datetime import timedelta
@@ -307,9 +309,6 @@ def __assert_product_dict(product_dict: dict):
     price_dict = product_dict.get('price')
     assert '_type' in price_dict
     assert price_dict.get('_type') == 'money.money.Money'
-    amount = price_dict.get('amount')
-    assert isinstance(amount, Decimal)
-    assert amount == 10.5
     assert price_dict.get('currency') == 'EUR'
 
 
@@ -318,6 +317,9 @@ def test_custom_object_marshalling():
                       price=Money(10.50, 'EUR'))
     product_dict = Model.to_dict(product)
     __assert_product_dict(product_dict)
+    amount = product_dict.get('price').get('amount')
+    assert isinstance(amount, Decimal)
+    assert amount == 10.5
     product_json = product.dumps(pretty_print=True)
     print('JSON: \n{}'.format(product_json))
     reloaded_product = Product.loads(product_json)
@@ -331,4 +333,14 @@ def test_custom_object_marshalling():
 
 
 def test_custom_converter_function():
-    pass
+    product = Product(name='White T-Shirt', description='a stylish white shirt', size=ProductSize.M,
+                      price=Money(10.50, 'EUR'))
+    product_dict = Model.to_dict(product, converter_func=mongo_type_converter_to_dict)
+    __assert_product_dict(product_dict)
+    amount = product_dict.get('price').get('amount')
+    assert isinstance(amount, Decimal128)
+    product_json = product.dumps(pretty_print=True)
+    print('JSON: \n{}'.format(product_json))
+    reloaded_product = Model.from_dict(product_dict, Product, converter_func=mongo_type_converter_from_dict)
+    assert isinstance(reloaded_product.price, Money)
+    assert isinstance(reloaded_product.price.amount, Decimal)

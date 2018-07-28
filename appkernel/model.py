@@ -762,7 +762,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                 if convert_id and param == 'id':
                     result['_id'] = result_value
                 else:
-                    result_value = Model.__xtract_custom_object_to_dict(result_value)
+                    result_value = Model.__xtract_custom_object_to_dict(result_value, converter_func=converter_func)
                     result[param] = result_value
 
         return result
@@ -833,7 +833,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                             setattr(instance, key, string_to_type_converters.get(parameter.python_type, default_convert)(val))
                         else:
                             # set object elements on the target instance
-                            setattr(instance, key, Model.__load_and_or_convert_object(val))
+                            setattr(instance, key, Model.__load_and_or_convert_object(val, converter_func=converter_func))
                 elif (key == '_id' or key == 'id') and isinstance(val, (str, bytes)) and val.startswith(OBJ_PREFIX):
                     # check if the object id is a mongo object id
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
@@ -854,14 +854,17 @@ class Model(object, metaclass=_TaggingMetaClass):
         return module
 
     @staticmethod
-    def __instantiate_custom_class(clazz, param_dict: dict):
+    def __instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
         assert inspect.isclass(clazz)
         const_args = inspect.getfullargspec(clazz.__init__).args
         if len(const_args) > 1:
             constructor_dict = {}
             for c_arg in const_args:
                 if c_arg != 'self':
-                    constructor_dict[c_arg] = param_dict.pop(c_arg)
+                    val = param_dict.pop(c_arg)
+                    if converter_func and isinstance(converter_func, Callable):
+                        val = converter_func(val)
+                    constructor_dict[c_arg] = val
             custom_instance = clazz(**constructor_dict)
         else:
             custom_instance = clazz()
@@ -874,7 +877,7 @@ class Model(object, metaclass=_TaggingMetaClass):
     def __load_and_or_convert_object(custom_value, converter_func=None):
         if custom_value and isinstance(custom_value, dict) and '_type' in custom_value:
             custom_class = Model.__get_custom_class(custom_value.get('_type'))
-            custom_value = Model.__instantiate_custom_class(custom_class, custom_value)
+            custom_value = Model.__instantiate_custom_class(custom_class, custom_value, converter_func=converter_func)
         if converter_func and isinstance(converter_func, Callable):
             return converter_func(custom_value)
         else:

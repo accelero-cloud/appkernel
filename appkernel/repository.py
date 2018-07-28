@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import datetime, date, time as dtime
+from decimal import Decimal
+
 import pymongo
 import operator
 
-from bson import ObjectId
+from bson import ObjectId, Decimal128
 from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
@@ -105,13 +107,27 @@ class Query(object):
         raise NotImplemented('abstract method')
 
 
+def mongo_type_converter_to_dict(value: any) -> any:
+    if isinstance(value, Decimal):
+        return Decimal128(value)
+    else:
+        return value
+
+
+def mongo_type_converter_from_dict(value: any) -> any:
+    if isinstance(value, Decimal128):
+        return value.to_decimal()
+    else:
+        return value
+
+
 class MongoQuery(Query):
     def __init__(self, connection_object, user_class, *expressions):
         super(MongoQuery, self).__init__(*expressions)
         self.connection = connection_object
         self.user_class = user_class
 
-    def find(self, page=0, page_size=100):
+    def find(self, page: int = 0, page_size: int = 100) -> Model:
         if len(self.sorting_expr) == 0:
             cursor = self.connection.find(self.filter_expr).skip(page * page_size).limit(page_size)
         else:
@@ -119,7 +135,7 @@ class MongoQuery(Query):
                 page_size)
         if cursor:
             for item in cursor:
-                yield Model.from_dict(item, self.user_class, convert_ids=True)
+                yield Model.from_dict(item, self.user_class, convert_ids=True, converter_func=mongo_type_converter_from_dict)
 
     def get(self, page=0, page_size=100):
         return [item for item in self.find(page=page, page_size=page_size)]
@@ -130,7 +146,7 @@ class MongoQuery(Query):
         :rtype: Model
         """
         hit = self.connection.find_one(self.filter_expr)
-        return Model.from_dict(hit, self.user_class, convert_ids=True) if hit else None
+        return Model.from_dict(hit, self.user_class, convert_ids=True, converter_func=mongo_type_converter_from_dict) if hit else None
 
     def delete(self) -> int:
         """
@@ -394,7 +410,7 @@ class MongoRepository(Repository):
         if isinstance(object_id, str) and object_id.startswith(OBJ_PREFIX):
             object_id = ObjectId(object_id.split(OBJ_PREFIX)[1])
         document_dict = cls.get_collection().find_one({'_id': object_id})
-        return Model.from_dict(document_dict, cls, convert_ids=True) if document_dict else None
+        return Model.from_dict(document_dict, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) if document_dict else None
 
     @classmethod
     def delete_by_id(cls, object_id):
@@ -411,7 +427,7 @@ class MongoRepository(Repository):
         if isinstance(document, Model):
             document_id = document.id
             has_id = document_id is not None
-            document = Model.to_dict(document, convert_id=True)
+            document = Model.to_dict(document, convert_id=True, converter_func=mongo_type_converter_to_dict)
         elif not isinstance(document, dict):
             raise RepositoryException('Only dictionary or Model is accepted.')
         else:
@@ -424,7 +440,7 @@ class MongoRepository(Repository):
         return cls.__save_or_update_dict(document, object_id=object_id, insert_if_none_found=False)
 
     @classmethod
-    def __save_or_update_dict(cls, document, object_id=None, insert_if_none_found: bool=True):
+    def __save_or_update_dict(cls, document, object_id=None, insert_if_none_found: bool = True):
         has_id, document_id, document = MongoRepository.prepare_document(document, object_id)
         if has_id:
             update_result = cls.get_collection().update_one({'_id': document_id}, {'$set': document},
@@ -436,17 +452,17 @@ class MongoRepository(Repository):
         return db_id
 
     @classmethod
-    def save_object(cls, model: Model, object_id: str=None, insert_if_none_found: bool=True) -> object:
+    def save_object(cls, model: Model, object_id: str = None, insert_if_none_found: bool = True) -> object:
         assert model, 'the object must be handed over as a parameter'
         assert isinstance(model, Model), 'the object should be a Model'
-        document = Model.to_dict(model, convert_id=True)
+        document = Model.to_dict(model, convert_id=True, converter_func=mongo_type_converter_to_dict)
         model.id = cls.__save_or_update_dict(document=document, object_id=object_id)
         return model.id
 
     @classmethod
     def replace_object(cls, model: Model):
         assert model, 'the document must be provided before replacing'
-        document = Model.to_dict(model, convert_id=True)
+        document = Model.to_dict(model, convert_id=True, converter_func=mongo_type_converter_to_dict)
         has_id, document_id, document = MongoRepository.prepare_document(document, None)
         update_result = cls.get_collection().replace_one({'_id': document_id}, document, upsert=False)
         return (update_result.upserted_id or document_id) if update_result.matched_count > 0 else None
@@ -454,7 +470,8 @@ class MongoRepository(Repository):
     @classmethod
     def bulk_insert(cls, list_of_model_instances):
         return cls.get_collection().insert_many(
-            [Model.to_dict(model, convert_id=True) for model in list_of_model_instances]).inserted_ids
+            [Model.to_dict(model, convert_id=True, converter_func=mongo_type_converter_to_dict) for model in
+             list_of_model_instances]).inserted_ids
 
     @classmethod
     def find(cls, *expressions):
@@ -489,12 +506,12 @@ class MongoRepository(Repository):
         if sort_by:
             py_direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
             cursor.sort(sort_by, direction=py_direction)
-        return [Model.from_dict(result, cls, convert_ids=True) for result in cursor]
+        return [Model.from_dict(result, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) for result in cursor]
 
     @classmethod
     def create_cursor_by_query(cls, query):
         cursor = cls.get_collection().find(query)
-        return (Model.from_dict(result, cls, convert_ids=True) for result in cursor)
+        return (Model.from_dict(result, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) for result in cursor)
 
     @classmethod
     def update_many(cls, match_query_dict, update_expression_dict):
@@ -546,7 +563,7 @@ class AuditableRepository(MongoRepository):
 
     @classmethod
     def save_object(cls, model: Model, object_id=None):
-        document = Model.to_dict(model, convert_id=True)
+        document = Model.to_dict(model, convert_id=True, converter_func=mongo_type_converter_to_dict)
         has_id, doc_id, document = MongoRepository.prepare_document(document, object_id)
         now = datetime.now()
         document.update(updated=now)

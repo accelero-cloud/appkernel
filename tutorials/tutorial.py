@@ -6,7 +6,7 @@ from tutorials.models import Product, ProductSize
 from tutorials.order_service import Order
 
 
-def initialise_tutorial():
+def initialise_inventory():
     for name, price in {'Black T-Shirt': 12, 'Trousers': 20, 'Shirt': 70, 'Nice Black Shoe': 90}.items():
         for size in ProductSize:
             stock = Stock(product=Product(name=name, size=size, available=100, price=Money(price, 'EUR')))
@@ -20,5 +20,5 @@ if __name__ == '__main__':
     kernel.register(Reservation, methods=['GET', 'POST', 'PUT'])
     # o = Order(products=[Product(name='t-shirt', size=ProductSize.M, price=Money(10, 'EUR'))])
     # print(o.dumps(pretty_print=True))
-    initialise_tutorial()
+    initialise_inventory()
     kernel.run()

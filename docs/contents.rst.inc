@@ -7,6 +7,7 @@
    the_model
    repositories
    services
+   clients
    translations
    authentication
    motivation_vision
