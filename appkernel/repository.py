@@ -1,3 +1,4 @@
+import decimal
 from datetime import datetime, date, time as dtime
 from decimal import Decimal
 
@@ -109,16 +110,13 @@ class Query(object):
 
 def mongo_type_converter_to_dict(value: any) -> any:
     if isinstance(value, Decimal):
-        return Decimal128(value)
+        return float(value)
     else:
         return value
 
 
 def mongo_type_converter_from_dict(value: any) -> any:
-    if isinstance(value, Decimal128):
-        return value.to_decimal()
-    else:
-        return value
+    return value
 
 
 class MongoQuery(Query):

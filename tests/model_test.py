@@ -338,7 +338,7 @@ def test_custom_converter_function():
     product_dict = Model.to_dict(product, converter_func=mongo_type_converter_to_dict)
     __assert_product_dict(product_dict)
     amount = product_dict.get('price').get('amount')
-    assert isinstance(amount, Decimal128)
+    assert isinstance(amount, float)
     product_json = product.dumps(pretty_print=True)
     print('JSON: \n{}'.format(product_json))
     reloaded_product = Model.from_dict(product_dict, Product, converter_func=mongo_type_converter_from_dict)

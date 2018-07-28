@@ -7,9 +7,10 @@ from tutorials.order_service import Order
 
 
 def initialise_inventory():
-    for name, price in {'Black T-Shirt': 12, 'Trousers': 20, 'Shirt': 70, 'Nice Black Shoe': 90}.items():
+    Stock.delete_all()
+    for name, price in {'Black T-Shirt': 12.30, 'Trousers': 20.00, 'Shirt': 72.30, 'Nice Black Shoe': 90.50}.items():
         for size in ProductSize:
-            stock = Stock(product=Product(name=name, size=size, available=100, price=Money(price, 'EUR')))
+            stock = Stock(available=100, product=Product(name=name, size=size, price=Money(price, 'EUR')))
             stock.save()
 
 

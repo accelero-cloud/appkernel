@@ -742,11 +742,11 @@ class Model(object, metaclass=_TaggingMetaClass):
                 if parameter_def and parameter_def.omit:
                     continue
             if isinstance(obj, Model):
-                result[param] = Model.to_dict(obj, convert_id)
+                result[param] = Model.to_dict(obj, convert_id, converter_func=converter_func)
             elif isinstance(obj, Enum):
                 result[param] = obj.name
             elif isinstance(obj, list):
-                result[param] = [Model.to_dict(list_item, convert_id) for list_item in obj]
+                result[param] = [Model.to_dict(list_item, convert_id, converter_func=converter_func) for list_item in obj]
             else:
                 class_property = cls_items.get(param)
                 if class_property and isinstance(class_property, Property) and class_property.marshaller:
