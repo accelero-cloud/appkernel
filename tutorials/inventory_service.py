@@ -47,7 +47,8 @@ class Reservation(Model, MongoRepository, Service):
                 query = Stock.where((Stock.product.code == pcode) & (Stock.product.size == psize))
                 res = query.update(available=Stock.available - quantity, reserved=Stock.reserved + quantity)
                 if res == 0:
-                    raise ReservationException(f"There's no stock available for code: {pcode} and size: {psize} / updated count: {res}.")
+                    raise ReservationException(
+                        f"There's no stock available for code: {pcode} and size: {psize} / updated count: {res}.")
                 elif res > 1:
                     raise ReservationException(f"Multiple product items were reserved ({res}).")
 

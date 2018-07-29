@@ -9,6 +9,7 @@ to create your own implementation for SQL or any other database.
 
 * :ref:`Basic CRUD (Created, Update, Delete) operations`
 * :ref:`Query expressions`
+* :ref:`Advanced funcionality`
 * :ref:`Auditable Repository`
 * :ref:`Index management`
 * :ref:`Schema Installation`
@@ -170,6 +171,32 @@ Observe the property **completed** which now is set to True and the **closed_dat
         "version": 2
     }
 
+
+Advanced Functionality
+......................
+
+Appkernel allows you to perform atomic updates. Let’s suppose we need to update some counters. The naive approach would be to write something like this: ::
+
+    for stock in Stock.find((Stock.product.code == 'BTX') & (Stock.product.size == ProductSize.L)):
+    if stock.avaialable > 0:
+        stock.avaialable = stock.avaialable - 1
+        stock.reserved = stock.reserved + 1
+        stock.save()
+    else:
+        raise ReservationException('Not enough products on stock.')
+
+**Do not do this!** Not only is this is slow, but it is also vulnerable to race conditions if multiple processes are updating the available and reserved counters at the same time.
+Instead, you can update the counters atomically using update(): ::
+
+    query = Stock.where((Stock.product.code == 'BTX') & (Stock.product.size == ProductSize.L))
+    res = query.update(available=Stock.available - quantity, reserved=Stock.reserved + quantity)
+    if res == 0:
+        raise ReservationException(
+            f"There's no stock available for code: BTX and size: L.")
+    elif res > 1:
+        raise ReservationException(f"Multiple product items were reserved ({res}).")
+
+You can make these update statements as complex as you like.
 
 Auditable Repository
 ....................
