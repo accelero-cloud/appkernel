@@ -71,12 +71,34 @@ class ProductSize(Enum):
     XXL = 4
 
 
+class ReservationState(Enum):
+    RESERVED = 1,
+    COMMITTED = 2,
+    EXECUTED = 3,
+    CANCELLED = 4
+
+
 class Product(Model, MongoRepository):
-    id = Property(str, generator=create_uuid_generator('P'))
+    code = Property(str, required=True, validators=[NotEmpty])
     name = Property(str, required=True)
     description = Property(str)
     size = Property(ProductSize, required=True)
     price = Property(Money, required=True)
+
+
+class StockInventory(Model, MongoRepository):
+    id = Property(str, generator=create_uuid_generator('S'))
+    product = Property(Product, required=True)
+    available = Property(int, required=True, default_value=0)
+    reserved = Property(int, required=True, default_value=0)
+
+
+class Reservation(Model, MongoRepository, Service):
+    id = Property(str, generator=create_uuid_generator('R'))
+    order_id = Property(str, required=True)
+    order_date = Property(datetime, required=True, generator=date_now_generator)
+    products = Property(list, sub_type=Product, required=True, validators=NotEmpty())
+    state = Property(ReservationState, required=True, default_value=ReservationState.RESERVED)
 
 
 def create_portfolio(name):

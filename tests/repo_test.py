@@ -20,6 +20,10 @@ def setup_function(function):
     print('\n\nSETUP ==> ')
     Project.delete_all()
     User.delete_all()
+    StockInventory.delete_all()
+    Application.delete_all()
+    Reservation.delete_all()
+    Portfolio.delete_all()
 
 
 def teardown_function(function):
@@ -594,6 +598,44 @@ def test_mongo_persistence_with_date():
     Application.delete_all()
     application = Application(application_date=date.today())
     application.save()
+
+
+def __init_stock_inventory():
+    for code, prod_tuple in {'BTX': ('Black T-Shirt', 12.30), 'TRS': ('Trousers', 20.00), 'SHRT': ('Shirt', 72.30),
+                             'NBS': ('Nice Black Shoe', 90.50)}.items():
+        for size in ProductSize:
+            stock = StockInventory(available=100,
+                                   product=Product(code=code, name=prod_tuple[0], size=size,
+                                                   price=Money(prod_tuple[1], 'EUR')))
+            stock.save()
+
+
+def test_multiple_queries():
+    __init_stock_inventory()
+    # testing if we get the same result in case of multiple queries (based on previous bug)
+    for _ in range(10):
+        result_count = StockInventory.where(
+            (StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.L)).count()
+        assert result_count == 1
+
+    for _ in range(10):
+        result_count = StockInventory.where(
+            (StockInventory.product.code == 'TRS')).count()
+        assert result_count == 4
+
+
+def test_atomic_updates():
+    __init_stock_inventory()
+    query = StockInventory.where(
+        (StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.M))
+    for _ in range(10):
+        query.update(available=StockInventory.available - 1, reserved=StockInventory.reserved + 1)
+    stock = StockInventory.where(
+        (StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.M)).find_one()
+    assert stock.reserved == 10
+    assert stock.available == 90
+
+# todo: test atomic updates
 
 # def test_array_size():
 #     create_and_save_some_projects()

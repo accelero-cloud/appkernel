@@ -5,6 +5,8 @@ from enum import Enum
 from typing import Callable
 from flask import jsonify, request, url_for, Flask
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
+
+from appkernel.http_client import RequestHandlingException
 from .engine import AppKernelEngine
 from .configuration import config
 from .iam import RbacMixin, Anonymous
@@ -284,6 +286,9 @@ class Service(RbacMixin):
             except ValidationException as vexc:
                 app_engine.logger.warn('validation error: {}'.format(str(vexc)))
                 return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)), cls.__name__)
+            except RequestHandlingException as rexc:
+                app_engine.logger.warn(f'request forwarding error: {str(rexc)}')
+                return app_engine.create_custom_error(rexc.status_code, rexc.message, rexc.upstream_service)
             except Exception as exc:
                 return app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
 

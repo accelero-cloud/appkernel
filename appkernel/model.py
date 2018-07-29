@@ -72,6 +72,10 @@ OPS = AttrDict(  # pylint: disable=C0103
                    lambda exp: {'$elemMatch': {exp[0]: {'$regex': '.*{}.*'.format(exp[1]), '$options': 'i'}}}),
     NE=Opex('$ne', lambda exp: {'$ne': exp}),
     # ARRAY_GTW=('array_gte', lambda  exp: { '$exists: true', "this.{}.length > {}".format(exp) }),
+    MUL=Opex('$mul', lambda exp: exp),
+    DIV=Opex('$mul', lambda exp: 1 / exp),
+    ADD=Opex('$inc', lambda exp: exp),
+    SUB=Opex('$inc', lambda exp: -exp),
 )
 
 
@@ -115,13 +119,13 @@ class DslBase(object):
     __le__ = __create_expression(OPS.LTE)
     __gt__ = __create_expression(OPS.GT)
     __ge__ = __create_expression(OPS.GTE)
-
-    # __div__ = __truediv__ = __create_expression(OPS.DIV)
+    __mul__ = __create_expression(OPS.MUL)
+    __div__ = __truediv__ = __create_expression(OPS.DIV)
+    __add__ = __create_expression(OPS.ADD)
+    __sub__ = __create_expression(OPS.SUB)
 
     # __rshift__ = create_expression(Expression.OPS.IS)
-    # __add__ = create_expression(Expression.OPS.ADD)
-    # __sub__ = create_expression(Expression.OPS.SUB)
-    # __mul__ = create_expression(Expression.OPS.MUL)
+
     # __xor__ = create_expression(Expression.OPS.XOR) # ^
     # __radd__ = create_expression(Expression.OPS.ADD, inv=True)
     # __rsub__ = create_expression(Expression.OPS.SUB, inv=True)
@@ -319,7 +323,7 @@ class Property(DslBase):
             if hasattr(self.python_type, attribute):
                 nested_parameter = getattr(self.python_type, attribute)
                 nested_parameter.backreference.parameter_name = '{}.{}'.format(self.backreference.parameter_name,
-                                                                               nested_parameter.backreference.parameter_name)
+                                                                               attribute)
                 return nested_parameter
         raise AttributeError('Class {} has no attribute {}'.format(self.__class__.__name__, attribute))
 
@@ -746,7 +750,8 @@ class Model(object, metaclass=_TaggingMetaClass):
             elif isinstance(obj, Enum):
                 result[param] = obj.name
             elif isinstance(obj, list):
-                result[param] = [Model.to_dict(list_item, convert_id, converter_func=converter_func) for list_item in obj]
+                result[param] = [Model.to_dict(list_item, convert_id, converter_func=converter_func) for list_item in
+                                 obj]
             else:
                 class_property = cls_items.get(param)
                 if class_property and isinstance(class_property, Property) and class_property.marshaller:
@@ -823,17 +828,21 @@ class Model(object, metaclass=_TaggingMetaClass):
                             if isinstance(parameter.marshaller, Marshaller):
                                 val = parameter.marshaller.from_wire_format(val)
                         if issubclass(parameter.python_type, Model):
-                            setattr(instance, key, Model.from_dict(val, parameter.python_type, convert_ids=convert_ids))
+                            setattr(instance, key, Model.from_dict(val, parameter.python_type, convert_ids=convert_ids,
+                                                                   converter_func=converter_func))
                         elif issubclass(parameter.python_type, list):
-                            setattr(instance, key, Model.from_list(val, parameter.sub_type, convert_ids=convert_ids))
+                            setattr(instance, key, Model.from_list(val, parameter.sub_type, convert_ids=convert_ids,
+                                                                   converter_func=converter_func))
                         elif issubclass(parameter.python_type, Enum):
                             setattr(instance, key, parameter.python_type[val])
                         elif isinstance(val, str):
                             # convert json string elements into target types based on the Parameter class
-                            setattr(instance, key, string_to_type_converters.get(parameter.python_type, default_convert)(val))
+                            setattr(instance, key,
+                                    string_to_type_converters.get(parameter.python_type, default_convert)(val))
                         else:
                             # set object elements on the target instance
-                            setattr(instance, key, Model.__load_and_or_convert_object(val, converter_func=converter_func))
+                            setattr(instance, key,
+                                    Model.__load_and_or_convert_object(val, converter_func=converter_func))
                 elif (key == '_id' or key == 'id') and isinstance(val, (str, bytes)) and val.startswith(OBJ_PREFIX):
                     # check if the object id is a mongo object id
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
@@ -846,12 +855,16 @@ class Model(object, metaclass=_TaggingMetaClass):
 
     @staticmethod
     def __get_custom_class(fqdn):
-        parts = fqdn.split('.')
-        module_str = ".".join(parts[:-1])
-        module = __import__(module_str)
-        for comp in parts[1:]:
-            module = getattr(module, comp)
-        return module
+        try:
+            parts = fqdn.split('.')
+            module_str = ".".join(parts[:-1])
+            module = __import__(module_str)
+            for comp in parts[1:]:
+                module = getattr(module, comp)
+            return module
+        except Exception as ex:
+            raise AppKernelException(
+                f"Couldn't instantiate complex object due to {ex.__class__.__name__}: {str(ex)} -> {fqdn}")
 
     @staticmethod
     def __instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
@@ -884,7 +897,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             return custom_value
 
     @staticmethod
-    def from_list(list_obj, item_cls, convert_ids=False):
+    def from_list(list_obj, item_cls, convert_ids=False, converter_func=None):
         """
         Converts a list of dict structures to a list of Model instances. It is mainly used from the Model.from_dict method.
 
@@ -901,7 +914,8 @@ class Model(object, metaclass=_TaggingMetaClass):
         elif list_obj:
             for item in list_obj:
                 if issubclass(item_cls, Model):
-                    return_list.append(Model.from_dict(item, item_cls, convert_ids=convert_ids))
+                    return_list.append(
+                        Model.from_dict(item, item_cls, convert_ids=convert_ids, converter_func=converter_func))
                 else:
                     return_list.append(item)
         return return_list

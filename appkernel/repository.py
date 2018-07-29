@@ -1,11 +1,11 @@
-import decimal
-from datetime import datetime, date, time as dtime
+from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 
 import pymongo
 import operator
 
-from bson import ObjectId, Decimal128
+from bson import ObjectId
 from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
@@ -59,6 +59,8 @@ class Query(object):
     def __extract_rhs(right_hand_side):
         if isinstance(right_hand_side, Property):
             return right_hand_side.backreference.parameter_name
+        elif isinstance(right_hand_side, Enum):
+            return right_hand_side.name
         else:
             return right_hand_side
 
@@ -120,12 +122,18 @@ def mongo_type_converter_from_dict(value: any) -> any:
 
 
 class MongoQuery(Query):
-    def __init__(self, connection_object, user_class, *expressions):
-        super(MongoQuery, self).__init__(*expressions)
-        self.connection = connection_object
+    def __init__(self, connection_object: pymongo.collection.Collection, user_class, *expressions):
+        super().__init__(*expressions)
+        self.connection: pymongo.collection.Collection = connection_object
         self.user_class = user_class
 
     def find(self, page: int = 0, page_size: int = 100) -> Model:
+        """
+        Returns a generator for the number of pages
+        :param page: current page
+        :param page_size: number of elements
+        :return: a generator which can be used in an iteration
+        """
         if len(self.sorting_expr) == 0:
             cursor = self.connection.find(self.filter_expr).skip(page * page_size).limit(page_size)
         else:
@@ -133,9 +141,16 @@ class MongoQuery(Query):
                 page_size)
         if cursor:
             for item in cursor:
-                yield Model.from_dict(item, self.user_class, convert_ids=True, converter_func=mongo_type_converter_from_dict)
+                yield Model.from_dict(item, self.user_class, convert_ids=True,
+                                      converter_func=mongo_type_converter_from_dict)
 
-    def get(self, page=0, page_size=100):
+    def get(self, page: int = 0, page_size: int = 100) -> list:
+        """
+        Return the complete list of all items corresponding to the query
+        :param page: current page
+        :param page_size: the number of elements
+        :return: a list of all items corresponding the query
+        """
         return [item for item in self.find(page=page, page_size=page_size)]
 
     def find_one(self):
@@ -144,7 +159,8 @@ class MongoQuery(Query):
         :rtype: Model
         """
         hit = self.connection.find_one(self.filter_expr)
-        return Model.from_dict(hit, self.user_class, convert_ids=True, converter_func=mongo_type_converter_from_dict) if hit else None
+        return Model.from_dict(hit, self.user_class, convert_ids=True,
+                               converter_func=mongo_type_converter_from_dict) if hit else None
 
     def delete(self) -> int:
         """
@@ -154,6 +170,20 @@ class MongoQuery(Query):
 
     def count(self) -> int:
         return self.connection.count(self.filter_expr)
+
+    def __get_update_expression(self, **update_expression):
+        update_dict = dict()
+        for key, exp in update_expression.items():
+            opname = str(exp.ops)
+            op_expr = update_dict.get(opname, {})
+            op_expr[key] = exp.ops.lmbda(exp.rhs)
+            update_dict[opname] = op_expr
+        return update_dict
+
+    def update(self, **update_expression) -> int:
+        upd = self.__get_update_expression(**update_expression)
+        update_result = self.connection.update_many(self.filter_expr, upd, upsert=False)
+        return update_result.modified_count
 
 
 class RepositoryException(AppKernelException):
@@ -390,8 +420,7 @@ class MongoRepository(Repository):
         pass
 
     @classmethod
-    def get_collection(cls):
-        # type: () -> pymongo.collection.Collection
+    def get_collection(cls) -> pymongo.collection.Collection:
         """
         :return: the collection for this model object
         :rtype: Collection
@@ -408,7 +437,8 @@ class MongoRepository(Repository):
         if isinstance(object_id, str) and object_id.startswith(OBJ_PREFIX):
             object_id = ObjectId(object_id.split(OBJ_PREFIX)[1])
         document_dict = cls.get_collection().find_one({'_id': object_id})
-        return Model.from_dict(document_dict, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) if document_dict else None
+        return Model.from_dict(document_dict, cls, convert_ids=True,
+                               converter_func=mongo_type_converter_from_dict) if document_dict else None
 
     @classmethod
     def delete_by_id(cls, object_id):
@@ -480,7 +510,7 @@ class MongoRepository(Repository):
         return MongoQuery(cls.get_collection(), cls, *expressions).find_one()
 
     @classmethod
-    def where(cls, *expressions):
+    def where(cls, *expressions) -> MongoQuery:
         """
         Creates and returns a query object, used for further chaining functions like sorting and pagination;
         :param expressions: the query filter expressions used to narrow the result-set
@@ -504,12 +534,14 @@ class MongoRepository(Repository):
         if sort_by:
             py_direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING
             cursor.sort(sort_by, direction=py_direction)
-        return [Model.from_dict(result, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) for result in cursor]
+        return [Model.from_dict(result, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) for result
+                in cursor]
 
     @classmethod
     def create_cursor_by_query(cls, query):
         cursor = cls.get_collection().find(query)
-        return (Model.from_dict(result, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) for result in cursor)
+        return (Model.from_dict(result, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict) for result
+                in cursor)
 
     @classmethod
     def update_many(cls, match_query_dict, update_expression_dict):

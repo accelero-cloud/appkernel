@@ -38,18 +38,18 @@ class RequestWrapper(object):
                                      timeout=timeout)
             if 200 <= response.status_code <= 299:
                 return response.status_code, Model.to_dict(response.json())
-            else:
-                content = response.json()
-                if '_type' in content and content.get('_type') == MessageType.ErrorMessage.name:
-                    msg = content.get('message')
-                    upstream = content.get('upstream_service')
-                    exc = RequestHandlingException(response.status_code, msg)
-                    exc.upstream_service = upstream
-                    raise exc
-                else:
-                    raise RequestHandlingException(response.status_code, 'Error while calling service.')
         except Exception as exc:
             raise RequestHandlingException(500, str(exc))
+        else:
+            content = response.json()
+            if '_type' in content and content.get('_type') == MessageType.ErrorMessage.name:
+                msg = content.get('message')
+                upstream = content.get('upstream_service')
+                exc = RequestHandlingException(response.status_code, msg)
+                exc.upstream_service = upstream
+                raise exc
+            else:
+                raise RequestHandlingException(response.status_code, 'Error while calling service.')
 
     def get(self, request_object: Model):
         pass

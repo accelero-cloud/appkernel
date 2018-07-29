@@ -13,7 +13,7 @@ class Order(Model, MongoRepository, Service):
     order_date = Property(datetime, required=True, generator=date_now_generator)
 
     @classmethod
-    def before_post(cls, *args, **kwargs):
+    def after_post(cls, *args, **kwargs):
         print(request.args)
         print(request.headers)
         client = HttpClientServiceProxy('http://127.0.0.1:5000/')

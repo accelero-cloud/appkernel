@@ -299,7 +299,6 @@ def test_json_schema_in_mongo_compat_mode():
 
 
 def __assert_product_dict(product_dict: dict):
-    assert 'id' in product_dict
     assert 'name' in product_dict
     assert 'description' in product_dict
     assert 'size' in product_dict
@@ -313,7 +312,7 @@ def __assert_product_dict(product_dict: dict):
 
 
 def test_custom_object_marshalling():
-    product = Product(name='White T-Shirt', description='a stylish white shirt', size=ProductSize.M,
+    product = Product(code='TRX', name='White T-Shirt', description='a stylish white shirt', size=ProductSize.M,
                       price=Money(10.50, 'EUR'))
     product_dict = Model.to_dict(product)
     __assert_product_dict(product_dict)
@@ -324,7 +323,6 @@ def test_custom_object_marshalling():
     print('JSON: \n{}'.format(product_json))
     reloaded_product = Product.loads(product_json)
     assert reloaded_product is not None and isinstance(reloaded_product, Product)
-    assert reloaded_product.id == product.id
     assert reloaded_product.name == product.name
     assert reloaded_product.description == product.description
     assert reloaded_product.size == product.size
@@ -333,7 +331,7 @@ def test_custom_object_marshalling():
 
 
 def test_custom_converter_function():
-    product = Product(name='White T-Shirt', description='a stylish white shirt', size=ProductSize.M,
+    product = Product(code='TRX', name='White T-Shirt', description='a stylish white shirt', size=ProductSize.M,
                       price=Money(10.50, 'EUR'))
     product_dict = Model.to_dict(product, converter_func=mongo_type_converter_to_dict)
     __assert_product_dict(product_dict)
