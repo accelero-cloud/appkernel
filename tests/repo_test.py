@@ -636,6 +636,7 @@ def test_atomic_updates():
     assert stock.available == 90
 
 # todo: test database locking / with statement: with db.atomic()
+# todo: implement optimistic locking with database versioning
 
 # def test_array_size():
 #     create_and_save_some_projects()

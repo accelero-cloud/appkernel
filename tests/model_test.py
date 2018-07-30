@@ -1,7 +1,5 @@
 import json
 from decimal import Decimal
-
-from bson import Decimal128
 from pymongo import MongoClient
 from appkernel import PropertyRequiredException
 from appkernel import ValidationException

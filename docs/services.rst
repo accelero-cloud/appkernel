@@ -7,6 +7,7 @@ Services
 * :ref:`Pagination`
 * :ref:`Custom resource endpoints`
 * :ref:`HATEOAS`
+* :Ref:`HTTP Method Hooks`
 * :ref:`Shema and metadata`
 * :ref:`Powered by Flask`
 
@@ -304,6 +305,19 @@ result-set includes browseable urls, exposing the existing methods to your API c
 Would you not want to use the HATEOAS feature, you can chose to disable it at the Model registration phase `kernel.register(User, enable_hateoas=False)`.
 
 .. _HATEOAS: https://en.wikipedia.org/wiki/HATEOAS
+
+HTTP Method Hooks
+``````````````````
+
+    before_'http-method'
+    after_'http-method'
+
+    So for post we could implement:
+
+    @classmethod
+    def before_post(cls, *args, **kwargs):
+        order = kwargs['model']
+
 
 Shema and metadata
 ``````````````````

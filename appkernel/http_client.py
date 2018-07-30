@@ -22,7 +22,8 @@ class RequestWrapper(object):
     def __init__(self, url: str):
         self.url = url
 
-    def get_headers(self):
+    @staticmethod
+    def get_headers():
         headers = {}
         if request:
             auth_header = request.headers.get('Authorization')
@@ -35,7 +36,7 @@ class RequestWrapper(object):
     def post(self, request_object: Model, stream: bool = False, timeout: int = 3):
         try:
             response = requests.post(self.url, data=request_object.dumps(), stream=stream, headers=self.get_headers(),
-                                     timeout=timeout)
+                                     timeout=timeout, allow_redirects=True)
             if 200 <= response.status_code <= 299:
                 return response.status_code, Model.to_dict(response.json())
         except Exception as exc:

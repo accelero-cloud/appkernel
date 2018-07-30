@@ -2,6 +2,7 @@ from enum import Enum
 from datetime import datetime, date
 import re
 from flask_babel import _
+from .model import AppKernelException
 
 
 class ValidatorType(Enum):
@@ -17,29 +18,10 @@ class ValidatorType(Enum):
     EMAIL = 10
 
 
-class AppKernelException(Exception):
-    def __init__(self, message):
-        """
-        A base exception class for AppKernel
-        :param message: the cause of the failure
-        """
-        super(AppKernelException, self).__init__(message)
-        self.message = message
-
-    def __str__(self):
-        return self.message if 'message' in self.__dict__ else self.__class__.__name__
-
-
-class AppInitialisationError(AppKernelException):
-
-    def __init__(self, message):
-        super(AppInitialisationError, self).__init__(message)
-
-
 class ValidationException(AppKernelException):
     def __init__(self, validator_type, validable_object, message):
         self.validable_object_name = validable_object.__class__.__name__
-        super(ValidationException, self).__init__(
+        super().__init__(
             '{} on type {} - {}'.format(validator_type, self.validable_object_name, message))
 
 
@@ -54,7 +36,10 @@ class Validator(object):
         self.value = value
         self.message = message
 
-    def validate(self, parameter_name, validable_object):
+    def validate_objects(self, parameter_name: str, instance_parameters: list):
+        self.validate(parameter_name, instance_parameters.get(parameter_name))
+
+    def validate(self, parameter_name: str, validable_object: any):
         """
         Validates and object against the validation parameters.
 

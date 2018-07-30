@@ -1,7 +1,8 @@
 from money import Money
 
 from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
-from appkernel import Model, Property, UniqueIndex, ServiceException
+from appkernel import Model, Property, UniqueIndex
+from appkernel import ServiceException
 from datetime import datetime, date
 from appkernel import AuditableRepository, Repository, MongoRepository
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller

@@ -351,4 +351,28 @@ Now we are ready to retry the deletion of the object. ::
 
 The OperationResult 1 shows that the deletion was successful.
 
+Service Hooks
+=============
+
+Once a Model is exposed as a REST service, CRUD operations ::
+
+    class Order(Model, MongoRepository, Service):
+        id = Property(str, generator=create_uuid_generator('O'))
+        products = Property(list, sub_type=Product, required=True)
+        order_date = Property(datetime, required=True, generator=date_now_generator)
+
+        @classmethod
+        def before_post(cls, *args, **kwargs):
+            order = kwargs['model']
+            client = HttpClientServiceProxy('http://127.0.0.1:5000/')
+            status_code, rsp_dict = client.reservation.post(Reservation(order_id=order.id, products=order.products))
+            order.update(reservation_id=rsp_dict.get('result'))
+
+    if __name__ == '__main__':
+        app_id = f"{Order.__name__} Service"
+        kernel = AppKernelEngine(app_id, app=Flask(app_id), development=True)
+        kernel.register(Order, methods=['GET', 'POST', 'DELETE'])
+        kernel.run()
+
+
 Now that you got the taste of **Appkernel** feel free to dig deeper an deeper using this documentation.

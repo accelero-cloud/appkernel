@@ -1,6 +1,6 @@
 import inspect
 from typing import Callable
-
+from .core import AppKernelException
 from bson import ObjectId
 from enum import Enum
 from datetime import datetime, date
@@ -15,24 +15,9 @@ except ImportError:
 from .util import default_json_serializer, OBJ_PREFIX
 
 
-class AppKernelException(Exception):
-    def __init__(self, message):
-        self.message = message
-        super().__init__()
-
-    def __str__(self):
-        return self.message if 'message' in self.__dict__ else self.__class__.__name__
-
-
 class PropertyRequiredException(AppKernelException):
     def __init__(self, value):
         super().__init__('The property {} is required.'.format(value))
-
-
-class ServiceException(AppKernelException):
-    def __init__(self, http_error_code, message):
-        super().__init__(message)
-        self.http_error_code = http_error_code
 
 
 class AttrDict(dict):
@@ -984,11 +969,11 @@ class Model(object, metaclass=_TaggingMetaClass):
                 obj_items[param_name].finalise_and_validate()
 
     @staticmethod
-    def __check_validity(val, param_name, obj_items):
-        if isinstance(val, Validator) and param_name in obj_items:
-            val.validate(param_name, obj_items[param_name])
-        elif isinstance(val, type) and issubclass(val, Validator) and param_name in obj_items:
-            val().validate(param_name, obj_items.get(param_name))
+    def __check_validity(validator: Validator, param_name, obj_items):
+        if isinstance(validator, Validator) and param_name in obj_items:
+            validator.validate_objects(param_name, obj_items)
+        elif isinstance(validator, type) and issubclass(validator, Validator) and param_name in obj_items:
+            validator().validate_objects(param_name, obj_items)
 
     def dump_spec(self):
         """

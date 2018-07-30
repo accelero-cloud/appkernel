@@ -184,6 +184,27 @@ In case you would like to create a new type of validator, you just need to exten
 .. note::
     In the example above we used the **_()** function from *Babel* in order to provide translation support for to the validation error message;
 
+An alternative way could be the implementation of the `validate_objects` which receives all the fields of the object. This is useful to build conditional
+validators: ::
+
+    class CreditCardValidator(Validator):
+    def __init__(self):
+        super().__init__('CreditCardValidators')
+
+    def validate_objects(self, parameter_name: str, instance_parameters: list):
+        card_number = instance_parameters.get(parameter_name)
+        if instance_parameters.get('payment_method') == 'VISA':
+            self.__visa_luhn_check(card_number)
+        else:
+            self.__mastercard_luhn_check(card_number)
+
+    def __visa_luhn_check(self, card_number):
+        ...
+
+    def __mastercard_luhn_check(self, card_number):
+        ...
+
+
 Default Values and Generators
 `````````````````````````````
 Sometimes field values can be automatically generated upon persisting the model object (eg. a database ID or date values related to the creation or current used id

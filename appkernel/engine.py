@@ -11,8 +11,8 @@ import getopt
 from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import default_exceptions, HTTPException
 import appkernel
+from .core import AppKernelException
 from appkernel.configuration import config
-from .validators import AppInitialisationError
 from .authorisation import authorize_request
 from .util import default_json_serializer
 import atexit, eventlet.debug
@@ -75,6 +75,10 @@ def get_cmdline_options():
         'cwd': cwd
     }
 
+class AppInitialisationError(AppKernelException):
+
+    def __init__(self, message):
+        super().__init__(message)
 
 class AppKernelEngine(object):
 
@@ -160,12 +164,12 @@ class AppKernelEngine(object):
         self.after_request_functions.append(func)
 
     def __init_event_loop(self):
-        config.event_loop = asyncio.get_event_loop()
-
-        # config.event_loop.run_forever()
+        # todo: implement event loop
+        # config.event_loop = asyncio.get_event_loop()
+        pass
 
         def shutdown_eventloop():
-            if config.event_loop and config.event_loop.is_running():
+            if 'event_loop' in config.__dict__ and config.event_loop and config.event_loop.is_running():
                 logging.info('shutting down the event loop.')
                 config.event_loop.shutdown_asyncgens()
                 config.event_loop.stop()
@@ -326,13 +330,13 @@ class AppKernelEngine(object):
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-    def create_custom_error(self, code: int, message: str, upstream_service: str=None):
+    def create_custom_error(self, code: int, message: str, upstream_service: str = None):
         rsp = {'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}
         if upstream_service:
             rsp.update(upstream_service=upstream_service)
         return make_response(jsonify(rsp), code)
 
-    def generic_error_handler(self, ex: Exception=None, upstream_service: str=None):
+    def generic_error_handler(self, ex: Exception = None, upstream_service: str = None):
         """
         Takes a generic exception and returns a json error message which will be returned to the client
         :param ex: the exception which is reported by this method

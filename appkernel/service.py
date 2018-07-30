@@ -6,11 +6,12 @@ from typing import Callable
 from flask import jsonify, request, url_for, Flask
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
+from .core import AppKernelException
 from appkernel.http_client import RequestHandlingException
 from .engine import AppKernelEngine
 from .configuration import config
 from .iam import RbacMixin, Anonymous
-from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, ServiceException, OPS
+from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, OPS
 from .query import QueryProcessor
 from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
 from .repository import Repository, xtract, MongoRepository
@@ -24,6 +25,11 @@ except ImportError:
 # tagging decorator which will tag the decorated function
 link = create_tagging_decorator('links')
 
+
+class ServiceException(AppKernelException):
+    def __init__(self, http_error_code, message):
+        super().__init__(message)
+        self.http_error_code = http_error_code
 
 class Service(RbacMixin):
     pretty_print = True
