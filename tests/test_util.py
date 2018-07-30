@@ -1,20 +1,20 @@
 from money import Money
 
-from appkernel import Service, IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
+from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Model, Property, UniqueIndex
 from appkernel import ServiceException
 from datetime import datetime, date
-from appkernel import AuditableRepository, Repository, MongoRepository
+from appkernel import AuditableRepository, MongoRepository
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
 from appkernel.service import link
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
 from passlib.hash import pbkdf2_sha256
 from enum import Enum
 from flask_babel import _, lazy_gettext as _l
-from appkernel.validators import Max, Min, Email
+from appkernel import Max, Min
 
 
-class User(Model, MongoRepository, Service, IdentityMixin):
+class User(Model, MongoRepository, IdentityMixin):
     id = Property(str, required=True, generator=create_uuid_generator('U'))
     name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
     password = Property(str, required=True, validators=[NotEmpty],
@@ -94,7 +94,7 @@ class StockInventory(Model, MongoRepository):
     reserved = Property(int, required=True, default_value=0)
 
 
-class Reservation(Model, MongoRepository, Service):
+class Reservation(Model, MongoRepository):
     id = Property(str, generator=create_uuid_generator('R'))
     order_id = Property(str, required=True)
     order_date = Property(datetime, required=True, generator=date_now_generator)
@@ -153,7 +153,7 @@ class Task(Model, AuditableRepository):
         self.closed_date = datetime.now()
 
 
-class Project(Model, AuditableRepository, Service):
+class Project(Model, AuditableRepository):
     name = Property(str, required=True, validators=[NotEmpty()])
     tasks = Property(list, sub_type=Task)
     created = Property(datetime, required=True, generator=date_now_generator)

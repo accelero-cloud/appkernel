@@ -2,9 +2,7 @@ import asyncio
 
 import requests
 from flask import request
-from aiohttp import ClientSession
 from appkernel import Model, AppKernelException
-from appkernel.configuration import config
 from appkernel.engine import MessageType
 
 

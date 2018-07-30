@@ -75,10 +75,12 @@ def get_cmdline_options():
         'cwd': cwd
     }
 
+
 class AppInitialisationError(AppKernelException):
 
     def __init__(self, message):
         super().__init__(message)
+
 
 class AppKernelEngine(object):
 
@@ -140,6 +142,8 @@ class AppKernelEngine(object):
             db_name = self.cfg_engine.get('appkernel.mongo.db') or 'app'
             self.mongo_client = MongoClient(host=db_host)
             config.mongo_database = self.mongo_client[db_name]
+            config.flask_app: Flask = self.app
+            config.app_engine = self
         except (AppInitialisationError, AssertionError) as init_err:
             # print >> sys.stderr,
             self.app.logger.error(init_err.message)
@@ -372,9 +376,13 @@ class AppKernelEngine(object):
         :return:
         :rtype: Service
         """
-        assert issubclass(service_class, appkernel.Service), 'Only subclasses of Service can be registered.'
-        service_class.set_app_engine(self, url_base or self.root_url, methods=methods, enable_hateoas=enable_hateoas)
-        return service_class
+        assert issubclass(service_class,
+                          (appkernel.Service, appkernel.Model)), 'Only subclasses of Service can be registered.'
+        from appkernel import Service
+        Service.set_app_engine(service_class, self, url_base or self.root_url, methods=methods,
+                               enable_hateoas=enable_hateoas)
+        from appkernel.service import ResourceController
+        return ResourceController(service_class)
 
 
 class CfgEngine(object):

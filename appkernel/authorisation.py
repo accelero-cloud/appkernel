@@ -7,6 +7,7 @@ from flask_babel import _, lazy_gettext as _l
 import appkernel
 from appkernel import iam
 from appkernel.configuration import config
+from appkernel.iam import get_required_permission
 
 
 def check_token(jwt_token) -> dict:
@@ -25,7 +26,7 @@ def __has_current_subject_authority(token: dict, authority):
 
 def __get_required_permissions():
     endpoint_config = config.service_registry.get(request.endpoint)
-    perms = endpoint_config.get_required_permission(request.method, request.endpoint)
+    perms = get_required_permission(endpoint_config, request.method, request.endpoint)
 
     if perms:
         if isinstance(perms, iam.Permission):
@@ -70,7 +71,7 @@ authority_evaluators = {
 
 
 def authorize_request():
-    app_engine = appkernel.Service.app_engine
+    app_engine = config.app_engine
     required_permissions = __get_required_permissions()
 
     if __contains(required_permissions, iam.Denied):

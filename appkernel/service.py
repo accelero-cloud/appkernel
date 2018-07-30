@@ -3,13 +3,14 @@ from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from typing import Callable
+
 from flask import jsonify, request, url_for, Flask
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
-from .core import AppKernelException
 from appkernel.http_client import RequestHandlingException
-from .engine import AppKernelEngine
 from .configuration import config
+from .core import AppKernelException
+from .engine import AppKernelEngine
 from .iam import RbacMixin, Anonymous
 from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, OPS
 from .query import QueryProcessor
@@ -31,7 +32,14 @@ class ServiceException(AppKernelException):
         super().__init__(message)
         self.http_error_code = http_error_code
 
-class Service(RbacMixin):
+
+class ResourceController(RbacMixin):
+    def __init__(self, cls):
+        super().__init__(cls)
+        self.cls = cls
+
+
+class Service():
     pretty_print = True
     qp = QueryProcessor()  # pylint: disable=C0103
     """
@@ -40,7 +48,7 @@ class Service(RbacMixin):
         some_variable = some_context_aware_function()
     """
 
-    @classmethod
+    @staticmethod
     def __add_app_rule(cls, rule: str, endpoint: str, view_function: Callable, **options):
         """
         Registers the service in the service registry and adds the rule to flask with the view function.
@@ -51,13 +59,13 @@ class Service(RbacMixin):
         :return:
         """
         config.service_registry[endpoint] = cls
-        cls.app.add_url_rule(rule, endpoint, view_function, **options)
+        config.flask_app.add_url_rule(rule, endpoint, view_function, **options)
 
     # @classmethod
     # def __service_call(cls, method: str, inner_method):
     #     allowed_methods = frozenset(['GET', 'PUT', 'POST', 'DELETE'])
 
-    @classmethod
+    @staticmethod
     def __hook(cls, inner_function: Callable, hook_method: str):
         def wrapper(*args, **kws):
             before_hook_method = f'before_{hook_method}'
@@ -75,7 +83,7 @@ class Service(RbacMixin):
         wrapper.inner_function = inner_function
         return wrapper
 
-    @classmethod
+    @staticmethod
     def set_app_engine(cls, app_engine: AppKernelEngine, url_base: str, methods: list, enable_hateoas: bool = True):
         """
         :param enable_hateoas:
@@ -86,8 +94,6 @@ class Service(RbacMixin):
         :type app_engine: AppKernelEngine
         :return:
         """
-        Service.app: Flask = app_engine.app
-        Service.app_engine = app_engine
         if not url_base.endswith('/'):
             url_base = '{}/'.format(url_base)
         clazz_name = xtract(cls).lower()
@@ -96,48 +102,53 @@ class Service(RbacMixin):
         cls.enable_hateoas = enable_hateoas
         class_methods = dir(cls)
         if issubclass(cls, Model):
-            cls.__add_app_rule('{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
-                               cls.create_simple_wrapper_executor(app_engine, cls.get_json_schema),
-                               methods=['GET'])
-            cls.__add_app_rule('{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
-                               cls.create_simple_wrapper_executor(app_engine, cls.get_parameter_spec),
-                               methods=['GET'])
+            Service.__add_app_rule(cls, '{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
+                                   Service.create_simple_wrapper_executor(cls, app_engine, cls.get_json_schema),
+                                   methods=['GET'])
+            Service.__add_app_rule(cls, '{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
+                                   Service.create_simple_wrapper_executor(cls, app_engine, cls.get_parameter_spec),
+                                   methods=['GET'])
 
         if issubclass(cls, Repository) and 'GET' in methods:
             # generate get by id
             if 'find_by_query' in class_methods:
-                cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
-                                   cls.execute(app_engine, cls.__hook(cls.find_by_query, 'on_get'), cls),
-                                   methods=['GET'])
+                Service.__add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
+                                       Service.execute(cls, app_engine,
+                                                       Service.__hook(cls, cls.find_by_query, 'on_get'), cls),
+                                       methods=['GET'])
             if 'find_by_id' in class_methods:
-                cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
-                                   cls.execute(app_engine, cls.__hook(cls.find_by_id, 'get'), cls),
-                                   methods=['GET'])
+                Service.__add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
+                                       Service.execute(cls, app_engine, Service.__hook(cls, cls.find_by_id, 'get'),
+                                                       cls),
+                                       methods=['GET'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
-            cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
-                               cls.execute(app_engine, cls.__hook(cls.save_object, 'post'), cls),
-                               methods=['POST'])
+            Service.__add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
+                                   Service.execute(cls, app_engine, Service.__hook(cls, cls.save_object, 'post'), cls),
+                                   methods=['POST'])
         if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
-            cls.__add_app_rule('{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
-                               cls.execute(app_engine, cls.__hook(cls.replace_object, 'put'), cls),
-                               methods=['PUT'])
+            Service.__add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
+                                   Service.execute(cls, app_engine, Service.__hook(cls, cls.replace_object, 'put'),
+                                                   cls),
+                                   methods=['PUT'])
         if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
-            cls.__add_app_rule('{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
-                               cls.execute(app_engine, cls.__hook(cls.patch_object, 'patch'), cls),
-                               methods=['PATCH'])
+            Service.__add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
+                                   Service.execute(cls, app_engine, Service.__hook(cls, cls.patch_object, 'patch'),
+                                                   cls),
+                                   methods=['PATCH'])
 
         if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
-            cls.__add_app_rule('{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
-                               cls.execute(app_engine, cls.__hook(cls.delete_by_id, 'delete'), cls),
-                               methods=['DELETE'])
+            Service.__add_app_rule(cls, '{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
+                                   Service.execute(cls, app_engine, Service.__hook(cls, cls.delete_by_id, 'delete'),
+                                                   cls),
+                                   methods=['DELETE'])
         if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
-            cls.__add_app_rule('{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
-                               cls.execute(app_engine, cls.aggregate, cls),
-                               methods=['GET'])
+            Service.__add_app_rule(cls, '{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
+                                   Service.execute(cls, app_engine, cls.aggregate, cls),
+                                   methods=['GET'])
 
-        cls.prepare_actions()
+        Service.prepare_actions(cls)
 
-    @classmethod
+    @staticmethod
     def prepare_actions(cls):
         def create_action_executor(function_name):
             def action_executor(**named_args):
@@ -152,14 +163,14 @@ class Service(RbacMixin):
                         request_and_posted_arguments.update(Service.__extract_dict_from_payload())
                         result = executable_method(
                             **Service.__autobox_parameters(executable_method, request_and_posted_arguments))
-                        result_dic_tentative = {} if result is None else cls.xvert(result)
+                        result_dic_tentative = {} if result is None else Service.xvert(cls, result)
                         return jsonify(result_dic_tentative), 200
                     except ServiceException as sexc:
-                        Service.app_engine.logger.warn('Service error: {}'.format(str(sexc)))
-                        return Service.app_engine.create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
+                        config.app_engine.logger.warn('Service error: {}'.format(str(sexc)))
+                        return config.app_engine.create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
                     except Exception as exc:
-                        Service.app_engine.logger.exception(exc)
-                        return Service.app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
+                        config.app_engine.logger.exception(exc)
+                        return config.app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
 
             return action_executor
 
@@ -175,13 +186,13 @@ class Service(RbacMixin):
                 if not isinstance(methods, list):
                     methods = [methods]
                 link_endpoint = '{}_{}'.format(xtract(cls).lower(), relation)
-                cls.__add_app_rule('{}/<object_id>/{}'.format(cls.endpoint, relation),
-                                   link_endpoint,
-                                   create_action_executor(func_name),
-                                   methods=methods)
+                Service.__add_app_rule(cls, '{}/<object_id>/{}'.format(cls.endpoint, relation),
+                                       link_endpoint,
+                                       create_action_executor(func_name),
+                                       methods=methods)
                 if setup_security:
                     required_permissions = this_link.get('decorator_kwargs').get('require', Anonymous())
-                    cls.require(required_permissions, methods, link_endpoint)
+                    RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions, endpoint=link_endpoint)
 
     @staticmethod
     def __extract_dict_from_payload():
@@ -222,7 +233,7 @@ class Service(RbacMixin):
             request_args.update(request.args)
         return request_args
 
-    @classmethod
+    @staticmethod
     def create_simple_wrapper_executor(cls, app_engine, provisioner_method):
         def create_executor(*args, **named_args):
             try:
@@ -233,7 +244,7 @@ class Service(RbacMixin):
 
         return create_executor
 
-    @classmethod
+    @staticmethod
     def execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, model_class: Model):
         """
         The main view function for flask routes.
@@ -284,14 +295,15 @@ class Service(RbacMixin):
                         named_args.get('object_id', '-1')), cls.__name__)
                 if result is None or isinstance(result, list) and len(result) == 0:
                     return_code = 204
-                result_dic_tentative = {} if result is None else cls.xvert(result)
+                result_dic_tentative = {} if result is None else Service.xvert(cls, result)
                 return jsonify(result_dic_tentative), return_code
             except PropertyRequiredException as pexc:
                 app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
                 return app_engine.create_custom_error(400, str(pexc), cls.__name__)
             except ValidationException as vexc:
                 app_engine.logger.warn('validation error: {}'.format(str(vexc)))
-                return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)), cls.__name__)
+                return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)),
+                                                      cls.__name__)
             except RequestHandlingException as rexc:
                 app_engine.logger.warn(f'request forwarding error: {str(rexc)}')
                 return app_engine.create_custom_error(rexc.status_code, rexc.message, rexc.upstream_service)
@@ -467,7 +479,7 @@ class Service(RbacMixin):
                     arguments[arg_key] = required_type(arg_value)
         return arguments
 
-    @classmethod
+    @staticmethod
     def xvert(cls, result_item, generate_links=True):
         """
         converts the response object into Json
@@ -480,14 +492,14 @@ class Service(RbacMixin):
             model = Model.to_dict(result_item, skip_omitted_fields=True)
             model.update(_type=cls.__name__)
             if cls.enable_hateoas and generate_links:
-                model.update(_links=cls.__calculate_links(result_item.id))
+                model.update(_links=Service.__calculate_links(cls, result_item.id))
             return model
         elif is_dictionary(result_item) or is_dictionary_subclass(result_item):
             return result_item
         elif isinstance(result_item, (list, set, tuple)):
             result = {
                 '_type': result_item.__class__.__name__,
-                '_items': [cls.xvert(item, generate_links=False) for item in result_item]
+                '_items': [Service.xvert(cls, item, generate_links=False) for item in result_item]
             }
             if cls.enable_hateoas:
                 result.update(_links={'self': {'href': url_for('{}_get_by_query'.format(xtract(cls).lower()))}})
@@ -495,7 +507,7 @@ class Service(RbacMixin):
         elif is_primitive(result_item) or isinstance(result_item, (str, int)) or is_noncomplex(result_item):
             return {'_type': 'OperationResult', 'result': result_item}
 
-    @classmethod
+    @staticmethod
     def __calculate_links(cls, object_id):
         links = {}
         clazz_name = xtract(cls).lower()

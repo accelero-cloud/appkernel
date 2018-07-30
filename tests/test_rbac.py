@@ -2,7 +2,7 @@ import time
 
 from werkzeug.datastructures import Headers
 
-from appkernel import AppKernelEngine, Role, Anonymous
+from appkernel import AppKernelEngine, Role
 from appkernel.authorisation import check_token
 import os
 import pytest

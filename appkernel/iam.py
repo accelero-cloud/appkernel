@@ -75,8 +75,17 @@ class IdentityMixin(object):
         ).decode('utf-8')
 
 
+def get_required_permission(cls, method, endpoint):
+    endpoints = cls.protected_methods.get(method)
+    if not endpoints:
+        return None
+    if endpoint in endpoints:
+        return endpoints.get(endpoint)
+    else:
+        return endpoints.get('*')
+
+
 class RbacMixin(object):
-    protected_methods = {}
 
     # format of the method registry
     # {
@@ -86,24 +95,20 @@ class RbacMixin(object):
     #           }
     # }
 
-    @classmethod
-    def get_required_permission(cls, method, endpoint):
-        endpoints = RbacMixin.protected_methods.get(method)
-        if not endpoints:
-            return None
-        if endpoint in endpoints:
-            return endpoints.get(endpoint)
-        else:
-            return endpoints.get('*')
+    def __init__(self, cls):
+        if not hasattr(cls, 'protected_methods'):
+            cls.protected_methods = {}
 
     @staticmethod
-    def __set_list(methods=[], permissions=Denied(), endpoint=None):
+    def set_list(cls, methods=[], permissions=Denied(), endpoint=None):
         def add_endpoint_and_permissions(meth):
-            if meth not in RbacMixin.protected_methods:
-                RbacMixin.protected_methods[meth] = {
+            if not hasattr(cls, 'protected_methods'):
+                cls.protected_methods = {}
+            if meth not in cls.protected_methods:
+                cls.protected_methods[meth] = {
                     endpoint or '*': permissions if isinstance(permissions, list) else [permissions]}
             else:
-                RbacMixin.protected_methods[meth][endpoint or '*'] = permissions if isinstance(permissions,
+                cls.protected_methods[meth][endpoint or '*'] = permissions if isinstance(permissions,
                                                                                                list) else [
                     permissions]
 
@@ -118,30 +123,26 @@ class RbacMixin(object):
         else:
             raise TypeError('Methods must be of type list or string.')
 
-    @classmethod
-    def deny_all(cls):
+    def deny_all(self):
         for method in ['GET', 'POST', 'PUT', 'DELETE']:
-            if method not in cls.protected_methods:
-                cls.protected_methods[method] = {'*': [Denied()]}
+            if method not in self.cls.protected_methods:
+                self.cls.protected_methods[method] = {'*': [Denied()]}
             else:
-                cls.protected_methods[method]['*'] = [Denied()]
-        return cls
+                self.cls.protected_methods[method]['*'] = [Denied()]
+        return self
 
-    @classmethod
-    def allow_all(cls):
+    def allow_all(self):
         for method in ['GET', 'POST', 'PUT', 'DELETE']:
-            if method not in cls.protected_methods:
-                cls.protected_methods[method] = {'*': [Anonymous()]}
+            if method not in self.cls.protected_methods:
+                self.cls.protected_methods[method] = {'*': [Anonymous()]}
             else:
-                cls.protected_methods[method]['*'] = [Anonymous()]
-        return cls
+                self.cls.protected_methods[method]['*'] = [Anonymous()]
+        return self
 
-    @classmethod
-    def deny(cls, permission, methods, endpoint=None):
-        cls.__set_list(methods, permission, endpoint)
-        return cls
+    def deny(self, permission, methods, endpoint=None):
+        self.cls.set_list(methods, permission, endpoint)
+        return self
 
-    @classmethod
-    def require(cls, permission, methods, endpoint=None):
-        RbacMixin.__set_list(methods, permission, endpoint)
-        return cls
+    def require(self, permission, methods, endpoint=None):
+        RbacMixin.set_list(self.cls, methods, permission, endpoint)
+        return self
