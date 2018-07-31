@@ -11,7 +11,7 @@ import getopt
 from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import default_exceptions, HTTPException
 import appkernel
-from .service import ResourceController
+from appkernel import RbacMixin
 from .core import AppKernelException
 from appkernel.configuration import config
 from .authorisation import authorize_request
@@ -75,6 +75,12 @@ def get_cmdline_options():
         'development': development,
         'cwd': cwd
     }
+
+
+class ResourceController(RbacMixin):
+    def __init__(self, cls):
+        super().__init__(cls)
+        self.cls = cls
 
 
 class AppInitialisationError(AppKernelException):
@@ -383,7 +389,6 @@ class AppKernelEngine(object):
         from appkernel.service import set_app_engine
         set_app_engine(service_class, self, url_base or self.root_url, methods=methods,
                                enable_hateoas=enable_hateoas)
-        from appkernel.service import ResourceController
         return ResourceController(service_class)
 
 

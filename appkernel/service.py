@@ -33,13 +33,7 @@ class ServiceException(AppKernelException):
         self.http_error_code = http_error_code
 
 
-class ResourceController(RbacMixin):
-    def __init__(self, cls):
-        super().__init__(cls)
-        self.cls = cls
-
-
-class Controller():
+class Controller(object):
     pass
 
 pretty_print = True
