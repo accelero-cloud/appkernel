@@ -377,9 +377,10 @@ class AppKernelEngine(object):
         :rtype: Service
         """
         assert issubclass(service_class,
-                          (appkernel.Service, appkernel.Model)), 'Only subclasses of Service can be registered.'
-        from appkernel import Service
-        Service.set_app_engine(service_class, self, url_base or self.root_url, methods=methods,
+                          (appkernel.Model)), 'Only subclasses of Service can be registered.'
+
+        from appkernel.service import set_app_engine
+        set_app_engine(service_class, self, url_base or self.root_url, methods=methods,
                                enable_hateoas=enable_hateoas)
         from appkernel.service import ResourceController
         return ResourceController(service_class)

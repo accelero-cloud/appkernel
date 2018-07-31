@@ -48,3 +48,5 @@ def test_unix_time_marshaller():
     reloaded_user = User.loads(user_json)
     print((str(reloaded_user)))
     assert isinstance(reloaded_user.last_login, datetime)
+
+# todo: test encryption of a value object or other aggregate

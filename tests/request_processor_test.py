@@ -1,14 +1,14 @@
-from appkernel import Service
 from werkzeug.datastructures import ImmutableMultiDict
 
 
 # test query AND and OR and NOT
 # test date pattern recognition and conversion
+from appkernel.service import convert_to_query
 
 
 def test_simple_query_processing():
     query_expression = ImmutableMultiDict([('first_name', 'first Name')])
-    res = Service.convert_to_query(['first_name'], query_expression)
+    res = convert_to_query(['first_name'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
@@ -18,7 +18,7 @@ def test_simple_query_processing():
 
 def test_simple_query_with_contains_expression():
     query_expression = ImmutableMultiDict([('first_name', '~first Name')])
-    res = Service.convert_to_query(['first_name'], query_expression)
+    res = convert_to_query(['first_name'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
@@ -27,7 +27,7 @@ def test_simple_query_with_contains_expression():
 
 def test_simple_query_with_less_then():
     query_expression = ImmutableMultiDict([('birth_date', '<1980-07-31')])
-    res = Service.convert_to_query(['birth_date'], query_expression)
+    res = convert_to_query(['birth_date'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
@@ -37,7 +37,7 @@ def test_simple_query_with_less_then():
 def test_simple_query_with_between_query():
     query_expression = ImmutableMultiDict(
         [('birth_date', '>1980-07-01'), ('birth_date', '<1980-07-31'), ('logic', 'AND')])
-    res = Service.convert_to_query(['birth_date'], query_expression)
+    res = convert_to_query(['birth_date'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
     assert len(list(res.keys())) == 1, 'it should have only one key'
@@ -48,7 +48,7 @@ def test_simple_query_with_between_query():
 def test_or_logic():
     query_expression = ImmutableMultiDict(
         [('first_name', 'first Name'), ('last_name', 'last Name'), ('logic', 'OR')])
-    res = Service.convert_to_query(['first_name', 'last_name'], query_expression)
+    res = convert_to_query(['first_name', 'last_name'], query_expression)
     print(('\n{}'.format(res)))
     assert '$or' in res, 'it should contain a key $or'
     assert len(list(res.keys())) == 1, 'it should have only one key'
@@ -66,7 +66,7 @@ def test_complex_query_processing():
     query_expression = ImmutableMultiDict(
         [('first_name', 'first Name'), ('last_name', 'last Name'), ('birth_date', '>1980-07-01'),
          ('birth_date', '<1980-07-31'), ('logic', 'AND')])
-    res = Service.convert_to_query(['last_name', 'first_name', 'birth_date'], query_expression)
+    res = convert_to_query(['last_name', 'first_name', 'birth_date'], query_expression)
     print(('\n{}'.format(res)))
     assert '$and' in res, 'it should contain a key $and'
     assert len(list(res.keys())) == 1, 'it should have only one key'

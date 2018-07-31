@@ -74,4 +74,4 @@ class QueryProcessor(object):
         """
         request_set = set(request.args.keys())
         return request_set.difference(
-            appkernel.service.Service.qp.reserved_param_names.get(QueryProcessor.create_key_from_instance_method(provisioner_method)))
+            appkernel.service.qp.reserved_param_names.get(QueryProcessor.create_key_from_instance_method(provisioner_method)))
