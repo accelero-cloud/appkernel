@@ -74,10 +74,12 @@ check_result $? "some tests are failed, please fix it first."
 modules=("appkernel")
 for module in "${modules[@]}"
     do
-        echo ">> analysing module: ${1}/${module}"
+        echo "PYLINT>> analysing module: ${1}/${module}"
         MODULE_DIR="${PROJECT_DIR}/${module}"
         [ -d "${MODULE_DIR}" ] && echo ">> OK: ${MODULE_DIR} exists" || (echo >&2 ">> Error: ${MODULE_DIR} does not exists" && exit -1)
         pylint --rcfile=${PROJECT_DIR}/pylintrc ${MODULE_DIR}
         check_result $? ">> Error: pylint did not accepted the style of ${module}. Please fix it before pushing."
+        echo "FLAKE8>> analysing module: ${1}/${module}"
+        flake8 ${MODULE_DIR} --config ${PROJECT_DIR}/.flake8 --show-source --statistics --count
     done
 exit 0

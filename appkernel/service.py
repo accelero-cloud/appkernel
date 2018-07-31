@@ -36,6 +36,7 @@ class ServiceException(AppKernelException):
 class Controller(object):
     pass
 
+
 pretty_print = True
 qp = QueryProcessor()  # pylint: disable=C0103
 """

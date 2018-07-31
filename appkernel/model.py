@@ -14,6 +14,95 @@ except ImportError:
     import json
 from .util import default_json_serializer, OBJ_PREFIX
 
+type_map = {
+    'str': 'string',
+    'unicode': 'string',
+    'basestring': 'string',
+    'list': 'array',
+    'int': 'number',
+    'long': 'number',
+    'float': 'number',
+    'bool': 'boolean',
+    'tuple': 'object',
+    'dictionary': 'object',
+    'date': 'string',
+    'datetime': 'string'
+}
+
+format_map = {
+    'datetime': 'date-time',
+    'time': 'time'
+}
+
+# mongo bson types: https://docs.mongodb.com/manual/reference/bson-types/
+bson_type_map = {
+    'date': 'date',
+    # 'datetime': 'timestamp',
+    # 'time': 'timestamp',
+    'datetime': 'date',
+    'time': 'date',
+    'int': 'int',
+    'long': 'long',
+    'float': 'double',
+    'bool': 'bool',
+    'list': 'array'
+}
+
+
+def _get_custom_class(fqdn):
+    try:
+        parts = fqdn.split('.')
+        module_str = ".".join(parts[:-1])
+        module = __import__(module_str)
+        for comp in parts[1:]:
+            module = getattr(module, comp)
+        return module
+    except Exception as ex:
+        raise AppKernelException(
+            f"Couldn't instantiate complex object due to {ex.__class__.__name__}: {str(ex)} -> {fqdn}")
+
+
+def _instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
+    assert inspect.isclass(clazz)
+    const_args = inspect.getfullargspec(clazz.__init__).args
+    if len(const_args) > 1:
+        constructor_dict = {}
+        for c_arg in const_args:
+            if c_arg != 'self':
+                val = param_dict.pop(c_arg)
+                if converter_func and isinstance(converter_func, Callable):
+                    val = converter_func(val)
+                constructor_dict[c_arg] = val
+        custom_instance = clazz(**constructor_dict)
+    else:
+        custom_instance = clazz()
+    for key, value in param_dict.items():
+        if key != '_type':
+            setattr(custom_instance, key, value)
+    return custom_instance
+
+
+def _xtract_custom_object_to_dict(custom_object, converter_func=None):
+        if hasattr(custom_object, '__dict__'):
+            instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
+        else:
+            if converter_func and isinstance(converter_func, Callable):
+                return converter_func(custom_object)
+            else:
+                return custom_object
+        result = {}
+        result.update(_type=f'{custom_object.__module__}.{custom_object.__class__.__qualname__}')
+
+        for prop_name, prop_value in instance_items:
+            result[prop_name] = _xtract_custom_object_to_dict(prop_value)
+        properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
+        for prop_name, prop_value in properties:
+            if converter_func and isinstance(converter_func, Callable):
+                result[prop_name] = converter_func(getattr(custom_object, prop_name))
+            else:
+                result[prop_name] = getattr(custom_object, prop_name)
+        return result
+
 
 class PropertyRequiredException(AppKernelException):
     def __init__(self, value):
@@ -492,40 +581,6 @@ class Model(object, metaclass=_TaggingMetaClass):
 
         type_label = 'type' if not mongo_compatibility else 'bsonType'
 
-        type_map = {
-            'str': 'string',
-            'unicode': 'string',
-            'basestring': 'string',
-            'list': 'array',
-            'int': 'number',
-            'long': 'number',
-            'float': 'number',
-            'bool': 'boolean',
-            'tuple': 'object',
-            'dictionary': 'object',
-            'date': 'string',
-            'datetime': 'string'
-        }
-
-        format_map = {
-            'datetime': 'date-time',
-            'time': 'time'
-        }
-
-        # mongo bson types: https://docs.mongodb.com/manual/reference/bson-types/
-        bson_type_map = {
-            'date': 'date',
-            # 'datetime': 'timestamp',
-            # 'time': 'timestamp',
-            'datetime': 'date',
-            'time': 'date',
-            'int': 'int',
-            'long': 'long',
-            'float': 'double',
-            'bool': 'bool',
-            'list': 'array'
-        }
-
         def describe_enum(enum_class):
             return [e.name for e in enum_class]
 
@@ -694,10 +749,6 @@ class Model(object, metaclass=_TaggingMetaClass):
         if hasattr(validator, 'value'):
             val_desc.update(value=validator.value)
 
-        # for key, value in [(key, value) for(key, value) in validator.__dict__.iteritems() if not key.startswith('__') and not callable(value)]:
-        #     #set(dir(Cls)) - set(dir(object))
-        #     val_desc[key] = value
-
         return val_desc
 
     @staticmethod
@@ -752,31 +803,9 @@ class Model(object, metaclass=_TaggingMetaClass):
                 if convert_id and param == 'id':
                     result['_id'] = result_value
                 else:
-                    result_value = Model.__xtract_custom_object_to_dict(result_value, converter_func=converter_func)
+                    result_value = _xtract_custom_object_to_dict(result_value, converter_func=converter_func)
                     result[param] = result_value
 
-        return result
-
-    @staticmethod
-    def __xtract_custom_object_to_dict(custom_object, converter_func=None):
-        if hasattr(custom_object, '__dict__'):
-            instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
-        else:
-            if converter_func and isinstance(converter_func, Callable):
-                return converter_func(custom_object)
-            else:
-                return custom_object
-        result = {}
-        result.update(_type=f'{custom_object.__module__}.{custom_object.__class__.__qualname__}')
-
-        for prop_name, prop_value in instance_items:
-            result[prop_name] = Model.__xtract_custom_object_to_dict(prop_value)
-        properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
-        for prop_name, prop_value in properties:
-            if converter_func and isinstance(converter_func, Callable):
-                result[prop_name] = converter_func(getattr(custom_object, prop_name))
-            else:
-                result[prop_name] = getattr(custom_object, prop_name)
         return result
 
     @staticmethod
@@ -839,43 +868,10 @@ class Model(object, metaclass=_TaggingMetaClass):
         return instance
 
     @staticmethod
-    def __get_custom_class(fqdn):
-        try:
-            parts = fqdn.split('.')
-            module_str = ".".join(parts[:-1])
-            module = __import__(module_str)
-            for comp in parts[1:]:
-                module = getattr(module, comp)
-            return module
-        except Exception as ex:
-            raise AppKernelException(
-                f"Couldn't instantiate complex object due to {ex.__class__.__name__}: {str(ex)} -> {fqdn}")
-
-    @staticmethod
-    def __instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
-        assert inspect.isclass(clazz)
-        const_args = inspect.getfullargspec(clazz.__init__).args
-        if len(const_args) > 1:
-            constructor_dict = {}
-            for c_arg in const_args:
-                if c_arg != 'self':
-                    val = param_dict.pop(c_arg)
-                    if converter_func and isinstance(converter_func, Callable):
-                        val = converter_func(val)
-                    constructor_dict[c_arg] = val
-            custom_instance = clazz(**constructor_dict)
-        else:
-            custom_instance = clazz()
-        for key, value in param_dict.items():
-            if key != '_type':
-                setattr(custom_instance, key, value)
-        return custom_instance
-
-    @staticmethod
     def __load_and_or_convert_object(custom_value, converter_func=None):
         if custom_value and isinstance(custom_value, dict) and '_type' in custom_value:
-            custom_class = Model.__get_custom_class(custom_value.get('_type'))
-            custom_value = Model.__instantiate_custom_class(custom_class, custom_value, converter_func=converter_func)
+            custom_class = _get_custom_class(custom_value.get('_type'))
+            custom_value = _instantiate_custom_class(custom_class, custom_value, converter_func=converter_func)
         if converter_func and isinstance(converter_func, Callable):
             return converter_func(custom_value)
         else:
@@ -923,7 +919,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                           sort_keys=True)
 
     @classmethod
-    def loads(cls, json_string):
+    def loads(cls, json_string) -> 'Model':
         """
         Takes a json string and creates a python object from it.
 
@@ -932,7 +928,6 @@ class Model(object, metaclass=_TaggingMetaClass):
         Returns:
             Model: the generated object (it won't run validation on it)
         """
-        # type: (basestring, cls) -> Model
         return Model.from_dict(json.loads(json_string), cls)
 
     def finalise_and_validate(self):
@@ -985,7 +980,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         print("params: %s" % [f for f in props if self.__is_param_field(f, self.__class__)])
         # print "vars :: %s" % vars(list).keys()
 
-    def _include_instance(self, field):
+    def __include_instance(self, field):
         return not field.startswith('__') and not isinstance(getattr(self, field),
                                                              collections.Callable) and not isinstance(
             getattr(self, field), Property)
