@@ -11,6 +11,7 @@ import getopt
 from logging.handlers import RotatingFileHandler
 from werkzeug.exceptions import default_exceptions, HTTPException
 import appkernel
+from .service import ResourceController
 from .core import AppKernelException
 from appkernel.configuration import config
 from .authorisation import authorize_request
@@ -366,7 +367,7 @@ class AppKernelEngine(object):
         if exception is not None:
             self.app.logger.warn(exception.message)
 
-    def register(self, service_class, url_base=None, methods=['GET'], enable_hateoas=True):
+    def register(self, service_class, url_base=None, methods=['GET'], enable_hateoas=True) -> ResourceController:
         """
 
         :param service_class:
@@ -377,7 +378,7 @@ class AppKernelEngine(object):
         :rtype: Service
         """
         assert issubclass(service_class,
-                          (appkernel.Model)), 'Only subclasses of Service can be registered.'
+                          (appkernel.Controller, appkernel.Model)), 'Only subclasses of Service can be registered.'
 
         from appkernel.service import set_app_engine
         set_app_engine(service_class, self, url_base or self.root_url, methods=methods,

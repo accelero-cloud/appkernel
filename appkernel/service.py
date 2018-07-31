@@ -39,6 +39,9 @@ class ResourceController(RbacMixin):
         self.cls = cls
 
 
+class Controller():
+    pass
+
 pretty_print = True
 qp = QueryProcessor()  # pylint: disable=C0103
 """
@@ -48,7 +51,7 @@ with self.app_context():
 """
 
 
-def __add_app_rule(cls, rule: str, endpoint: str, view_function: Callable, **options):
+def _add_app_rule(cls, rule: str, endpoint: str, view_function: Callable, **options):
     """
     Registers the service in the service registry and adds the rule to flask with the view function.
     :param rule:
@@ -65,7 +68,7 @@ def __add_app_rule(cls, rule: str, endpoint: str, view_function: Callable, **opt
 #     allowed_methods = frozenset(['GET', 'PUT', 'POST', 'DELETE'])
 
 
-def __hook(cls, inner_function: Callable, hook_method: str):
+def _hook(cls, inner_function: Callable, hook_method: str):
     def wrapper(*args, **kws):
         before_hook_method = f'before_{hook_method}'
         after_hook_method = f'after_{hook_method}'
@@ -101,54 +104,54 @@ def set_app_engine(cls, app_engine: AppKernelEngine, url_base: str, methods: lis
     cls.enable_hateoas = enable_hateoas
     class_methods = dir(cls)
     if issubclass(cls, Model):
-        __add_app_rule(cls, '{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
-                               create_simple_wrapper_executor(cls, app_engine, cls.get_json_schema),
-                               methods=['GET'])
-        __add_app_rule(cls, '{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
-                               create_simple_wrapper_executor(cls, app_engine, cls.get_parameter_spec),
-                               methods=['GET'])
+        _add_app_rule(cls, '{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
+                      _create_simple_wrapper_executor(cls, app_engine, cls.get_json_schema),
+                      methods=['GET'])
+        _add_app_rule(cls, '{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
+                      _create_simple_wrapper_executor(cls, app_engine, cls.get_parameter_spec),
+                      methods=['GET'])
 
     if issubclass(cls, Repository) and 'GET' in methods:
         # generate get by id
         if 'find_by_query' in class_methods:
-            __add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
-                                   execute(cls, app_engine,
-                                                   __hook(cls, cls.find_by_query, 'on_get'), cls),
-                                   methods=['GET'])
+            _add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
+                          _execute(cls, app_engine,
+                                   _hook(cls, cls.find_by_query, 'on_get'), cls),
+                          methods=['GET'])
         if 'find_by_id' in class_methods:
-            __add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
-                                   execute(cls, app_engine, __hook(cls, cls.find_by_id, 'get'),
-                                                   cls),
-                                   methods=['GET'])
+            _add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
+                          _execute(cls, app_engine, _hook(cls, cls.find_by_id, 'get'),
+                                   cls),
+                          methods=['GET'])
     if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
-        __add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
-                               execute(cls, app_engine, __hook(cls, cls.save_object, 'post'), cls),
-                               methods=['POST'])
+        _add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
+                      _execute(cls, app_engine, _hook(cls, cls.save_object, 'post'), cls),
+                      methods=['POST'])
     if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
-        __add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
-                               execute(cls, app_engine, __hook(cls, cls.replace_object, 'put'),
-                                               cls),
-                               methods=['PUT'])
+        _add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
+                      _execute(cls, app_engine, _hook(cls, cls.replace_object, 'put'),
+                               cls),
+                      methods=['PUT'])
     if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
-        __add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
-                               execute(cls, app_engine, __hook(cls, cls.patch_object, 'patch'),
-                                               cls),
-                               methods=['PATCH'])
+        _add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
+                      _execute(cls, app_engine, _hook(cls, cls.patch_object, 'patch'),
+                               cls),
+                      methods=['PATCH'])
 
     if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
-        __add_app_rule(cls, '{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
-                               execute(cls, app_engine, __hook(cls, cls.delete_by_id, 'delete'),
-                                               cls),
-                               methods=['DELETE'])
+        _add_app_rule(cls, '{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
+                      _execute(cls, app_engine, _hook(cls, cls.delete_by_id, 'delete'),
+                               cls),
+                      methods=['DELETE'])
     if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
-        __add_app_rule(cls, '{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
-                               execute(cls, app_engine, cls.aggregate, cls),
-                               methods=['GET'])
+        _add_app_rule(cls, '{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
+                      _execute(cls, app_engine, cls.aggregate, cls),
+                      methods=['GET'])
 
-    __prepare_actions(cls)
+    _prepare_actions(cls)
 
 
-def __prepare_actions(cls):
+def _prepare_actions(cls):
     def create_action_executor(function_name):
         def action_executor(**named_args):
             if 'object_id' not in named_args:
@@ -158,11 +161,11 @@ def __prepare_actions(cls):
                 try:
                     instance = cls.find_by_id(named_args['object_id'])
                     executable_method = getattr(instance, function_name)
-                    request_and_posted_arguments = get_request_args()
-                    request_and_posted_arguments.update(__extract_dict_from_payload())
+                    request_and_posted_arguments = _get_request_args()
+                    request_and_posted_arguments.update(_extract_dict_from_payload())
                     result = executable_method(
-                        **__autobox_parameters(executable_method, request_and_posted_arguments))
-                    result_dic_tentative = {} if result is None else xvert(cls, result)
+                        **_autobox_parameters(executable_method, request_and_posted_arguments))
+                    result_dic_tentative = {} if result is None else _xvert(cls, result)
                     return jsonify(result_dic_tentative), 200
                 except ServiceException as sexc:
                     config.app_engine.logger.warn('Service error: {}'.format(str(sexc)))
@@ -185,42 +188,42 @@ def __prepare_actions(cls):
             if not isinstance(methods, list):
                 methods = [methods]
             link_endpoint = '{}_{}'.format(xtract(cls).lower(), relation)
-            __add_app_rule(cls, '{}/<object_id>/{}'.format(cls.endpoint, relation),
-                                   link_endpoint,
-                                   create_action_executor(func_name),
-                                   methods=methods)
+            _add_app_rule(cls, '{}/<object_id>/{}'.format(cls.endpoint, relation),
+                          link_endpoint,
+                          create_action_executor(func_name),
+                          methods=methods)
             if setup_security:
                 required_permissions = this_link.get('decorator_kwargs').get('require', Anonymous())
                 RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions, endpoint=link_endpoint)
 
 
-def __extract_dict_from_payload():
+def _extract_dict_from_payload():
     if request.data and len(request.data) > 0:
         object_dict = request.json or json.loads(request.data)
     elif request.form and len(request.form) > 0:
-        object_dict = __xtract_form()
+        object_dict = _xtract_form()
     else:
         object_dict = {}
     return object_dict
 
 
-def __xtract_form():
+def _xtract_form():
     target = dict((key, request.form.getlist(key)) for key in list(request.form.keys()))
     return dict((key, value[0] if len(value) == 1 else value) for key, value in target.items())
 
 
-def __get_merged_request_and_named_args(named_args):
+def _get_merged_request_and_named_args(named_args):
     """
     Merge together the named args (url parameters) and the query parameters (from requests.args)
     :param named_args:
     :return: a dictionary with both: named and query parameters
     """
     named_and_request_arguments = named_args.copy()
-    named_and_request_arguments.update(get_request_args())
+    named_and_request_arguments.update(_get_request_args())
     return named_and_request_arguments
 
 
-def get_request_args():
+def _get_request_args():
     request_args = {}
     # extract the query parameters and add to a generic parameter dictionary
     if isinstance(request.args, MultiDict):
@@ -233,7 +236,7 @@ def get_request_args():
     return request_args
 
 
-def create_simple_wrapper_executor(cls, app_engine, provisioner_method):
+def _create_simple_wrapper_executor(cls, app_engine, provisioner_method):
     def create_executor(*args, **named_args):
         try:
             result = provisioner_method(*args, **named_args)
@@ -244,7 +247,7 @@ def create_simple_wrapper_executor(cls, app_engine, provisioner_method):
     return create_executor
 
 
-def execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, model_class: Model):
+def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, model_class: Model):
     """
     The main view function for flask routes.
     :param app_engine: the app engine instance
@@ -259,7 +262,7 @@ def execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mode
     def create_executor(**named_args):
         try:
             return_code = 200
-            named_and_request_arguments = __get_merged_request_and_named_args(named_args)
+            named_and_request_arguments = _get_merged_request_and_named_args(named_args)
             if QueryProcessor.supports_query(executable_method):
                 query_param_names = QueryProcessor.get_query_param_names(executable_method)
                 if query_param_names and len(query_param_names) > 0:
@@ -276,14 +279,14 @@ def execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mode
 
             if request.method in ['POST', 'PUT']:
                 # load and validate the posted object
-                model_instance = Model.from_dict(__extract_dict_from_payload(), model_class)
+                model_instance = Model.from_dict(_extract_dict_from_payload(), model_class)
                 # save or update the object
                 named_and_request_arguments.update(model=model_instance)
                 return_code = 201
             elif request.method == 'PATCH':
-                named_and_request_arguments.update(document=__extract_dict_from_payload())
+                named_and_request_arguments.update(document=_extract_dict_from_payload())
             result = provisioner_method(
-                **__autobox_parameters(executable_method, named_and_request_arguments))
+                **_autobox_parameters(executable_method, named_and_request_arguments))
             if request.method in ['GET', 'PUT', 'PATCH']:
                 if result is None:
                     object_id = named_args.get('object_id', None)
@@ -294,7 +297,7 @@ def execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mode
                     named_args.get('object_id', '-1')), cls.__name__)
             if result is None or isinstance(result, list) and len(result) == 0:
                 return_code = 204
-            result_dic_tentative = {} if result is None else xvert(cls, result)
+            result_dic_tentative = {} if result is None else _xvert(cls, result)
             return jsonify(result_dic_tentative), return_code
         except PropertyRequiredException as pexc:
             app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
@@ -379,7 +382,7 @@ def convert_to_query(query_param_names, request_args):
             #   ['birth_date', ['<1980','>1970']]   output: [{'$gte':' 1970', '$lt': '1980'}]
             #   ['name', ['~Jane', '~John']]        output: [{'name': {'$regex': '.*Jane.*', 'options': 'i'}}, {'$regex': '.*John.*', 'options': 'i'}]
 
-            value_list = [__remap_expressions(expr) for expr in query_item[1]]
+            value_list = [_remap_expressions(expr) for expr in query_item[1]]
             if isinstance(value_list[0], tuple):
                 expression_list.append(
                     {query_item[0]: dict(value_list)})
@@ -391,7 +394,7 @@ def convert_to_query(query_param_names, request_args):
             # examples:
             #   ['name', ['~Jane']]
             #   ['name', ['John']]
-            mapped_value = __remap_expressions(query_item[1][0])
+            mapped_value = _remap_expressions(query_item[1][0])
             if isinstance(mapped_value, tuple):
                 expression_list.append({query_item[0]: dict([mapped_value])})
             else:
@@ -407,7 +410,7 @@ def convert_to_query(query_param_names, request_args):
         return {logic: expression_list}
 
 
-def __remap_expressions(expression):
+def _remap_expressions(expression):
     """
     Takes a query expression such as >1994-12-02 and turns into a {'$gte':'1994-12-02'}.
     Additionally converts the date string into datetime object;
@@ -416,13 +419,13 @@ def __remap_expressions(expression):
     :return:
     """
     if expression[0] in qp.supported_expressions:
-        converted_value = __convert_expressions(expression[1:])
+        converted_value = _convert_expressions(expression[1:])
         return qp.expression_mapper.get(expression[0])(converted_value)
     else:
-        return __convert_expressions(expression)
+        return _convert_expressions(expression)
 
 
-def __convert_expressions(expression):
+def _convert_expressions(expression):
     """
     converts strings containing numbers to int, string containing a date to datetime, string containing a boolean expression to boolean
 
@@ -444,7 +447,7 @@ def __convert_expressions(expression):
     return expression
 
 
-def __autobox_parameters(provisioner_method, arguments):
+def _autobox_parameters(provisioner_method, arguments):
     method_structure = get_argument_spec(provisioner_method)
     for arg_key, arg_value in arguments.items():
         required_type = type(method_structure.get(arg_key))
@@ -479,7 +482,7 @@ def __autobox_parameters(provisioner_method, arguments):
     return arguments
 
 
-def xvert(cls, result_item, generate_links=True):
+def _xvert(cls, result_item, generate_links=True):
     """
     converts the response object into Json
 
@@ -491,14 +494,14 @@ def xvert(cls, result_item, generate_links=True):
         model = Model.to_dict(result_item, skip_omitted_fields=True)
         model.update(_type=cls.__name__)
         if cls.enable_hateoas and generate_links:
-            model.update(_links=__calculate_links(cls, result_item.id))
+            model.update(_links=_calculate_links(cls, result_item.id))
         return model
     elif is_dictionary(result_item) or is_dictionary_subclass(result_item):
         return result_item
     elif isinstance(result_item, (list, set, tuple)):
         result = {
             '_type': result_item.__class__.__name__,
-            '_items': [xvert(cls, item, generate_links=False) for item in result_item]
+            '_items': [_xvert(cls, item, generate_links=False) for item in result_item]
         }
         if cls.enable_hateoas:
             result.update(_links={'self': {'href': url_for('{}_get_by_query'.format(xtract(cls).lower()))}})
@@ -507,7 +510,7 @@ def xvert(cls, result_item, generate_links=True):
         return {'_type': 'OperationResult', 'result': result_item}
 
 
-def __calculate_links(cls, object_id):
+def _calculate_links(cls, object_id):
     links = {}
     clazz_name = xtract(cls).lower()
     all_members = cls.__dict__
