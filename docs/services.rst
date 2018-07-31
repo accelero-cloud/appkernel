@@ -15,9 +15,9 @@ REST endpoints over HTTP
 ````````````````````````
 Exposing your models over HTTP/REST is easy and :ref:`Custom resource endpoints` are supported as well.
 
-Let's assume that we have created a User class extending the :class:`Model` and the :class:`Service`. Now we'd like to expose it as a REST endpoint: ::
+Let's assume that we have created a User class extending the :class:`Model`. Now we'd like to expose it as a REST endpoint: ::
 
-    class User(Model, MongoRepository, Service):
+    class User(Model, MongoRepository):
         ...
 
     if __name__ == '__main__':
@@ -228,7 +228,7 @@ The built-in CRUD operations might be a good start for your application, however
 custom functionality needs to be exposed to the API consumers.
 In such cases the `@link` decorator comes handy. Let's suppose we need to provide the result of a specific method on the User: ::
 
-    class User(Model, MongoRepository, Service):
+    class User(Model, MongoRepository):
         ...
 
         @link(require=Anonymous())

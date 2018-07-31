@@ -19,7 +19,7 @@ Crash Course (TL;DR)
 --------------------
 Let's build a mini identity service: ::
 
-    class User(Model, MongoRepository, Service):
+    class User(Model, MongoRepository):
         id = Property(str)
         name = Property(str, required=True, index=UniqueIndex)
         email = Property(str, validators=[Email], index=UniqueIndex)
