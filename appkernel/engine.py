@@ -386,9 +386,9 @@ class AppKernelEngine(object):
         assert issubclass(service_class,
                           (appkernel.Controller, appkernel.Model)), 'Only subclasses of Service can be registered.'
 
-        from appkernel.service import set_app_engine
-        set_app_engine(service_class, self, url_base or self.root_url, methods=methods,
-                               enable_hateoas=enable_hateoas)
+        from appkernel.service import expose_service
+        expose_service(service_class, self, url_base or self.root_url, methods=methods,
+                       enable_hateoas=enable_hateoas)
         return ResourceController(service_class)
 
 

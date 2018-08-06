@@ -75,16 +75,6 @@ class IdentityMixin(object):
         ).decode('utf-8')
 
 
-def get_required_permission(cls, method, endpoint):
-    endpoints = cls.protected_methods.get(method)
-    if not endpoints:
-        return None
-    if endpoint in endpoints:
-        return endpoints.get(endpoint)
-    else:
-        return endpoints.get('*')
-
-
 class RbacMixin(object):
 
     # format of the method registry
@@ -140,7 +130,7 @@ class RbacMixin(object):
         return self
 
     def deny(self, permission, methods, endpoint=None):
-        self.cls.set_list(methods, permission, endpoint)
+        RbacMixin.set_list(methods, permission, endpoint)
         return self
 
     def require(self, permission, methods, endpoint=None):

@@ -2,12 +2,9 @@ from typing import Type
 
 import jwt
 from flask import request
-from flask_babel import _, lazy_gettext as _l
-
-import appkernel
+from flask_babel import _
 from appkernel import iam
 from appkernel.configuration import config
-from appkernel.iam import get_required_permission
 
 
 def check_token(jwt_token) -> dict:
@@ -24,9 +21,12 @@ def __has_current_subject_authority(token: dict, authority):
     return subject == binding_id
 
 
-def __get_required_permissions():
-    endpoint_config = config.service_registry.get(request.endpoint)
-    perms = get_required_permission(endpoint_config, request.method, request.endpoint)
+def __get_required_permissions(clazz):
+    pms = clazz.protected_methods.get(request.method)
+    if request.endpoint in pms:
+        perms = list(pms.get(request.endpoint))
+    else:
+        perms = list(pms.get('*'))
 
     if perms:
         if isinstance(perms, iam.Permission):
@@ -72,7 +72,8 @@ authority_evaluators = {
 
 def authorize_request():
     app_engine = config.app_engine
-    required_permissions = __get_required_permissions()
+    endpoint_config = config.service_registry.get(request.endpoint)
+    required_permissions = __get_required_permissions(endpoint_config)
 
     if __contains(required_permissions, iam.Denied):
         return app_engine.create_custom_error(403, _('Not allowed to access method.'))

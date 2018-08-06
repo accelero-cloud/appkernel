@@ -15,7 +15,7 @@ from .iam import RbacMixin, Anonymous
 from .model import Model, PropertyRequiredException, create_tagging_decorator, get_argument_spec, OPS
 from .query import QueryProcessor
 from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
-from .repository import Repository, xtract, MongoRepository
+from .repository import xtract
 from .validators import ValidationException
 
 try:
@@ -46,23 +46,6 @@ with self.app_context():
 """
 
 
-def _add_app_rule(cls, rule: str, endpoint: str, view_function: Callable, **options):
-    """
-    Registers the service in the service registry and adds the rule to flask with the view function.
-    :param rule:
-    :param endpoint:
-    :param view_function:
-    :param options:
-    :return:
-    """
-    config.service_registry[endpoint] = cls
-    config.flask_app.add_url_rule(rule, endpoint, view_function, **options)
-
-# @classmethod
-# def __service_call(cls, method: str, inner_method):
-#     allowed_methods = frozenset(['GET', 'PUT', 'POST', 'DELETE'])
-
-
 def _hook(cls, inner_function: Callable, hook_method: str):
     def wrapper(*args, **kws):
         before_hook_method = f'before_{hook_method}'
@@ -81,8 +64,74 @@ def _hook(cls, inner_function: Callable, hook_method: str):
     return wrapper
 
 
-def set_app_engine(cls, app_engine: AppKernelEngine, url_base: str, methods: list, enable_hateoas: bool = True):
+def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable, path_param: str = '', **options):
     """
+    Registers the service in the service registry and adds the rule to flask with the view function.
+    :param rule:
+    :param endpoint:
+    :param view_function:
+    :param options:
+    :return:
+    """
+    clazz_name = xtract(cls).lower()
+    base_name = '{}{}'.format(url_base, clazz_name)
+    rule = '{}/{}'.format(base_name, path_param)
+    endpoint = '{}_{}_{}'.format(clazz_name, method_name, options.get('methods')[0].lower())
+    config.service_registry[endpoint] = cls
+    config.flask_app.add_url_rule(rule, endpoint, view_function, **options)
+
+
+model_endpoints = {
+    'find_by_query': [
+        {
+            'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.find_by_query, 'on_get'), cls),
+            'method': 'GET'
+        }
+    ],
+    'find_by_id': [
+        {
+            'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.find_by_id, 'get'), cls),
+            'method': 'GET',
+            'param': '<string:object_id>'
+        }
+    ],
+    'aggregate': [
+        {
+            'func': lambda cls, engine: _execute(cls, engine, cls.aggregate, cls),
+            'method': 'GET',
+            'param': 'aggregate/'
+        }
+    ],
+    'save_object': [
+        {
+            'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.save_object, 'post'), cls),
+            'method': 'POST'
+        },
+        {
+            'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.patch_object, 'patch'), cls),
+            'method': 'PATCH',
+            'param': '<string:object_id>'
+        }
+    ],
+    'replace_object': [
+        {
+            'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.replace_object, 'put'), cls),
+            'method': 'PUT'
+        }
+    ],
+    'delete_by_id': [
+        {
+            'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.delete_by_id, 'delete'), cls),
+            'method': 'DELETE',
+            'param': '<object_id>'
+        }
+    ]
+}
+
+
+def expose_service(cls, app_engine: AppKernelEngine, url_base: str, methods: list, enable_hateoas: bool = True):
+    """
+    :param cls: the class name of the service which is going to be exposed
     :param enable_hateoas:
     :param methods: the HTTP methods allowed for this service
     :param url_base: the url where the service is exposed
@@ -93,60 +142,31 @@ def set_app_engine(cls, app_engine: AppKernelEngine, url_base: str, methods: lis
     """
     if not url_base.endswith('/'):
         url_base = '{}/'.format(url_base)
-    clazz_name = xtract(cls).lower()
-    cls.endpoint = '{}{}'.format(url_base, clazz_name)
-    cls.http_methods = methods
-    cls.enable_hateoas = enable_hateoas
-    class_methods = dir(cls)
+
+    cls.http_methods = methods  # todo: check the usage of this
+    cls.enable_hateoas = enable_hateoas  # todo: check the usage of this
+    class_methods = [cm for cm in dir(cls) if not cm.startswith('_') and callable(getattr(cls, cm))]
     if issubclass(cls, Model):
-        _add_app_rule(cls, '{}/schema'.format(cls.endpoint), '{}_schema'.format(clazz_name),
+        _add_app_rule(cls, url_base, 'schema',
                       _create_simple_wrapper_executor(cls, app_engine, cls.get_json_schema),
-                      methods=['GET'])
-        _add_app_rule(cls, '{}/meta'.format(cls.endpoint), '{}_meta'.format(clazz_name),
+                      path_param='schema', methods=['GET'])
+        _add_app_rule(cls, url_base, 'meta',
                       _create_simple_wrapper_executor(cls, app_engine, cls.get_parameter_spec),
-                      methods=['GET'])
+                      path_param='meta', methods=['GET'])
 
-    if issubclass(cls, Repository) and 'GET' in methods:
-        # generate get by id
-        if 'find_by_query' in class_methods:
-            _add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_get_by_query'.format(clazz_name),
-                          _execute(cls, app_engine,
-                                   _hook(cls, cls.find_by_query, 'on_get'), cls),
-                          methods=['GET'])
-        if 'find_by_id' in class_methods:
-            _add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_get_by_id'.format(clazz_name),
-                          _execute(cls, app_engine, _hook(cls, cls.find_by_id, 'get'),
-                                   cls),
-                          methods=['GET'])
-    if issubclass(cls, Repository) and 'save_object' in class_methods and 'POST' in methods:
-        _add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_post'.format(clazz_name),
-                      _execute(cls, app_engine, _hook(cls, cls.save_object, 'post'), cls),
-                      methods=['POST'])
-    if issubclass(cls, Repository) and 'replace_object' in class_methods and 'PUT' in methods:
-        _add_app_rule(cls, '{}/'.format(cls.endpoint), '{}_put'.format(clazz_name),
-                      _execute(cls, app_engine, _hook(cls, cls.replace_object, 'put'),
-                               cls),
-                      methods=['PUT'])
-    if issubclass(cls, Repository) and 'save_object' in class_methods and 'PATCH' in methods:
-        _add_app_rule(cls, '{}/<string:object_id>'.format(cls.endpoint), '{}_patch'.format(clazz_name),
-                      _execute(cls, app_engine, _hook(cls, cls.patch_object, 'patch'),
-                               cls),
-                      methods=['PATCH'])
+    for method in class_methods:
+        mdef_list = model_endpoints.get(method)
+        if mdef_list:
+            for mdef in mdef_list:
+                func = mdef.get('func')
+                path_param = mdef.get('param', '')
+                _add_app_rule(cls, url_base, method, func(cls, app_engine), path_param=path_param,
+                              methods=[mdef.get('method')])
 
-    if issubclass(cls, Repository) and 'delete_by_id' in class_methods and 'DELETE' in methods:
-        _add_app_rule(cls, '{}/<object_id>'.format(cls.endpoint), '{}_delete'.format(clazz_name),
-                      _execute(cls, app_engine, _hook(cls, cls.delete_by_id, 'delete'),
-                               cls),
-                      methods=['DELETE'])
-    if issubclass(cls, MongoRepository) and 'GET' in methods and 'aggregate' in class_methods:
-        _add_app_rule(cls, '{}/aggregate/'.format(cls.endpoint), '{}_aggregate'.format(clazz_name),
-                      _execute(cls, app_engine, cls.aggregate, cls),
-                      methods=['GET'])
-
-    _prepare_actions(cls)
+    _prepare_actions(cls, url_base)
 
 
-def _prepare_actions(cls):
+def _prepare_actions(cls, url_base: str):
     def create_action_executor(function_name):
         def action_executor(**named_args):
             if 'object_id' not in named_args:
@@ -182,14 +202,12 @@ def _prepare_actions(cls):
             relation = this_link.get('decorator_kwargs').get('rel', func_name)
             if not isinstance(methods, list):
                 methods = [methods]
-            link_endpoint = '{}_{}'.format(xtract(cls).lower(), relation)
-            _add_app_rule(cls, '{}/<object_id>/{}'.format(cls.endpoint, relation),
-                          link_endpoint,
-                          create_action_executor(func_name),
-                          methods=methods)
+            _add_app_rule(cls, url_base, relation, create_action_executor(func_name),
+                          path_param='<object_id>/{}'.format(relation), methods=methods)
             if setup_security:
                 required_permissions = this_link.get('decorator_kwargs').get('require', Anonymous())
-                RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions, endpoint=link_endpoint)
+                RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions,
+                                   endpoint='{}_{}_{}'.format(xtract(cls).lower(), relation, methods[0].lower()))
 
 
 def _extract_dict_from_payload():
@@ -499,7 +517,7 @@ def _xvert(cls, result_item, generate_links=True):
             '_items': [_xvert(cls, item, generate_links=False) for item in result_item]
         }
         if cls.enable_hateoas:
-            result.update(_links={'self': {'href': url_for('{}_get_by_query'.format(xtract(cls).lower()))}})
+            result.update(_links={'self': {'href': url_for('{}_find_by_query_get'.format(xtract(cls).lower()))}})
         return result
     elif is_primitive(result_item) or isinstance(result_item, (str, int)) or is_noncomplex(result_item):
         return {'_type': 'OperationResult', 'result': result_item}
@@ -512,24 +530,26 @@ def _calculate_links(cls, object_id):
     if 'links' in all_members:
         for this_link in all_members.get('links'):
             func_name = this_link.get('function_name')
-            rel = this_link.get('decorator_kwargs').get('rel', func_name)
-            endpoint_name = '{}_{}'.format(clazz_name, rel)
-            href = '{}'.format(url_for(endpoint_name, object_id=object_id))
+            decorator_args = this_link.get('decorator_kwargs')
+            rel = decorator_args.get('rel', func_name)
             args = [key for key in this_link.get('argspec').keys()]
+            http_methods = decorator_args.get('http_method', 'POST' if len(args) > 0 else 'GET')
+            endpoint_name = '{}_{}_{}'.format(clazz_name, rel, http_methods[0].lower() if isinstance(http_methods, list) else http_methods.lower())
+            href = '{}'.format(url_for(endpoint_name, object_id=object_id))
 
             links[rel] = {
                 'href': href,
-                'methods': this_link.get('decorator_kwargs').get('http_method',
-                                                                 'POST' if len(args) > 0 else 'GET')
+                'methods': http_methods
             }
             if args and len(args) > 0:
                 links[rel].update(args=args)
+
         links['self'] = {
-            'href': url_for('{}_get_by_id'.format(clazz_name), object_id=object_id),
+            'href': url_for('{}_find_by_id_get'.format(clazz_name), object_id=object_id),
             'methods': cls.http_methods
         }
         links['collection'] = {
-            'href': url_for('{}_get_by_query'.format(clazz_name)),
+            'href': url_for('{}_find_by_query_get'.format(clazz_name)),
             'methods': 'GET'
         }
         return links

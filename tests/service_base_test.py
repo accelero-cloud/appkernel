@@ -655,3 +655,7 @@ def test_bad_parameters(client):
     print('\n{}'.format(json.dumps(result, indent=2)))
     assert rsp.status_code == 500
     assert result.get('_type') == 'ErrorMessage'
+
+# todo: add bulk insert support
+# todo: add type info to the model dump
+#
