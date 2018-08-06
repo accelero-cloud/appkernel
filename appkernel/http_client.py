@@ -43,7 +43,7 @@ class RequestWrapper(object):
             content = response.json()
             if '_type' in content and content.get('_type') == MessageType.ErrorMessage.name:
                 msg = content.get('message')
-                upstream = content.get('upstream_service')
+                upstream = content.get('upstream_service', self.url.rstrip('/').split('/').pop())
                 exc = RequestHandlingException(response.status_code, msg)
                 exc.upstream_service = upstream
                 raise exc

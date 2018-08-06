@@ -1,6 +1,6 @@
 from datetime import datetime
 from money import Money
-from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, Service, NotEmpty
+from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, NotEmpty
 from appkernel.http_client import HttpClientServiceProxy
 from tutorials.inventory_service import Reservation
 
@@ -13,7 +13,7 @@ class AuthorisationRequest(Model):
     external_reference = Property(str, required=True, validators=NotEmpty)
 
 
-class Order(Model, MongoRepository, Service):
+class Order(Model, MongoRepository):
     id = Property(str, generator=create_uuid_generator('O'))
     payment_method = Property(PaymentMethod, required=True)
     products = Property(list, sub_type=Product, required=True)

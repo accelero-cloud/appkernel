@@ -3,7 +3,7 @@ from enum import Enum
 
 from money import Money
 
-from appkernel import Service, MongoRepository, Model, Property, date_now_generator, create_uuid_generator, NotEmpty, \
+from appkernel import MongoRepository, Model, Property, date_now_generator, create_uuid_generator, NotEmpty, \
     AppKernelEngine
 from tutorials.models import Product, ProductSize
 
@@ -27,7 +27,7 @@ class ReservationState(Enum):
     CANCELLED = 4
 
 
-class Reservation(Model, MongoRepository, Service):
+class Reservation(Model, MongoRepository):
     id = Property(str, generator=create_uuid_generator('R'))
     order_id = Property(str, required=True)
     order_date = Property(datetime, required=True, generator=date_now_generator)
@@ -51,7 +51,6 @@ class Reservation(Model, MongoRepository, Service):
                         f"There's no stock available for code: {pcode} and size: {psize} / updated count: {res}.")
                 elif res > 1:
                     raise ReservationException(f"Multiple product items were reserved ({res}).")
-
 
     @classmethod
     def after_post(cls, *args, **kwargs):

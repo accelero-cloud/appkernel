@@ -174,7 +174,8 @@ class AppKernelEngine(object):
     def add_after_request_function(self, func):
         self.after_request_functions.append(func)
 
-    def __init_event_loop(self):
+    @staticmethod
+    def __init_event_loop():
         # todo: implement event loop
         # config.event_loop = asyncio.get_event_loop()
         pass
@@ -244,7 +245,8 @@ class AppKernelEngine(object):
 
     def run(self):
         self.app.logger.info('===== Starting {} ====='.format(self.app_id))
-        # todo: make this configurable
+        self.app.logger.debug(f'--> registered routes:\n {self.app.url_map}')
+        # todo: make the threading and deployment configurable
         self.app.run(debug=self.development, threaded=True)
         # self.app.run(debug=self.development, processes=8)
 
@@ -254,7 +256,8 @@ class AppKernelEngine(object):
         if self.app and self.app.logger:
             self.app.logger.info('======= Shutting Down {} ======='.format(self.app_id))
 
-    def get_cmdline_options(self):
+    @staticmethod
+    def get_cmdline_options():
         # working dir is also available on: self.app.root_path
         argv = sys.argv[1:]
         opts, args = getopt.getopt(argv, 'c:dw:', ['config-dir=', 'development', 'working-dir='])
@@ -336,12 +339,14 @@ class AppKernelEngine(object):
         self.app.logger.addHandler(handler)
         self.app.logger.info('Logger initialised')
 
-    def _enable_werkzeug_logger(self, handler):
+    @staticmethod
+    def _enable_werkzeug_logger(handler):
         logger = logging.getLogger('werkzeug')
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-    def create_custom_error(self, code: int, message: str, upstream_service: str = None):
+    @staticmethod
+    def create_custom_error(code: int, message: str, upstream_service: str = None):
         rsp = {'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}
         if upstream_service:
             rsp.update(upstream_service=upstream_service)
@@ -355,8 +360,11 @@ class AppKernelEngine(object):
         :return:
         """
         code = (ex.code if isinstance(ex, HTTPException) else 500)
-        if ex:
+        if ex and code != 404:
             msg = '{}/{}'.format(ex.__class__.__name__, ex.description if isinstance(ex, HTTPException) else str(ex))
+            self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
+        elif ex and code == 404:
+            msg = '{} ({} {}): {}'.format(ex.__class__.__name__, request.method, request.url, ex.description if isinstance(ex, HTTPException) else str(ex))
             self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
         else:
             msg = 'Generic server error.'

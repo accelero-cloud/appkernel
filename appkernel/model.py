@@ -961,7 +961,9 @@ class Model(object, metaclass=_TaggingMetaClass):
             elif param_object.validators:
                 Model.__check_validity(param_object.validators, param_name, obj_items)
             if issubclass(param_object.python_type, Model) and param_name in obj_items:
-                obj_items[param_name].finalise_and_validate()
+                obj = obj_items.get(param_name)
+                if obj:
+                    obj.finalise_and_validate()
 
     @staticmethod
     def __check_validity(validator: Validator, param_name, obj_items):
