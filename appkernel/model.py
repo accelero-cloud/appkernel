@@ -49,6 +49,28 @@ bson_type_map = {
 }
 
 
+def create_tagging_decorator(tag_name):
+    """
+    Creates a new decorator which adds arbitrary tags to the decorated functions and methods, enabling these to be listed in a registry
+    :param tag_name:
+    :return:
+    """
+
+    def tagging_decorator(*args, **kwargs):
+        # here we can receive the parameters handed over on the decorator (@decorator(a=b))
+        def wrapper(method):
+            method.member_tag = (tag_name, {'args': args, 'kwargs': kwargs})
+            return method
+
+        return wrapper
+
+    return tagging_decorator
+
+
+# tagging decorator which will tag the decorated function
+link = create_tagging_decorator('links')
+resource = create_tagging_decorator('resources')
+
 def _get_custom_class(fqdn):
     try:
         parts = fqdn.split('.')
@@ -246,24 +268,6 @@ def get_argument_spec(provisioner_method):
     args = [name for name in getattr(inspect.getfullargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
     defaults = getattr(inspect.getfullargspec(provisioner_method), 'defaults')
     return dict(list(zip(args, defaults or [None for arg in args])))
-
-
-def create_tagging_decorator(tag_name):
-    """
-    Creates a new decorator which adds arbitrary tags to the decorated functions and methods, enabling these to be listed in a registry
-    :param tag_name:
-    :return:
-    """
-
-    def tagging_decorator(*args, **kwargs):
-        # here we can receive the parameters handed over on the decorator (@decorator(a=b))
-        def wrapper(method):
-            method.member_tag = (tag_name, {'args': args, 'kwargs': kwargs})
-            return method
-
-        return wrapper
-
-    return tagging_decorator
 
 
 class BackReference(object):

@@ -6,7 +6,7 @@ from appkernel import ServiceException
 from datetime import datetime, date
 from appkernel import AuditableRepository, MongoRepository
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
-from appkernel.service import link
+from appkernel.model import link
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
 from passlib.hash import pbkdf2_sha256
 from enum import Enum

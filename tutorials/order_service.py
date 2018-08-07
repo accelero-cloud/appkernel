@@ -23,7 +23,7 @@ class Order(Model, MongoRepository):
     @classmethod
     def before_post(cls, *args, **kwargs):
         order = kwargs.get('model')
-        status_code, rsp_dict = Order.client.reservation.post(Reservation(order_id=order.id, products=order.products))
+        status_code, rsp_dict = Order.client.reservations.post(Reservation(order_id=order.id, products=order.products))
         order.update(reservation_id=rsp_dict.get('result'))
 
     @classmethod
@@ -32,4 +32,4 @@ class Order(Model, MongoRepository):
         amount = sum([p.price.amount for p in order.products])
         ar = AuthorisationRequest(payment_method=order.payment_method, amount=amount)
         ar.external_reference = order.id
-        status_code, rsp_dict = Order.client.payment.post(ar)
+        status_code, rsp_dict = Order.client.wrap('/paymentservice/authorize').post(ar)

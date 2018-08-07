@@ -1,28 +1,35 @@
+import operator
+import re
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from functools import reduce
 
 import pymongo
-import operator
-
 from bson import ObjectId
+from pymongo.collection import Collection
 from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
 from appkernel.util import OBJ_PREFIX
 from .model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex, \
     CustomProperty
-from pymongo.collection import Collection
-from functools import reduce
 
 
 def xtract(cls):
     """
-    Extract class name from class
+    Extract class name from class, removing the Service/Controller/Resource ending and adding a plural -s or -ies.
     :param cls: the class object
     :return: the name of the desired collection
     """
-    return '{}s'.format(cls.__name__)
+    name = re.split('Service|Controller|Resource', cls.__name__)[0]
+    if name[-2:] in ['sh', 'ch'] or name[-1:] in ['s', 'x', 'z']:
+        name = f'{name}es'
+    elif name[-1:] == 'y' and (name[-2:-1] in ["a", "e", "i", "o", "u"] or name[-3:-2] == 'qu'):
+        name = f'{name[-1:]}ies'
+    else:
+        name = f'{name}s'
+    return name
 
 
 class Query(object):

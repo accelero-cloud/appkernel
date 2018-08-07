@@ -59,9 +59,12 @@ class HttpClientServiceProxy(object):
     def __init__(self, root_url: str):
         self.root_url = root_url.rstrip('/')
 
+    def wrap(self, resource_path: str):
+        return RequestWrapper(f'{self.root_url}/{resource_path.lstrip("/")}')
+
     def __getattr__(self, item):
         if isinstance(item, str):
-            return RequestWrapper(f'{self.root_url}/{item}s/')
+            return RequestWrapper(f'{self.root_url}/{item}/')
 
 
 class HttpClientFactory(object):

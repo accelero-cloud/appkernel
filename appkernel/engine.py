@@ -392,7 +392,7 @@ class AppKernelEngine(object):
         :rtype: Service
         """
         assert issubclass(service_class,
-                          (appkernel.Controller, appkernel.Model)), 'Only subclasses of Service can be registered.'
+                          (appkernel.Controller, appkernel.Model)), 'Only subclasses of Model and Controller can be registered.'
 
         from appkernel.service import expose_service
         expose_service(service_class, self, url_base or self.root_url, methods=methods,
