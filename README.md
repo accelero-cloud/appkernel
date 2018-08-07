@@ -6,7 +6,7 @@
 ![GitHub license](https://img.shields.io/github/license/accelero-cloud/appkernel.svg "license")
 
 ## What is Appkernel?
-A beautiful python framework enabling you to deliver a REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
+A beautiful, well tested python framework helping you to deliver REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
 
 - [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
 - [Roadmap](docs/roadmap.md)
@@ -89,6 +89,41 @@ curl -i -X GET \
   }
 }
 ```
+
+You can easily add extra and secure methods using the `@link` decorator:
+
+```python
+@link(http_method='POST', require=[CurrentSubject(), Role('admin')])
+def change_password(self, current_password, new_password):
+    if not pbkdf2_sha256.verify(current_password, self.password):
+        raise ServiceException(403, _('Current password is not correct'))
+    else:
+        self.password = new_password
+        self.save()
+    return _('Password changed')
+```
+
+The example above exposes the `http://base_url/users/<user_id>/change_password` endpoint and allows the user with admin
+role or the user with the current user_id to call it.
+
+Additionally you can easily create hooks, which are called before and after an HTTP method was executed, by simply adding
+static methods to the Model class which are following the convention: `before_{http_method}` and `after_{http_method}`:
+
+```python
+@classmethod
+def before_post(cls, *args, **kwargs):
+    user = kwargs.get('model')
+    print(f'going to create this user: {user}')
+```
+
+or inspect the already persisted object:
+
+```python
+@classmethod
+def after_post(cls, *args, **kwargs):
+    user = kwargs.get('model')
+    print(f'this user was created: {user}')
+```
 ### Some features of the REST endpoint
 
 - GET /users/12345 - retrieve a User object by its database ID;
@@ -146,6 +181,19 @@ Run the generators on the attributes and validate the object (usually not needed
 ```python
 user.finalise_and_validate()
 ```
+### Security is also part of the mix
+
+The following snippet shows the declarative way of access control:
+```python
+user_service = kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
+user_service.deny_all().require(Role('user'), methods='GET').require(Role('admin'),
+                                                                         methods=['PUT', 'POST', 'PATCH', 'DELETE'])
+```
+
+1. user_service.deny_all(): by default access to all methods is forbidden;
+2. require(Role('user'), methods='GET'): GET methods can be used by users having the Role: user (basic login role);
+3. require(Role('admin'), methods=['PUT', 'POST', 'PATCH', 'DELETE']): one needs the Role: admin in order to call other http methods;
+
 [I want to know the current status of the project](docs/roadmap.md)
 
 [For more details feel free to check out the documentation](http://appkernel.readthedocs.io)
