@@ -156,6 +156,15 @@ Or use native Mongo Query:
 user_generator = Project.find_by_query({'name': 'user name'})
 ```
 
+Atomic updates:
+```python
+# reserve 10 products with product code TRS abd size M
+query = StockInventory.where((StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.M))
+for _ in range(10):
+    ...
+    query.update(available=StockInventory.available - 1, reserved=StockInventory.reserved + 1)
+```
+
 ## Some more extras baked into the Model
 Generate the ID value automatically using a uuid generator and a prefix 'U':
 ```python

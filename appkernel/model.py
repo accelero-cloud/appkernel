@@ -71,6 +71,7 @@ def create_tagging_decorator(tag_name):
 link = create_tagging_decorator('links')
 resource = create_tagging_decorator('resources')
 
+
 def _get_custom_class(fqdn):
     try:
         parts = fqdn.split('.')
