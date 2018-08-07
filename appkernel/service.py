@@ -195,6 +195,8 @@ def _prepare_resources(cls, url_base: str, enable_security: bool = False, class_
     def create_resource_executor(function_name):
         def resource_executor(**named_args):
             try:
+                assert named_args
+                #todo: check the name for the named arg from above
                 instance = resource_instances.get(cls.__name__)
                 if not instance:
                     instance = cls()
