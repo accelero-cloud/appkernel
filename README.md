@@ -12,6 +12,8 @@ A beautiful, well tested python framework helping you to deliver REST enabled mi
 - [Roadmap](docs/roadmap.md)
 - [Apache 2 License](docs/license.md)
 
+If you like the project, give a vote on [awesome-python](https://github.com/vinta/awesome-python/pull/1103), so it gets added to the list of RESTful python frameworks. **We only need 20 votes :)**
+
 ## How does it helps you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
 you don't have to. You can focus entirely on delivering business value from day one and being the rockstar of your project.
