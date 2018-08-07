@@ -26,6 +26,7 @@ Introduction to the Model Class
 
 .. note::
     All the examples below were tested with Python's interactive console using the set of imports from below;
+
     ::
 
     from datetime import datetime
