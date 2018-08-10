@@ -21,7 +21,7 @@ you don't have to. You can focus entirely on delivering business value from day 
 ## Crash Course
 Let's build a mini identity service:
 ```python
-class User(Model, MongoRepository, Service):
+class User(Model, MongoRepository):
     id = Property(str)
     name = Property(str, validators=[NotEmpty], index=UniqueIndex)
     email = Property(str, validators=[Email, NotEmpty], index=UniqueIndex)
@@ -29,11 +29,15 @@ class User(Model, MongoRepository, Service):
                          converter=content_hasher(), omit=True)
     roles = Property(list, sub_type=str, default_value=['Login'])
 
-application_id = 'identity management app'
-app = Flask(__name__)
-kernel = AppKernelEngine(application_id, app=app)
+    @classmethod
+    def before_post(cls, *args, **kwargs):
+        user = kwargs.get('model')
+        print(f'going to create the following user: {user}')
+
+kernel = AppKernelEngine(__name__, app=Flask(__name__))
 
 if __name__ == '__main__':
+    # let's expose the user resource
     kernel.register(User)
 
     # let's create a sample user
@@ -58,14 +62,9 @@ Of course validation and some more goodies are built-in as well :)
 }
 ```
 
-One could add the *AuditedMongoRepository* mixin instead of the *MongoRepository* to the *User* model and we would end up with 3 extra fields:
-- **inserted**: the date-time of insertion;
-- **updated**: the date-time of the last update;
-- **version**: the number of versions stored for this document;
+### Retrieving our our User, using HTTP requests
 
-### Let's try to retrieve our User, using an HTTP request
-
-**Rest request**:
+**GET request**:
 ```bash
 curl -i -X GET \
  'http://127.0.0.1:5000/users/'
@@ -91,8 +90,15 @@ curl -i -X GET \
   }
 }
 ```
+We can also call other services using the built-in REST client proxy. In the snippet bellow we call the `reservations` endpoint
+on the Order service, by POST-ing a `Reservation` request.
 
-You can easily add extra and secure methods using the `@link` decorator:
+```python
+client = HttpClientServiceProxy('http://127.0.0.1:5000/')
+ status_code, rsp_dict = Order.client.reservations.post(Reservation(order_id=order.id, products=order.products))
+```
+
+Adding extra and secure methods using the `@link` decorator is easy as well:
 
 ```python
 @link(http_method='POST', require=[CurrentSubject(), Role('admin')])
@@ -108,9 +114,10 @@ def change_password(self, current_password, new_password):
 The example above exposes the `http://base_url/users/<user_id>/change_password` endpoint and allows the user with admin
 role or the user with the current user_id to call it.
 
-Additionally you can easily create hooks, which are called before and after an HTTP method was executed, by simply adding
-static methods to the Model class which are following the convention: `before_{http_method}` and `after_{http_method}`:
+Create additional hooks, which are called before and after a HTTP method is executed, by simply adding
+a static method to the `Model` class following the convention: `before_{http_method}` and `after_{http_method}`:
 
+**Example**:
 ```python
 @classmethod
 def before_post(cls, *args, **kwargs):
@@ -166,6 +173,11 @@ for _ in range(10):
     ...
     query.update(available=StockInventory.available - 1, reserved=StockInventory.reserved + 1)
 ```
+
+One could extend the *AuditedMongoRepository* mixin instead of the *MongoRepository* and we would end up with 3 extra fields:
+- **inserted**: the date-time of insertion;
+- **updated**: the date-time of the last update;
+- **version**: the number of versions stored for this document;
 
 ## Some more extras baked into the Model
 Generate the ID value automatically using a uuid generator and a prefix 'U':
