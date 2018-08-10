@@ -94,8 +94,8 @@ We can also call other services using the built-in REST client proxy. In the sni
 on the Order service, by POST-ing a `Reservation` request.
 
 ```python
-client = HttpClientServiceProxy('http://127.0.0.1:5000/')
- status_code, rsp_dict = Order.client.reservations.post(Reservation(order_id=order.id, products=order.products))
+    client = HttpClientServiceProxy('http://127.0.0.1:5000/')
+    status_code, rsp_dict = Order.client.reservations.post(Reservation(order_id=order.id, products=order.products))
 ```
 
 Adding extra and secure methods using the `@link` decorator is easy as well:
