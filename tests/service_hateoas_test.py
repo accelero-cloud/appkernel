@@ -35,7 +35,7 @@ def setup_function(function):
 
 
 def test_working_action(client):
-    print('\n> links >{}'.format(User.links))
+    print('\n> links >{}'.format(User.actions))
     user = create_and_save_a_user('test user', 'test password', 'test description')
     rsp = client.get('/users/{}'.format(user.id))
     print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))

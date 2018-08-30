@@ -6,7 +6,7 @@ from appkernel import ServiceException
 from datetime import datetime, date
 from appkernel import AuditableRepository, MongoRepository
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
-from appkernel.model import link
+from appkernel.model import resource, action
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
 from passlib.hash import pbkdf2_sha256
 from enum import Enum
@@ -25,7 +25,7 @@ class User(Model, MongoRepository, IdentityMixin):
     last_login = Property(datetime, marshaller=TimestampMarshaller)
     sequence = Property(int, index=Index)
 
-    @link(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])
+    @action(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])
     def change_p(self, current_password, new_password):
         if not pbkdf2_sha256.verify(current_password, self.password):
             raise ServiceException(403, _('Current password is not correct'))
@@ -34,7 +34,7 @@ class User(Model, MongoRepository, IdentityMixin):
             self.save()
         return _('Password changed')
 
-    @link(require=Anonymous())
+    @action(require=Anonymous())
     def get_description(self):
         return self.description
 

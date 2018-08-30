@@ -226,12 +226,12 @@ Custom resource endpoints
 `````````````````````````
 The built-in CRUD operations might be a good start for your application, however we would quickly run into situation where
 custom functionality needs to be exposed to the API consumers.
-In such cases the `@link` decorator comes handy. Let's suppose we need to provide the result of a specific method on the User: ::
+In such cases the `@action` decorator comes handy. Let's suppose we need to provide the result of a specific method on the User: ::
 
     class User(Model, MongoRepository):
         ...
 
-        @link(require=Anonymous())
+        @action(require=Anonymous())
         def get_description(self):
             return self.description
 
@@ -242,7 +242,7 @@ And we're ready to go, you have a new endpoint returning the description propert
 Now one can argue, that this example is not utterly useful, a statement which in this case might not be very far from the common perception. However there's
 much more into it. Let's say that we'd like to enable the user and the admin to change the password for the User: ::
 
-        @link(http_method='POST', require=[CurrentSubject(), Role('admin')])
+        @action(http_method='POST', require=[CurrentSubject(), Role('admin')])
         def change_password(self, current_password, new_password):
             if not pbkdf2_sha256.verify(current_password, self.password):
                 raise ServiceException(403, _('Current password is not correct'))

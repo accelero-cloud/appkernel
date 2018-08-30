@@ -72,8 +72,8 @@ authority_evaluators = {
 
 def authorize_request():
     app_engine = config.app_engine
-    endpoint_config = config.service_registry.get(request.endpoint)
-    required_permissions = __get_required_permissions(endpoint_config)
+    endpoint_class = config.service_registry.get(request.endpoint)
+    required_permissions = __get_required_permissions(endpoint_class)
 
     if __contains(required_permissions, iam.Denied):
         return app_engine.create_custom_error(403, _('Not allowed to access method.'))

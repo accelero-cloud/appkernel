@@ -98,10 +98,10 @@ on the Inventory service, by POST-ing a `Reservation` object.
     status_code, rsp_dict = client.reservations.post(Reservation(order_id=order.id, products=order.products))
 ```
 
-Adding extra and secure methods using the `@link` decorator is easy as well:
+Adding extra and secure methods using the `@action` decorator is easy as well:
 
 ```python
-@link(http_method='POST', require=[CurrentSubject(), Role('admin')])
+@action(http_method='POST', require=[CurrentSubject(), Role('admin')])
 def change_password(self, current_password, new_password):
     if not pbkdf2_sha256.verify(current_password, self.password):
         raise ServiceException(403, _('Current password is not correct'))

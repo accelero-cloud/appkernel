@@ -12,7 +12,7 @@ from appkernel.http_client import RequestHandlingException
 from .configuration import config
 from .core import AppKernelException
 from .engine import AppKernelEngine
-from .iam import RbacMixin, Anonymous
+from .iam import RbacMixin, Anonymous, Denied
 from .model import Model, PropertyRequiredException, get_argument_spec, OPS, _TaggingMetaClass
 from .query import QueryProcessor
 from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
@@ -127,9 +127,9 @@ model_endpoints = {
 }
 
 
-def expose_service(cls, app_engine: AppKernelEngine, url_base: str, methods: list, enable_hateoas: bool = True):
+def expose_service(clazz_or_instance, app_engine: AppKernelEngine, url_base: str, methods: list, enable_hateoas: bool = True):
     """
-    :param cls: the class name of the service which is going to be exposed
+    :param clazz_or_instance: the class name of the service which is going to be exposed
     :param enable_hateoas: if enabled (default) it will expose the the service descriptors
     :param methods: the HTTP methods allowed for this service
     :param url_base: the url where the service is exposed
@@ -138,37 +138,38 @@ def expose_service(cls, app_engine: AppKernelEngine, url_base: str, methods: lis
     :type app_engine: AppKernelEngine
     :return:
     """
-    assert inspect.isclass(cls), 'Only classes can be registered as a service (and not instances)'
+    assert inspect.isclass(clazz_or_instance) or isinstance(clazz_or_instance, Controller), 'Only classes or instance of Controller can be registered.'
     if not url_base.endswith('/'):
         url_base = '{}/'.format(url_base)
 
-    cls.http_methods = methods  # todo: check the usage of this
-    cls.enable_hateoas = enable_hateoas  # todo: check the usage of this
-    class_methods = [cm for cm in dir(cls) if not cm.startswith('_') and callable(getattr(cls, cm))]
-    if issubclass(cls, Model):
-        _add_app_rule(cls, url_base, 'schema',
-                      _create_simple_wrapper_executor(cls, app_engine, cls.get_json_schema),
-                      path_param='schema', methods=['GET'])
-        _add_app_rule(cls, url_base, 'meta',
-                      _create_simple_wrapper_executor(cls, app_engine, cls.get_parameter_spec),
-                      path_param='meta', methods=['GET'])
+    clazz_or_instance.http_methods = methods  # todo: check the usage of this
+    clazz_or_instance.enable_hateoas = enable_hateoas  # todo: check the usage of this
+    class_methods = [cm for cm in dir(clazz_or_instance) if not cm.startswith('_') and callable(getattr(clazz_or_instance, cm))]
+    if inspect.isclass(clazz_or_instance):
+        if issubclass(clazz_or_instance, Model):
+            _add_app_rule(clazz_or_instance, url_base, 'schema',
+                          _create_simple_wrapper_executor(clazz_or_instance, app_engine, clazz_or_instance.get_json_schema),
+                          path_param='schema', methods=['GET'])
+            _add_app_rule(clazz_or_instance, url_base, 'meta',
+                          _create_simple_wrapper_executor(clazz_or_instance, app_engine, clazz_or_instance.get_parameter_spec),
+                          path_param='meta', methods=['GET'])
 
-    if issubclass(cls, (Model, Repository)):
-        for method in class_methods:
-            mdef_list = model_endpoints.get(method)
-            if mdef_list:
-                for mdef in mdef_list:
-                    func = mdef.get('func')
-                    path_param = mdef.get('param', '')
-                    _add_app_rule(cls, url_base, method, func(cls, app_engine), path_param=path_param,
-                                  methods=[mdef.get('method')])
+        if issubclass(clazz_or_instance, (Model, Repository)):
+            for method in class_methods:
+                mdef_list = model_endpoints.get(method)
+                if mdef_list:
+                    for mdef in mdef_list:
+                        func = mdef.get('func')
+                        path_param = mdef.get('param', '')
+                        _add_app_rule(clazz_or_instance, url_base, method, func(clazz_or_instance, app_engine), path_param=path_param,
+                                      methods=[mdef.get('method')])
 
-    if issubclass(cls, Controller):
+    if isinstance(clazz_or_instance, Controller):
         pass
     setup_security = hasattr(config, 'security_enabled') and config.security_enabled
-    cls_items = cls.__dict__
-    _prepare_actions(cls, url_base, enable_security=setup_security, class_items=cls_items)
-    _prepare_resources(cls, url_base, enable_security=setup_security, class_items=cls_items)
+    cls_items = clazz_or_instance.__dict__ if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__.__dict__
+    _prepare_actions(clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__, url_base, enable_security=setup_security, class_items=cls_items)
+    _prepare_resources(clazz_or_instance, url_base, enable_security=setup_security, class_items=cls_items)
 
 
 def __get_http_methods(tagged_item):
@@ -191,26 +192,27 @@ def __get_http_methods(tagged_item):
 resource_instances = {}
 
 
-def _prepare_resources(cls, url_base: str, enable_security: bool = False, class_items=None):
+def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool = False, class_items=None):
     def create_resource_executor(function_name):
         def resource_executor(**named_args):
+            clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
             try:
                 assert named_args
                 # todo: check the name for the named arg from above
-                instance = resource_instances.get(cls.__name__)
+                instance = resource_instances.get(clazz.__name__)
                 if not instance:
-                    instance = cls()
-                    resource_instances[cls.__name__] = instance
+                        instance = clazz_or_instance() if inspect.isclass(clazz_or_instance) else clazz_or_instance
+                        resource_instances[clazz.__name__] = instance
                 executable_method = getattr(instance, function_name)
                 request_and_posted_arguments = _get_request_args()
                 request_and_posted_arguments.update(_extract_dict_from_payload())
                 result = executable_method(
                     **_autobox_parameters(executable_method, request_and_posted_arguments))
-                result_dic_tentative = {} if result is None else _xvert(cls, result)
+                result_dic_tentative = {} if result is None else _xvert(clazz, result)
                 return jsonify(result_dic_tentative), 200
             except Exception as exc:
                 config.app_engine.logger.exception(exc)
-                return config.app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
+                return config.app_engine.generic_error_handler(exc, upstream_service=clazz.__name__)
         return resource_executor
 
     if 'resources' in class_items:
@@ -222,13 +224,13 @@ def _prepare_resources(cls, url_base: str, enable_security: bool = False, class_
                 methods = [func_name.upper()]
             else:
                 path_segment = func_name.lower()
-            _add_app_rule(cls, url_base, func_name, create_resource_executor(func_name),
+            _add_app_rule(clazz_or_instance, url_base, func_name, create_resource_executor(func_name),
                           path_param=path_segment, methods=methods)
 
         if enable_security:
-            required_permissions = resource.get('decorator_kwargs').get('require', Anonymous())
-            RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions,
-                               endpoint='{}_{}_{}'.format(xtract(cls).lower(), func_name, methods[0].lower()))
+            required_permissions = resource.get('decorator_kwargs').get('require', Denied())
+            RbacMixin.set_list(cls=clazz_or_instance, methods=methods, permissions=required_permissions,
+                               endpoint='{}_{}_{}'.format(xtract(clazz_or_instance).lower(), func_name, methods[0].lower()))
 
 
 def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_items=None):
@@ -256,15 +258,15 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
 
         return action_executor
 
-    if 'links' in class_items:
-        for this_link in cls.links:
+    if 'actions' in class_items:
+        for this_link in cls.actions:
             func_name = this_link.get('function_name')
             relation = this_link.get('decorator_kwargs').get('rel', func_name)
             methods = __get_http_methods(this_link)
             _add_app_rule(cls, url_base, relation, create_action_executor(func_name),
                           path_param='<object_id>/{}'.format(relation), methods=methods)
             if enable_security:
-                required_permissions = this_link.get('decorator_kwargs').get('require', Anonymous())
+                required_permissions = this_link.get('decorator_kwargs').get('require', Denied())
                 RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions,
                                    endpoint='{}_{}_{}'.format(xtract(cls).lower(), relation, methods[0].lower()))
 
@@ -586,8 +588,8 @@ def _calculate_links(cls, object_id):
     links = {}
     clazz_name = xtract(cls).lower()
     all_members = cls.__dict__
-    if 'links' in all_members:
-        for this_link in all_members.get('links'):
+    if 'actions' in all_members:
+        for this_link in all_members.get('actions'):
             func_name = this_link.get('function_name')
             decorator_args = this_link.get('decorator_kwargs')
             rel = decorator_args.get('rel', func_name)

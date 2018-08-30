@@ -21,7 +21,7 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=[
         'pyyaml', 'enum34', 'pymongo==3.6.1', 'simplejson',
-        'Flask==0.12.2', 'werkzeug', 'eventlet',
+        'Flask > 0.12.3', 'werkzeug', 'eventlet',
         'wrapt', 'passlib==1.7.1', 'jsonschema',
         'flask-babel', 'babel', 'pyjwt', 'cryptography',
         'recommonmark', 'sets', 'money',

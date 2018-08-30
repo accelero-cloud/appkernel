@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import asyncio
+import inspect
 
 from babel.support import Translations
 from flask import Flask, current_app, request, g, make_response, jsonify
@@ -381,23 +382,24 @@ class AppKernelEngine(object):
         if exception is not None:
             self.app.logger.warn(exception.message)
 
-    def register(self, service_class, url_base=None, methods=['GET'], enable_hateoas=True) -> ResourceController:
+    def register(self, service_class_or_instance, url_base=None, methods=['GET'], enable_hateoas=True) -> ResourceController:
         """
 
-        :param service_class:
+        :param service_class_or_instance:
         :param url_base:
         :param methods:
         :param enable_hateoas:
         :return:
         :rtype: Service
         """
-        assert issubclass(service_class,
-                          (appkernel.Controller, appkernel.Model)), 'Only subclasses of Model and Controller can be registered.'
+        if inspect.isclass(service_class_or_instance):
+            assert issubclass(service_class_or_instance,
+                              (appkernel.Controller, appkernel.Model)), 'Only subclasses of Model and Controller can be registered.'
 
         from appkernel.service import expose_service
-        expose_service(service_class, self, url_base or self.root_url, methods=methods,
+        expose_service(service_class_or_instance, self, url_base or self.root_url, methods=methods,
                        enable_hateoas=enable_hateoas)
-        return ResourceController(service_class)
+        return ResourceController(service_class_or_instance)
 
 
 class CfgEngine(object):

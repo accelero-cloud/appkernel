@@ -68,7 +68,7 @@ def create_tagging_decorator(tag_name):
 
 
 # tagging decorator which will tag the decorated function
-link = create_tagging_decorator('links')
+action = create_tagging_decorator('actions')
 resource = create_tagging_decorator('resources')
 
 

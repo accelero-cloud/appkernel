@@ -29,18 +29,28 @@ class PaymentService(Controller):
     def delete(self, id):
         pass
 
+
 @pytest.fixture
 def app():
     return flask_app
+
+
+@pytest.fixture(scope="module")
+def payment_service():
+    return PaymentService()
 
 
 def setup_module(module):
     current_file_path = os.path.dirname(os.path.realpath(__file__))
     print('\nModule: >> {} at {}'.format(module, current_file_path))
     kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(current_file_path), development=True)
+    kernel.register(payment_service())
 
 
 def setup_function(function):
     """ executed before each method call
     """
     print('\n\nSETUP ==> ')
+
+def test_post(client):
+    pass
