@@ -1,17 +1,36 @@
-from money import Money
-
-from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
-from appkernel import Model, Property, UniqueIndex
-from appkernel import ServiceException
 from datetime import datetime, date
-from appkernel import AuditableRepository, MongoRepository
-from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
-from appkernel.model import resource, action
-from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
-from passlib.hash import pbkdf2_sha256
 from enum import Enum
-from flask_babel import _, lazy_gettext as _l
+
+from flask import Flask, url_for
+from flask_babel import _
+from money import Money
+from passlib.hash import pbkdf2_sha256
+
+from appkernel import AuditableRepository, MongoRepository
+from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Max, Min
+from appkernel import Model, Property, UniqueIndex
+from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
+from appkernel import ServiceException
+from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
+from appkernel.model import action
+
+
+def list_flask_routes(app: Flask):
+    import urllib
+    output = []
+    with app.test_request_context():
+        for rule in app.url_map.iter_rules():
+            options = {}
+            for arg in rule.arguments:
+                options[arg] = "<{0}>".format(arg)
+
+            methods = ','.join(rule.methods)
+            url = url_for(rule.endpoint, **options)
+            line = urllib.parse.unquote("{:50s} {:20s} {}".format(rule.endpoint, methods, url))
+            output.append(line)
+        for line in sorted(output):
+            print(line)
 
 
 class User(Model, MongoRepository, IdentityMixin):
@@ -25,7 +44,7 @@ class User(Model, MongoRepository, IdentityMixin):
     last_login = Property(datetime, marshaller=TimestampMarshaller)
     sequence = Property(int, index=Index)
 
-    @action(rel='change_password', http_method='POST', require=[CurrentSubject(), Role('admin')])
+    @action(rel='change_password', method='POST', require=[CurrentSubject(), Role('admin')])
     def change_p(self, current_password, new_password):
         if not pbkdf2_sha256.verify(current_password, self.password):
             raise ServiceException(403, _('Current password is not correct'))
@@ -224,9 +243,9 @@ def create_user_batch(urange=51):
     users = []
     for i in range(1, urange):
         users.append(User().update(name='multi_user_{}'.format(i)).update(password='some default password').
-            append_to(roles=['Admin', 'User', 'Operator']).
-            update(description='some description').
-            update(sequence=i))
+                     append_to(roles=['Admin', 'User', 'Operator']).
+                     update(description='some description').
+                     update(sequence=i))
     return users
 
 

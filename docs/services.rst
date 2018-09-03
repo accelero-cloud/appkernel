@@ -242,7 +242,7 @@ And we're ready to go, you have a new endpoint returning the description propert
 Now one can argue, that this example is not utterly useful, a statement which in this case might not be very far from the common perception. However there's
 much more into it. Let's say that we'd like to enable the user and the admin to change the password for the User: ::
 
-        @action(http_method='POST', require=[CurrentSubject(), Role('admin')])
+        @action(method='POST', require=[CurrentSubject(), Role('admin')])
         def change_password(self, current_password, new_password):
             if not pbkdf2_sha256.verify(current_password, self.password):
                 raise ServiceException(403, _('Current password is not correct'))

@@ -8,6 +8,7 @@
 ## What is Appkernel?
 A beautiful, well tested python framework helping you to deliver REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
 
+**It provides data serialisation, transformation, validation, security, ORM and service mash functions out of the box.**
 - [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
 - [Roadmap](docs/roadmap.md)
 - [Apache 2 License](docs/license.md)
@@ -23,10 +24,9 @@ Let's build a mini identity service:
 ```python
 class User(Model, MongoRepository):
     id = Property(str)
-    name = Property(str, validators=[NotEmpty], index=UniqueIndex)
-    email = Property(str, validators=[Email, NotEmpty], index=UniqueIndex)
-    password = Property(str, validators=[NotEmpty],
-                         converter=content_hasher(), omit=True)
+    name = Property(str, index=UniqueIndex)
+    email = Property(str, validators=[Email], index=UniqueIndex)
+    password = Property(str, converter=content_hasher(), omit=True)
     roles = Property(list, sub_type=str, default_value=['Login'])
 
     @classmethod
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # let's create a sample user
     user = User(name='Test User', email='test@accelero.cloud', password='some pass')
     user.save()
-
+    # and we are all set
     kernel.run()
 ```
 That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json schema for validation, or metadata to generate an SPA (Single Page Application).
@@ -101,7 +101,7 @@ on the Inventory service, by POST-ing a `Reservation` object.
 Adding extra and secure methods using the `@action` decorator is easy as well:
 
 ```python
-@action(http_method='POST', require=[CurrentSubject(), Role('admin')])
+@action(method='POST', require=[CurrentSubject(), Role('admin')])
 def change_password(self, current_password, new_password):
     if not pbkdf2_sha256.verify(current_password, self.password):
         raise ServiceException(403, _('Current password is not correct'))

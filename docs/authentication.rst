@@ -63,7 +63,7 @@ From now on, one needs the **Authorization** header on the requests with a valid
 In case there's a custom link method on one of your Model object, the `require` parameter will contain the list of :class:`Permission`-s granting access
 to the method: ::
 
-    @action(http_method='POST', require=[CurrentSubject(), Role('admin')])
+    @action(method='POST', require=[CurrentSubject(), Role('admin')])
     def change_password(self, current_password, new_password):
         ...
 

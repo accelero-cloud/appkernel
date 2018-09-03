@@ -1,5 +1,5 @@
 from flask import Flask
-from appkernel import AppKernelEngine, Controller
+from appkernel import AppKernelEngine
 import os
 import pytest
 try:

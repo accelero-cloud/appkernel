@@ -380,7 +380,7 @@ class AppKernelEngine(object):
         :return:
         """
         if exception is not None:
-            self.app.logger.warn(exception.message)
+            self.app.logger.warn(exception.message if hasattr(exception, 'message') else str(exception))
 
     def register(self, service_class_or_instance, url_base=None, methods=['GET'], enable_hateoas=True) -> ResourceController:
         """
@@ -393,8 +393,7 @@ class AppKernelEngine(object):
         :rtype: Service
         """
         if inspect.isclass(service_class_or_instance):
-            assert issubclass(service_class_or_instance,
-                              (appkernel.Controller, appkernel.Model)), 'Only subclasses of Model and Controller can be registered.'
+            assert issubclass(service_class_or_instance, (appkernel.Model)), 'Only subclasses of Model can be registered as class. If you want to register a controller, please use its instance.'
 
         from appkernel.service import expose_service
         expose_service(service_class_or_instance, self, url_base or self.root_url, methods=methods,

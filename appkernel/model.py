@@ -265,7 +265,7 @@ def get_argument_spec(provisioner_method):
     :return: the method arguments and default values as a dictionary, with method parameters as key and default values as dictionary value
     """
     assert inspect.ismethod(provisioner_method) or inspect.isfunction(
-        provisioner_method), 'The provisioner method must be a method'
+        provisioner_method), f'The provisioner {str(provisioner_method)} method must be a method or function'
     args = [name for name in getattr(inspect.getfullargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
     defaults = getattr(inspect.getfullargspec(provisioner_method), 'defaults')
     return dict(list(zip(args, defaults or [None for arg in args])))
@@ -302,31 +302,34 @@ class Marshaller(object):
 #         if isinstance(init_method, staticmethod):
 #             init_method.__func__(cls)
 
+def tag_class_items(class_name, class_dictionary):
+    tags = {}
+    for member_name, member in class_dictionary.items():
+        if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
+            # if it is a tagged member
+            if member.member_tag[0] not in tags:
+                tags[member.member_tag[0]] = []
+            tags[member.member_tag[0]].append({'function_name': member.__name__,
+                                               'argspec': get_argument_spec(member),
+                                               'decorator_args': list(member.member_tag[1].get('args')),
+                                               'decorator_kwargs': member.member_tag[1].get('kwargs'),
+                                               })
+            # One example of a tag:
+            # {
+            #   'function_name': 'change_password',
+            #   'argspec': {'password': 'default pass'},
+            #   'decorator_args': [],
+            #   'decorator_kwargs': {'http_method': ['POST']},
+            # }
+        if isinstance(member, Property):
+            # adding the name of the implementing class and the parameter name
+            member.backreference = BackReference(class_name=class_name, parameter_name=member_name)
+    return tags
+
 
 class _TaggingMetaClass(type):
     def __new__(mcs, class_name, bases, dct):
-        tags = {}
-        for member_name, member in dct.items():
-            if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
-                # if it is a tagged member
-                if member.member_tag[0] not in tags:
-                    tags[member.member_tag[0]] = []
-                tags[member.member_tag[0]].append({'function_name': member.__name__,
-                                                   'argspec': get_argument_spec(member),
-                                                   'decorator_args': list(member.member_tag[1].get('args')),
-                                                   'decorator_kwargs': member.member_tag[1].get('kwargs'),
-                                                   })
-                # One example of a tag:
-                # {
-                #   'function_name': 'change_password',
-                #   'argspec': {'password': 'default pass'},
-                #   'decorator_args': [],
-                #   'decorator_kwargs': {'http_method': ['POST']},
-                # }
-            if isinstance(member, Property):
-                # adding the name of the implementing class and the parameter name
-                member.backreference = BackReference(class_name=class_name, parameter_name=member_name)
-        dct.update(tags)
+        dct.update(tag_class_items(class_name, dct))
         return type.__new__(mcs, class_name, bases, dct)
 
 

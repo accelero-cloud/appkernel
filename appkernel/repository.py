@@ -1,3 +1,4 @@
+import inspect
 import operator
 import re
 from datetime import datetime
@@ -16,13 +17,14 @@ from .model import Model, Expression, AppKernelException, SortOrder, Property, I
     CustomProperty
 
 
-def xtract(cls):
+def xtract(clazz_or_instance):
     """
     Extract class name from class, removing the Service/Controller/Resource ending and adding a plural -s or -ies.
-    :param cls: the class object
+    :param clazz_or_instance: the class object
     :return: the name of the desired collection
     """
-    name = re.split('Service|Controller|Resource', cls.__name__)[0]
+    clazz_name = clazz_or_instance.__name__ if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__.__name__
+    name = re.split('Service|Controller|Resource', clazz_name)[0]
     if name[-2:] in ['sh', 'ch'] or name[-1:] in ['s', 'x', 'z']:
         name = f'{name}es'
     elif name[-1:] == 'y' and (name[-2:-1] in ["a", "e", "i", "o", "u"] or name[-3:-2] == 'qu'):
