@@ -1,13 +1,11 @@
-import time
-
-from werkzeug.datastructures import Headers
-
-from appkernel import AppKernelEngine, Role
-from appkernel.authorisation import check_token
 import os
+import time
 import pytest
 from flask import Flask
-from tests.test_util import User, create_and_save_a_user
+from werkzeug.datastructures import Headers
+from appkernel import AppKernelEngine, Role
+from appkernel.authorisation import check_token
+from tests.test_util import User, create_and_save_a_user, PaymentService
 
 try:
     import simplejson as json
@@ -16,6 +14,7 @@ except ImportError:
 
 flask_app = None
 kernel = None
+payment_service = PaymentService()
 
 
 @pytest.fixture
@@ -44,6 +43,7 @@ def setup_function(function):
     flask_app.testing = True
     kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(current_file_path()), development=True)
     kernel.enable_security()
+    kernel.register(payment_service).require(Role('admin'), methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
     User.delete_all()
 
 
@@ -249,6 +249,37 @@ def test_enable_all(client):
     print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
     assert rsp.status_code == 200, 'should be enabled'
 
+
 # def test_exempt(client, current_file_path):
 #     user_service = kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
 #     user_service.deny_all().exempt(Anonymous(), methods=['GET'])
+
+def test_get_controller_with_security_missing_header(client):
+    auth_id = 12345
+    rsp = client.get(f'/payments/{auth_id}')
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 401
+    assert rsp.json.get('message') == 'The authorisation header is missing.'
+
+
+def test_get_controller_with_wrong_role(client):
+    user = default_config()
+    headers = Headers()
+    headers.add('Authorization', f'Bearer {user.auth_token}')
+    auth_id = 12345
+    rsp = client.get(f'/payments/{auth_id}', headers=headers)
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 403
+    assert rsp.json.get('message') == 'The required permission is missing.'
+
+
+def test_get_controller_correct(client):
+    user = default_config()
+    user.update(roles=['user', 'admin'])
+    headers = Headers()
+    headers.add('Authorization', f'Bearer {user.auth_token}')
+    auth_id = 12345
+    rsp = client.get(f'/payments/{auth_id}', headers=headers)
+    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data))
+    assert rsp.status_code == 200
+    assert rsp.json.get('id') == '12345'

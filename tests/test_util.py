@@ -137,7 +137,8 @@ class PaymentService(object):
 
     @resource(method='GET', path='./<authorisation_id>', require=[Role('user')])
     def check_status(self, authorisation_id):
-        self.sink(authorisation_id)
+        if hasattr(self,'sink'):
+            self.sink(authorisation_id)
         return {'id': authorisation_id, 'status': 'OK'}
 
     @resource(method='GET', query_params=['start', 'stop'], require=[Role('user')])

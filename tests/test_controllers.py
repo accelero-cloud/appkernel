@@ -1,5 +1,6 @@
 import os
 from unittest.mock import MagicMock
+
 import pytest
 from flask import Flask
 from appkernel import AppKernelEngine
@@ -13,14 +14,12 @@ except ImportError:
 flask_app = Flask(__name__)
 flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
 flask_app.testing = True
-
+payment_service = PaymentService()
 # todo: test only http method names as class methods and external security config
 # todo: test resource decorator with and without security
 # todo: test mixture of the above two
 # todo: test class naming convention with Resource, Service, Controller ending
 # todo: negative tests (eg. wrong instance generation)
-# use a mocking infrastructure
-payment_service = PaymentService()
 
 
 @pytest.fixture
@@ -54,7 +53,6 @@ def test_post(client):
 
 
 ## todo: test post form (positive / negative)
-
 def test_post_form(client):
     rsp = client.post('/authorise/form', data=dict(
         product_id="12345",
