@@ -1,12 +1,9 @@
 import os
 from unittest.mock import MagicMock
-
 import pytest
 from flask import Flask
-
-from appkernel import AppKernelEngine, Role, AppKernelException
-from appkernel.model import resource
-from tests.test_util import list_flask_routes
+from appkernel import AppKernelEngine
+from tests.test_util import list_flask_routes, PaymentService
 
 try:
     import simplejson as json
@@ -17,59 +14,12 @@ flask_app = Flask(__name__)
 flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
 flask_app.testing = True
 
-
 # todo: test only http method names as class methods and external security config
 # todo: test resource decorator with and without security
 # todo: test mixture of the above two
 # todo: test class naming convention with Resource, Service, Controller ending
 # todo: negative tests (eg. wrong instance generation)
 # use a mocking infrastructure
-
-
-class PaymentService(object):
-
-    @resource(method='POST', require=[Role('user')])
-    def authorise(self, payload):
-        print(f'\n--> received as payload: {payload}\n')
-        self.sink(payload)
-        return payload
-
-    @resource(method='POST', path='/authorise/form', require=[Role('user')])
-    def authorise_payment(self, product_id, card_number, amount):
-        print(f'\n--> received as payload: {product_id} / {card_number} / {amount}\n')
-        self.sink(product_id, card_number, amount)
-        return {'authorisation_id': 'xxx-yyy-zzz'}
-
-    @resource(method='GET', path='./<authorisation_id>', require=[Role('user')])
-    def check_status(self, authorisation_id):
-        self.sink(authorisation_id)
-        return {'id': authorisation_id, 'status': 'OK'}
-
-    @resource(method='GET', query_params=['start', 'stop'], require=[Role('user')])
-    def list_payments(self, start=None, stop=None):
-        self.sink(start, stop)
-        return {'start': start, 'stop': stop}
-
-    @resource(method='GET', path='./multiple/<authorisation_id>', query_params=['start', 'stop'], require=[Role('user')])
-    def check_multiple_status(self, authorisation_id, start=None, stop=None):
-        self.sink(authorisation_id, start, stop)
-        return {'id': authorisation_id, 'start': start, 'stop': stop}
-
-    @resource(method='DELETE', path='./<authorisation_id>', require=[Role('user')])
-    def reverse(self, authorisation_id):
-        self.sink(authorisation_id)
-        return {'id': authorisation_id, 'status': 'OK'}
-
-    @resource(method='DELETE', path='/cancel/<payment_ids>', require=[Role('user')])
-    def delete_many(self, payment_ids):
-        self.sink(payment_ids)
-        return {'deleted': [pid for pid in payment_ids.split(',')]}
-
-    @resource(method='PUT', path='./<payment_ids>', require=[Role('user')])
-    def blow(self, payment_ids):
-        raise AppKernelException('throwing some custom exception')
-
-
 payment_service = PaymentService()
 
 

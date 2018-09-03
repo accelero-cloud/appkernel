@@ -4,7 +4,7 @@ from datetime import datetime
 
 from appkernel.util import OBJ_PREFIX
 from .test_util import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max, \
-    Project, Task
+    Project, Task, list_flask_routes
 import os
 import pytest
 
@@ -68,6 +68,7 @@ def setup_module(module):
     kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(current_file_path), development=True)
     kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
     kernel.register(Project, methods=['GET', 'PUT'])
+    list_flask_routes(flask_app)
 
 
 def setup_function(function):

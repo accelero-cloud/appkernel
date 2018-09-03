@@ -71,10 +71,12 @@ def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable,
     base_name = '{}{}'.format(url_base, clazz_name)
     if path_param and path_param.startswith('./'):
         rule = f'{base_name}/{path_param[2:]}'
-    elif path_param:
+    elif path_param and not path_param.startswith('/'):
+        rule = f'{base_name}/{path_param}'
+    elif path_param and path_param.startswith('/'):
         rule = path_param
     else:
-        rule = f'{base_name}'
+        rule = f'{base_name}/'
     endpoint = '{}_{}_{}'.format(clazz_name, method_name, options.get('methods')[0].lower())
     config.service_registry[endpoint] = cls
     config.flask_app.add_url_rule(rule, endpoint, view_function, **options)

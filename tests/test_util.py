@@ -6,14 +6,14 @@ from flask_babel import _
 from money import Money
 from passlib.hash import pbkdf2_sha256
 
-from appkernel import AuditableRepository, MongoRepository
+from appkernel import AuditableRepository, MongoRepository, AppKernelException
 from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Max, Min
 from appkernel import Model, Property, UniqueIndex
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
 from appkernel import ServiceException
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
-from appkernel.model import action
+from appkernel.model import action, resource
 
 
 def list_flask_routes(app: Flask):
@@ -119,6 +119,50 @@ class Reservation(Model, MongoRepository):
     order_date = Property(datetime, required=True, generator=date_now_generator)
     products = Property(list, sub_type=Product, required=True, validators=NotEmpty())
     state = Property(ReservationState, required=True, default_value=ReservationState.RESERVED)
+
+
+class PaymentService(object):
+
+    @resource(method='POST', require=[Role('user')])
+    def authorise(self, payload):
+        print(f'\n--> received as payload: {payload}\n')
+        self.sink(payload)
+        return payload
+
+    @resource(method='POST', path='/authorise/form', require=[Role('user')])
+    def authorise_payment(self, product_id, card_number, amount):
+        print(f'\n--> received as payload: {product_id} / {card_number} / {amount}\n')
+        self.sink(product_id, card_number, amount)
+        return {'authorisation_id': 'xxx-yyy-zzz'}
+
+    @resource(method='GET', path='./<authorisation_id>', require=[Role('user')])
+    def check_status(self, authorisation_id):
+        self.sink(authorisation_id)
+        return {'id': authorisation_id, 'status': 'OK'}
+
+    @resource(method='GET', query_params=['start', 'stop'], require=[Role('user')])
+    def list_payments(self, start=None, stop=None):
+        self.sink(start, stop)
+        return {'start': start, 'stop': stop}
+
+    @resource(method='GET', path='./multiple/<authorisation_id>', query_params=['start', 'stop'], require=[Role('user')])
+    def check_multiple_status(self, authorisation_id, start=None, stop=None):
+        self.sink(authorisation_id, start, stop)
+        return {'id': authorisation_id, 'start': start, 'stop': stop}
+
+    @resource(method='DELETE', path='./<authorisation_id>', require=[Role('user')])
+    def reverse(self, authorisation_id):
+        self.sink(authorisation_id)
+        return {'id': authorisation_id, 'status': 'OK'}
+
+    @resource(method='DELETE', path='/cancel/<payment_ids>', require=[Role('user')])
+    def delete_many(self, payment_ids):
+        self.sink(payment_ids)
+        return {'deleted': [pid for pid in payment_ids.split(',')]}
+
+    @resource(method='PUT', path='./<payment_ids>', require=[Role('user')])
+    def blow(self, payment_ids):
+        raise AppKernelException('throwing some custom exception')
 
 
 def create_portfolio(name):
