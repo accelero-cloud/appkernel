@@ -25,8 +25,7 @@ setup(
         'wrapt', 'passlib==1.7.1', 'jsonschema',
         'flask-babel', 'babel', 'pyjwt', 'cryptography',
         'recommonmark', 'sets', 'money',
-        'aiohttp', 'cchardet', 'aiodns'
-        # 'requests', 'pymongo', 'Werkzeug==0.12.2',
+        'aiohttp', 'cchardet', 'aiodns', 'requests'
         # , 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
         # 'flask-emails', 'flask-httpauth', 'flask-cors',
         # 'python-engineio==1.7.0', 'python-socketio==1.8.1',
@@ -34,7 +33,7 @@ setup(
         # "jsonstruct==0.2a1", "mockito"
         # 'redis',
     ],
-    tests_require=['pytest', 'pytest-flask'],
+    tests_require=['pytest', 'pytest-flask', 'requests-mock'],
     include_package_data=True,
     platforms='any',
     url='https://appkernel.accelero.cloud',
