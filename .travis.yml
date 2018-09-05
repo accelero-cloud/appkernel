@@ -14,7 +14,7 @@ services:
   - redis-server
 
 install:
-  - pip install -U pip setuptools pytest pytest-flask flake8
+  - pip install -U pip setuptools pytest pytest-flask flake8 requests-mock codecov pytest-cov
   # trying to include unreleased fixes for pylint in combination w. Python 3.7
   - pip install --pre -U pylint astroid
   - pip install --editable .
