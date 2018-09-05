@@ -21,7 +21,8 @@ install:
   - cd tests && pybabel compile -d ./translations && cd ..
 
 script:
-  - pytest tests/ -v --capture=no
+  - coverage run -m pytest ./tests
+  #- pytest tests/ -v --capture=no
   - pylint --rcfile=./pylintrc appkernel
   - flake8 ./appkernel --show-source --statistics --count
 
@@ -29,6 +30,8 @@ after_script:
   # show an overall report, including the tests
   # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
   - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+after_success:
+  - codecov
 
 
 before_deploy:

@@ -33,7 +33,7 @@ setup(
         # "jsonstruct==0.2a1", "mockito"
         # 'redis',
     ],
-    tests_require=['pytest', 'pytest-flask', 'requests-mock'],
+    tests_require=['pytest', 'pytest-flask', 'requests-mock', 'codecov', 'pytest-cov'],
     include_package_data=True,
     platforms='any',
     url='https://appkernel.accelero.cloud',

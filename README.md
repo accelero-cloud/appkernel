@@ -3,6 +3,7 @@
 
 ![alt build_status](https://travis-ci.org/accelero-cloud/appkernel.svg?branch=master "build status")
 ![alt issues](https://img.shields.io/github/issues/accelero-cloud/appkernel.svg "Open issues")
+![alt coverage](https://codecov.io/gh/accelero-cloud/appkernel/branch/master/graph/badge.svg "code coverage")
 ![GitHub license](https://img.shields.io/github/license/accelero-cloud/appkernel.svg "license")
 
 ## What is Appkernel?
