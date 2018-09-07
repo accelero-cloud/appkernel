@@ -629,11 +629,33 @@ def test_atomic_updates():
     query = StockInventory.where(
         (StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.M))
     for _ in range(10):
-        query.update(available=StockInventory.available - 1, reserved=StockInventory.reserved + 1)
+        query.update_many(available=StockInventory.available - 1, reserved=StockInventory.reserved + 1)
     stock = StockInventory.where(
         (StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.M)).find_one()
     assert stock.reserved == 10
     assert stock.available == 90
+
+
+def test_multiple_query_params():
+    __init_stock_inventory()
+    query = StockInventory.where(
+        (StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.M) & (StockInventory.available > 1))
+    query.update_many(available=StockInventory.available - 10, reserved=StockInventory.reserved + 10)
+
+    stock = StockInventory.where(
+        (StockInventory.product.code == 'TRS') & (StockInventory.product.size == ProductSize.M)).find_one()
+    assert stock.reserved == 10
+    assert stock.available == 90
+
+
+@pytest.mark.skip(reason='not implemented yet')
+def test_multiple_query_param_with_grouping_logic():
+    __init_stock_inventory()
+    query = StockInventory.where(
+        (StockInventory.product.code == 'TRS') | (StockInventory.product.code == 'BTX') &
+        ((StockInventory.product.size == ProductSize.M) | (StockInventory.available > 1)))
+    #query.update_many(available=StockInventory.available - 10, reserved=StockInventory.reserved + 10)
+    assert '$and' in query.filter_expr
 
 # todo: test database locking / with statement: with db.atomic()
 # todo: implement optimistic locking with database versioning

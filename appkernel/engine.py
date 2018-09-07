@@ -1,26 +1,28 @@
 #!/usr/bin/python
-import asyncio
-import inspect
-
-from babel.support import Translations
-from flask import Flask, current_app, request, g, make_response, jsonify
-import logging
-from flask_babel import Babel, get_locale, _
-from pymongo import MongoClient
-import sys, os, yaml, re
+import atexit
 import getopt
+import inspect
+import logging
+import os
+import re
+import sys
 from logging.handlers import RotatingFileHandler
-from werkzeug.exceptions import default_exceptions, HTTPException
-import appkernel
-from appkernel import RbacMixin
-from .core import AppKernelException
-from appkernel.configuration import config
-from .authorisation import authorize_request
-from .util import default_json_serializer
-import atexit, eventlet.debug
-from enum import Enum
+
+import eventlet.debug
+import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from flask import Flask, current_app, request, g
+from flask_babel import Babel, get_locale
+from pymongo import MongoClient
+from werkzeug.exceptions import default_exceptions, HTTPException
+
+from .authorisation import authorize_request
+from .configuration import config
+from .core import AppKernelException
+from .iam import RbacMixin
+from .model import Model
+from .util import default_json_serializer, create_custom_error
 
 try:
     import simplejson as json
@@ -31,10 +33,6 @@ try:
     from flask import _app_ctx_stack as stack
 except ImportError:
     from flask import _request_ctx_stack as stack
-
-
-class MessageType(Enum):
-    ErrorMessage = 1
 
 
 class AppKernelJSONEncoder(json.JSONEncoder):
@@ -346,13 +344,6 @@ class AppKernelEngine(object):
         logger.setLevel(logging.DEBUG)
         logger.addHandler(handler)
 
-    @staticmethod
-    def create_custom_error(code: int, message: str, upstream_service: str = None):
-        rsp = {'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}
-        if upstream_service:
-            rsp.update(upstream_service=upstream_service)
-        return make_response(jsonify(rsp), code)
-
     def generic_error_handler(self, ex: Exception = None, upstream_service: str = None):
         """
         Takes a generic exception and returns a json error message which will be returned to the client
@@ -365,12 +356,13 @@ class AppKernelEngine(object):
             msg = '{}/{}'.format(ex.__class__.__name__, ex.description if isinstance(ex, HTTPException) else str(ex))
             self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
         elif ex and code == 404:
-            msg = '{} ({} {}): {}'.format(ex.__class__.__name__, request.method, request.url, ex.description if isinstance(ex, HTTPException) else str(ex))
+            msg = '{} ({} {}): {}'.format(ex.__class__.__name__, request.method, request.url,
+                                          ex.description if isinstance(ex, HTTPException) else str(ex))
             self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
         else:
             msg = 'Generic server error.'
             self.logger.warn('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
-        return self.create_custom_error(code, msg, upstream_service=upstream_service)
+        return create_custom_error(code, msg, upstream_service=upstream_service)
 
     def teardown(self, exception):
         """
@@ -382,7 +374,8 @@ class AppKernelEngine(object):
         if exception is not None:
             self.app.logger.warn(exception.message if hasattr(exception, 'message') else str(exception))
 
-    def register(self, service_class_or_instance, url_base=None, methods=['GET'], enable_hateoas=True) -> ResourceController:
+    def register(self, service_class_or_instance, url_base=None, methods=['GET'],
+                 enable_hateoas=True) -> ResourceController:
         """
 
         :param service_class_or_instance:
@@ -393,7 +386,8 @@ class AppKernelEngine(object):
         :rtype: Service
         """
         if inspect.isclass(service_class_or_instance):
-            assert issubclass(service_class_or_instance, (appkernel.Model)), 'Only subclasses of Model can be registered as class. If you want to register a controller, please use its instance.'
+            assert issubclass(service_class_or_instance, (
+                Model)), 'Only subclasses of Model can be registered as class. If you want to register a controller, please use its instance.'
 
         from appkernel.service import expose_service
         expose_service(service_class_or_instance, self, url_base or self.root_url, methods=methods,

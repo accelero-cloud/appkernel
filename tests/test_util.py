@@ -137,7 +137,7 @@ class PaymentService(object):
 
     @resource(method='GET', path='./<authorisation_id>', require=[Role('user')])
     def check_status(self, authorisation_id):
-        if hasattr(self,'sink'):
+        if hasattr(self, 'sink'):
             self.sink(authorisation_id)
         return {'id': authorisation_id, 'status': 'OK'}
 
@@ -146,7 +146,8 @@ class PaymentService(object):
         self.sink(start, stop)
         return {'start': start, 'stop': stop}
 
-    @resource(method='GET', path='./multiple/<authorisation_id>', query_params=['start', 'stop'], require=[Role('user')])
+    @resource(method='GET', path='./multiple/<authorisation_id>', query_params=['start', 'stop'],
+              require=[Role('user')])
     def check_multiple_status(self, authorisation_id, start=None, stop=None):
         self.sink(authorisation_id, start, stop)
         return {'id': authorisation_id, 'start': start, 'stop': stop}

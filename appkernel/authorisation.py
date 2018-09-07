@@ -4,6 +4,7 @@ import jwt
 from flask import request
 from flask_babel import _
 from appkernel import iam
+from .util import create_custom_error
 from appkernel.configuration import config
 
 
@@ -71,19 +72,18 @@ authority_evaluators = {
 
 
 def authorize_request():
-    app_engine = config.app_engine
     endpoint_class = config.service_registry.get(request.endpoint)
     required_permissions = __get_required_permissions(endpoint_class)
 
     if __contains(required_permissions, iam.Denied):
-        return app_engine.create_custom_error(403, _('Not allowed to access method.'))
+        return create_custom_error(403, _('Not allowed to access method.'))
 
     if __contains(required_permissions, iam.Anonymous):
         return
 
     authorisation_header = request.headers.get('Authorization')
     if not authorisation_header:
-        return app_engine.create_custom_error(401, _('The authorisation header is missing.'))
+        return create_custom_error(401, _('The authorisation header is missing.'))
     try:
         token = check_token(authorisation_header.split(' ')[1])
         required_roles, required_authorities = __split_to_roles_and_authorities(required_permissions)
@@ -92,8 +92,8 @@ def authorize_request():
         missing_required_authority = not __has_required_authority(required_authorities, token)
 
         if missing_required_role and missing_required_authority:
-            return app_engine.create_custom_error(403, _('The required permission is missing.'))
+            return create_custom_error(403, _('The required permission is missing.'))
     except AttributeError:
-        return app_engine.create_custom_error(401, _('The permission type is not supported.'))
+        return create_custom_error(401, _('The permission type is not supported.'))
     except Exception as exc:
-        return app_engine.create_custom_error(403, str(exc))
+        return create_custom_error(403, str(exc))

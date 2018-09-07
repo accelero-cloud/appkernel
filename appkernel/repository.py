@@ -8,7 +8,7 @@ from functools import reduce
 
 import pymongo
 from bson import ObjectId
-from pymongo.collection import Collection
+from pymongo.collection import Collection, ReturnDocument
 from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
@@ -23,7 +23,8 @@ def xtract(clazz_or_instance):
     :param clazz_or_instance: the class object
     :return: the name of the desired collection
     """
-    clazz_name = clazz_or_instance.__name__ if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__.__name__
+    clazz_name = clazz_or_instance.__name__ if inspect.isclass(
+        clazz_or_instance) else clazz_or_instance.__class__.__name__
     name = re.split('Service|Controller|Resource', clazz_name)[0]
     if name[-2:] in ['sh', 'ch'] or name[-1:] in ['s', 'x', 'z']:
         name = f'{name}es'
@@ -58,11 +59,25 @@ class Query(object):
                         Query.__extract_rhs(where.rhs))
             elif isinstance(where.lhs, Expression) and isinstance(where.rhs, Expression):
                 # two expressions are compared to each other
-                expressions = [{where.lhs.lhs.backreference.parameter_name:
-                                    where.lhs.ops.lmbda(Query.__extract_rhs(where.lhs.rhs))},
-                               {where.rhs.lhs.backreference.parameter_name:
-                                    where.rhs.ops.lmbda(Query.__extract_rhs(where.rhs.rhs))}]
-                self.filter_expr[str(where.ops)] = [expression for expression in expressions]
+                exprs = []
+                exprs.extend(self.__xtract_expression(where))
+                self.filter_expr[str(where.ops)] = [expression for expression in exprs]
+
+    def __xtract_expression(self, expression: Expression):
+        ret_val = []
+        if isinstance(expression.lhs, Expression):
+            ret_val.extend(self.__xtract_expression(expression.lhs))
+        if isinstance(expression.rhs, Expression):
+            ret_val.extend(self.__xtract_expression(expression.rhs))
+        if isinstance(expression.lhs, Property):
+            ret_val.append({
+                expression.lhs.backreference.parameter_name:
+                    expression.ops.lmbda(Query.__extract_rhs(expression.rhs))
+            })
+        if isinstance(expression.rhs, Property):
+            ret_val.append({expression.lhs.backreference.parameter_name:
+                                expression.ops.lmbda(Query.__extract_rhs(expression.rhs))})
+        return ret_val
 
     @staticmethod
     def __extract_rhs(right_hand_side):
@@ -189,7 +204,18 @@ class MongoQuery(Query):
             update_dict[opname] = op_expr
         return update_dict
 
-    def update(self, **update_expression) -> int:
+    def find_one_and_update(self, **update_expression):
+        upd = self.__get_update_expression(**update_expression)
+        hit = self.connection.find_one_and_update(self.filter_expr, upd, return_document=ReturnDocument.AFTER)
+        return Model.from_dict(hit, self.user_class, convert_ids=True,
+                               converter_func=mongo_type_converter_from_dict) if hit else None
+
+    def update_one(self, **update_expression) -> int:
+        upd = self.__get_update_expression(**update_expression)
+        update_result = self.connection.update_one(self.filter_expr, upd, upsert=False)
+        return update_result.modified_count
+
+    def update_many(self, **update_expression) -> int:
         upd = self.__get_update_expression(**update_expression)
         update_result = self.connection.update_many(self.filter_expr, upd, upsert=False)
         return update_result.modified_count

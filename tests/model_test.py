@@ -43,6 +43,9 @@ def test_required_field():
     project = Project()
     with pytest.raises(PropertyRequiredException):
         project.finalise_and_validate()
+    with pytest.raises(PropertyRequiredException):
+        project.update(name=None)
+        project.finalise_and_validate()
     project.update(name='some_name')
     project.finalise_and_validate()
 

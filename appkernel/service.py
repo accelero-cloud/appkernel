@@ -4,7 +4,6 @@ from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from typing import Callable
-
 from flask import jsonify, request, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
@@ -18,6 +17,7 @@ from .query import QueryProcessor
 from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
 from .repository import xtract, Repository
 from .validators import ValidationException
+from .util import create_custom_error
 
 try:
     import simplejson as json
@@ -218,9 +218,15 @@ def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool =
                 executable_method = getattr(instance, function_name)
                 request_and_posted_arguments = _get_request_args()
                 request_and_posted_arguments.update(named_args)
-                request_and_posted_arguments.update(_extract_dict_from_payload())
-                result = executable_method(
-                    **_autobox_parameters(executable_method, request_and_posted_arguments))
+
+                payload = _extract_dict_from_payload()
+                if '_type' in payload:
+                    mdl = Model.load_and_or_convert_object(payload)
+                    result = executable_method(mdl, **_autobox_parameters(executable_method, request_and_posted_arguments))
+                else:
+                    request_and_posted_arguments.update(payload)
+                    result = executable_method(
+                        **_autobox_parameters(executable_method, request_and_posted_arguments))
                 result_dic_tentative = {} if result is None else _xvert(clazz, result)
                 return jsonify(result_dic_tentative), 200
             except Exception as exc:
@@ -249,7 +255,7 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
         def action_executor(**named_args):
             if 'object_id' not in named_args:
                 msg = 'The object_id property is required for this action to execute'
-                return config.app_engine.create_custom_error(400, msg, cls.__name__)
+                return create_custom_error(400, msg, cls.__name__)
             else:
                 try:
                     instance = cls.find_by_id(named_args['object_id'])
@@ -262,7 +268,7 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
                     return jsonify(result_dic_tentative), 200
                 except ServiceException as sexc:
                     config.app_engine.logger.warn('Service error: {}'.format(str(sexc)))
-                    return config.app_engine.create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
+                    return create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
                 except Exception as exc:
                     config.app_engine.logger.exception(exc)
                     return config.app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
@@ -375,10 +381,10 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
             if request.method in ['GET', 'PUT', 'PATCH']:
                 if result is None:
                     object_id = named_args.get('object_id', None)
-                    return app_engine.create_custom_error(404, 'Document{} is not found.'.format(
+                    return create_custom_error(404, 'Document{} is not found.'.format(
                         ' with id {}'.format(object_id) if object_id else ''), cls.__name__)
             if request.method == 'DELETE' and isinstance(result, int) and result == 0:
-                return app_engine.create_custom_error(404, 'Document with id {} was not deleted.'.format(
+                return create_custom_error(404, 'Document with id {} was not deleted.'.format(
                     named_args.get('object_id', '-1')), cls.__name__)
             if result is None or isinstance(result, list) and len(result) == 0:
                 return_code = 204
@@ -386,14 +392,14 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
             return jsonify(result_dic_tentative), return_code
         except PropertyRequiredException as pexc:
             app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
-            return app_engine.create_custom_error(400, str(pexc), cls.__name__)
+            return create_custom_error(400, str(pexc), cls.__name__)
         except ValidationException as vexc:
             app_engine.logger.warn('validation error: {}'.format(str(vexc)))
-            return app_engine.create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)),
+            return create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)),
                                                   cls.__name__)
         except RequestHandlingException as rexc:
             app_engine.logger.warn(f'request forwarding error: {str(rexc)}')
-            return app_engine.create_custom_error(rexc.status_code, rexc.message, rexc.upstream_service)
+            return create_custom_error(rexc.status_code, rexc.message, rexc.upstream_service)
         except Exception as exc:
             return app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
 
@@ -577,7 +583,8 @@ def _xvert(cls, result_item, generate_links=True):
     """
     if isinstance(result_item, Model):
         model = Model.to_dict(result_item, skip_omitted_fields=True)
-        model.update(_type=cls.__name__)
+        if '_type' not in model:
+             model.update(_type=cls.__name__)
         if cls.enable_hateoas and generate_links:
             model.update(_links=_calculate_links(cls, result_item.id))
         return model
@@ -588,7 +595,7 @@ def _xvert(cls, result_item, generate_links=True):
             '_type': result_item.__class__.__name__,
             '_items': [_xvert(cls, item, generate_links=False) for item in result_item]
         }
-        if cls.enable_hateoas:
+        if hasattr(cls, 'enable_hateoas') and cls.enable_hateoas:
             result.update(_links={'self': {'href': url_for('{}_find_by_query_get'.format(xtract(cls).lower()))}})
         return result
     elif is_primitive(result_item) or isinstance(result_item, (str, int)) or is_noncomplex(result_item):
@@ -605,7 +612,7 @@ def _calculate_links(cls, object_id):
             decorator_args = this_link.get('decorator_kwargs')
             rel = decorator_args.get('rel', func_name)
             args = [key for key in this_link.get('argspec').keys()]
-            http_methods = decorator_args.get('http_method', 'POST' if len(args) > 0 else 'GET')
+            http_methods = decorator_args.get('method', 'POST' if len(args) > 0 else 'GET')
             endpoint_name = '{}_{}_{}'.format(clazz_name, rel, http_methods[0].lower() if isinstance(http_methods,
                                                                                                      list) else http_methods.lower())
             href = '{}'.format(url_for(endpoint_name, object_id=object_id))

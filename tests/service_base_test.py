@@ -87,7 +87,7 @@ def test_get_basic(client):
     result = rsp.json
     assert result.get('id') == user_id
     assert '_type' in result
-    assert result.get('_type') == 'User'
+    assert result.get('_type') == 'tests.test_util.User'
 
 
 def test_get_not_found(client):
@@ -228,7 +228,7 @@ def test_pagination(client):
         assert len(result_set.get('_items')) == 5
         assert result_set.get('_items')[4].get('sequence') == page * 5, 'the sequence number should be a multiple of 5'
         assert result_set.get('_type') == 'list', 'the type should be a list here'
-        assert result_set.get('_items')[0].get('_type') == 'User', 'the item type should be User'
+        assert result_set.get('_items')[0].get('_type') == 'tests.test_util.User', 'the item type should be User'
 
 
 def test_pagination_with_sort(client):

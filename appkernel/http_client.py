@@ -2,7 +2,8 @@ import requests
 from flask import request
 
 from appkernel import Model, AppKernelException
-from appkernel.engine import MessageType
+from appkernel.core import MessageType
+from appkernel.model import _get_custom_class
 
 
 class RequestHandlingException(AppKernelException):
@@ -39,8 +40,10 @@ class RequestWrapper(object):
                     response_object = response.json()
                 except ValueError:
                     response_object = {'result': response.text}
-                if '_type' in response_object:
-                    return response.status_code, Model.to_dict(response.json())
+                if '_type' in response_object and response_object.get('_type') not in ['OperationResult',
+                                                                                       'ErrorMessage']:
+                    type_class =  _get_custom_class(response_object.pop('_type'))
+                    return response.status_code, Model.from_dict(response_object, type_class)
                 else:
                     return response.status_code, response_object
         except Exception as exc:

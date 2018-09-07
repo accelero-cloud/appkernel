@@ -3,8 +3,18 @@ import base64
 import itertools
 
 from bson import ObjectId
+from flask import make_response, jsonify
+
+from appkernel.core import MessageType
 from .compat import PY3
 OBJ_PREFIX = 'OBJ_'  # pylint: disable-msg=C0103
+
+
+def create_custom_error(code: int, message: str, upstream_service: str = None):
+    rsp = {'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}
+    if upstream_service:
+        rsp.update(upstream_service=upstream_service)
+    return make_response(jsonify(rsp), code)
 
 
 def default_json_serializer(obj):

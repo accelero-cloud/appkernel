@@ -1,8 +1,6 @@
 from enum import Enum
-
-from appkernel import Model, Property, create_uuid_generator, MongoRepository, date_now_generator, UniqueIndex, \
-    NotEmpty, Validator, ValidationException
 from money import Money
+from appkernel import Model, Property, NotEmpty, ValidationException
 
 
 class ProductSize(Enum):
@@ -27,8 +25,17 @@ class PaymentMethod(Enum):
     DIRECT_DEBIT = 4
 
 
-class PaymentMethod(Model):
-    method = Property(PaymentMethod, required=True, validators=NotEmpty)
+class Address(Model):
+    first_name = Property(str, required=True, validators=[NotEmpty])
+    last_name = Property(str, required=True, validators=[NotEmpty])
+    city = Property(str, required=True, validators=[NotEmpty])
+    street = Property(str, required=True, validators=[NotEmpty])
+    country = Property(str, required=True, validators=[NotEmpty])
+    postal_code = Property(str, required=True, validators=[NotEmpty])
+
+
+class Payment(Model):
+    method = Property(PaymentMethod, required=True)
     customer_id = Property(str, required=True, validators=[NotEmpty])
     customer_secret = Property(str, required=True, validators=[NotEmpty])
 

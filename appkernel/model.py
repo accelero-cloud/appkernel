@@ -1,12 +1,14 @@
-import inspect
-from typing import Callable
-from .core import AppKernelException
-from bson import ObjectId
-from enum import Enum
-from datetime import datetime, date
-from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
-from flask_babel import lazy_gettext
 import collections
+import inspect
+from datetime import datetime, date
+from enum import Enum
+from typing import Callable
+
+from bson import ObjectId
+from flask_babel import lazy_gettext
+
+from .core import AppKernelException
+from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
 
 try:
     import simplejson as json
@@ -106,25 +108,25 @@ def _instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
 
 
 def _xtract_custom_object_to_dict(custom_object, converter_func=None):
-        if hasattr(custom_object, '__dict__'):
-            instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
+    if hasattr(custom_object, '__dict__'):
+        instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
+    else:
+        if converter_func and isinstance(converter_func, Callable):
+            return converter_func(custom_object)
         else:
-            if converter_func and isinstance(converter_func, Callable):
-                return converter_func(custom_object)
-            else:
-                return custom_object
-        result = {}
-        result.update(_type=f'{custom_object.__module__}.{custom_object.__class__.__qualname__}')
+            return custom_object
+    result = {}
+    result.update(_type=f'{custom_object.__module__}.{custom_object.__class__.__qualname__}')
 
-        for prop_name, prop_value in instance_items:
-            result[prop_name] = _xtract_custom_object_to_dict(prop_value)
-        properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
-        for prop_name, prop_value in properties:
-            if converter_func and isinstance(converter_func, Callable):
-                result[prop_name] = converter_func(getattr(custom_object, prop_name))
-            else:
-                result[prop_name] = getattr(custom_object, prop_name)
-        return result
+    for prop_name, prop_value in instance_items:
+        result[prop_name] = _xtract_custom_object_to_dict(prop_value)
+    properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
+    for prop_name, prop_value in properties:
+        if converter_func and isinstance(converter_func, Callable):
+            result[prop_name] = converter_func(getattr(custom_object, prop_name))
+        else:
+            result[prop_name] = getattr(custom_object, prop_name)
+    return result
 
 
 class PropertyRequiredException(AppKernelException):
@@ -257,6 +259,11 @@ class Expression(DslBase):
         self.ops = ops
         self.rhs = rhs
 
+    def get_lhs_param_name(self):
+        def get_property(plhs):
+            return plhs if isinstance(plhs, Property) else get_property(plhs.lhs)
+
+        return get_property(self.lhs).backreference.parameter_name
 
 def get_argument_spec(provisioner_method):
     """
@@ -319,7 +326,7 @@ def tag_class_items(class_name, class_dictionary):
             #   'function_name': 'change_password',
             #   'argspec': {'password': 'default pass'},
             #   'decorator_args': [],
-            #   'decorator_kwargs': {'http_method': ['POST']},
+            #   'decorator_kwargs': {'method': ['POST']},
             # }
         if isinstance(member, Property):
             # adding the name of the implementing class and the parameter name
@@ -813,7 +820,10 @@ class Model(object, metaclass=_TaggingMetaClass):
                 else:
                     result_value = _xtract_custom_object_to_dict(result_value, converter_func=converter_func)
                     result[param] = result_value
-
+        if hasattr(instance, '__module__'):
+            result.update(_type=f'{instance.__module__}.{instance.__class__.__qualname__}')
+        else:
+            result.update(_type=f'{instance.__class__.__qualname__}')
         return result
 
     @staticmethod
@@ -827,6 +837,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             convert_ids(bool): strip the underscore prefix from object id parameter is exists ( _id -> id )
             dict_obj(dict): the dictionary to be converted to object
             cls(type): the type of the object needs to be returned
+            converter_func: used to convert some of the object types (such as mongo converter)
         Returns:
             Model: an instantiated object from the dict
         """
@@ -864,7 +875,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                         else:
                             # set object elements on the target instance
                             setattr(instance, key,
-                                    Model.__load_and_or_convert_object(val, converter_func=converter_func))
+                                    Model.load_and_or_convert_object(val, converter_func=converter_func))
                 elif (key == '_id' or key == 'id') and isinstance(val, (str, bytes)) and val.startswith(OBJ_PREFIX):
                     # check if the object id is a mongo object id
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
@@ -876,7 +887,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         return instance
 
     @staticmethod
-    def __load_and_or_convert_object(custom_value, converter_func=None):
+    def load_and_or_convert_object(custom_value, converter_func=None):
         if custom_value and isinstance(custom_value, dict) and '_type' in custom_value:
             custom_class = _get_custom_class(custom_value.get('_type'))
             custom_value = _instantiate_custom_class(custom_class, custom_value, converter_func=converter_func)
@@ -958,7 +969,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                 elif param_object.generator:
                     setattr(self, param_name, param_object.generator())
             # validate fields
-            if param_object.required and param_name not in obj_items:
+            if param_object.required and (param_name not in obj_items or obj_items.get(param_name) is None):
                 raise PropertyRequiredException(
                     '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
             if param_object.converter and param_name in self.__dict__:
