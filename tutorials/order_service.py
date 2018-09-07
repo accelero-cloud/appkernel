@@ -38,6 +38,7 @@ class Order(Model, MongoRepository):
         status_code, rsp_dict = Order.client.wrap('/payments/authorize').post(auth_req)
         print(f'<authorisation response> {rsp_dict}')
         if status_code not in [200, 201]:
+            #todo: cancel reservation
             raise Exception('It is not aurhorised')
         else:
             Order.client.shippings.post(Shipping(reservation_id=order.reservation_id, delivery_address=order.delivery_address))

@@ -42,7 +42,7 @@ class RequestWrapper(object):
                     response_object = {'result': response.text}
                 if '_type' in response_object and response_object.get('_type') not in ['OperationResult',
                                                                                        'ErrorMessage']:
-                    type_class =  _get_custom_class(response_object.pop('_type'))
+                    type_class = _get_custom_class(response_object.pop('_type'))
                     return response.status_code, Model.from_dict(response_object, type_class)
                 else:
                     return response.status_code, response_object

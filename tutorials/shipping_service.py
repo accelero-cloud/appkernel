@@ -24,7 +24,7 @@ class ShippingService(object):
         code, reservation = client.wrap(f'/reservations/{request.reservation_id}/commit').patch()
         if code == 200:
             self.ship(request.delivery_address, reservation.products)
-
+            #todo: add here final commit
         else:
             msg = reservation.get('message') if hasattr(reservation,
                                                         'message') else 'Error while calling reservation service.'

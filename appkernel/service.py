@@ -584,7 +584,7 @@ def _xvert(cls, result_item, generate_links=True):
     if isinstance(result_item, Model):
         model = Model.to_dict(result_item, skip_omitted_fields=True)
         if '_type' not in model:
-             model.update(_type=cls.__name__)
+            model.update(_type=cls.__name__)
         if cls.enable_hateoas and generate_links:
             model.update(_links=_calculate_links(cls, result_item.id))
         return model
