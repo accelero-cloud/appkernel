@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from appkernel import date_now_generator, NotEmpty, Role, create_custom_error
@@ -18,13 +19,16 @@ class ShippingService(object):
 
     def ship(self, address, products):
         print(f'request shipping to: {address} | products: {products}')
+        return str(uuid.uuid4())
 
     @resource(method='POST', path='./', require=[Role('user')])
-    def patch(self, request: Shipping):
+    def shipping_request(self, request: Shipping):
         code, reservation = client.wrap(f'/reservations/{request.reservation_id}/commit').patch()
         if code == 200:
-            self.ship(request.delivery_address, reservation.products)
-            #todo: add here final commit
+            tracking_id = self.ship(request.delivery_address, reservation.products)
+            code, reservation = client.wrap(f'/reservations/{request.reservation_id}/execute').patch(
+                {'tracking_id': tracking_id})
+            return reservation
         else:
             msg = reservation.get('message') if hasattr(reservation,
                                                         'message') else 'Error while calling reservation service.'

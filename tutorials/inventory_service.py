@@ -5,6 +5,7 @@ from money import Money
 
 from appkernel import MongoRepository, Model, Property, date_now_generator, create_uuid_generator, NotEmpty, \
     AppKernelEngine, Role
+from appkernel.configuration import config
 from appkernel.model import action
 from tutorials.models import Product, ProductSize
 
@@ -34,7 +35,8 @@ class Reservation(Model, MongoRepository):
     order_date = Property(datetime, required=True, generator=date_now_generator)
     products = Property(list, sub_type=Product, required=True, validators=NotEmpty())
     state = Property(ReservationState, required=True, default_value=ReservationState.RESERVED)
-    stock_id = Property(str)
+    stocks = Property(dict, sub_type=dict)
+    tracking_id = Property(str)
 
     def group_products_by_code(self):
         products_by_code = dict()
@@ -56,7 +58,7 @@ class Reservation(Model, MongoRepository):
                                                            reserved=Stock.reserved + quantity)
                 if not reserved_stock:
                     raise ReservationException(f"There's no stock available for code: {pcode} and size: {psize}.")
-                if hasattr(kwargs['model'], 'stocks'):
+                if hasattr(kwargs['model'], 'stocks') and kwargs['model'].stocks is not None:
                     size_and_qty = kwargs['model'].stocks.get(pcode, {psize: {'qty': quantity}})
                     if psize not in size_and_qty:
                         size_and_qty[psize] = {'qty': quantity}
@@ -78,15 +80,34 @@ class Reservation(Model, MongoRepository):
         return self
 
     @action(method='PATCH', require=[Role('user')])
-    def execute(self):
+    def execute(self, tracking_id):
         self.state = ReservationState.EXECUTED
+        self.tracking_id = tracking_id
         self.save()
+        for pcode, sizes in self.stocks.items():
+            for size, quantity_and_stock in sizes.items():
+                stock_id = quantity_and_stock.get('stock')
+                query = Stock.where(Stock.id == stock_id)
+                modified_count = query.update_one(reserved=Stock.reserved - quantity_and_stock.get('qty'))
+                if modified_count != 1:
+                    config.app_engine.logger.warn(f'quantities were not reduced for stock: {stock_id}')
         return self
 
     @action(method='PATCH', require=[Role('user')])
     def cancel(self):
-        self.state = ReservationState.CANCELLED
-        self.save()
+        error = False
+        for pcode, sizes in self.stocks.items():
+            for size, quantity_and_stock in sizes.items():
+                stock_id = quantity_and_stock.get('stock')
+                query = Stock.where(Stock.id == stock_id)
+                qty = quantity_and_stock.get('qty')
+                modified_count = query.update_one(reserved=Stock.reserved - qty, available=Stock.available + qty)
+                if modified_count != 1:
+                    error = True
+                    config.app_engine.logger.warn(f'quantities were not reduced for stock: {stock_id}')
+        if not error:
+            self.state = ReservationState.CANCELLED
+            self.save()
         return self
 
 

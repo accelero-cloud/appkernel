@@ -7,21 +7,14 @@
 ![GitHub license](https://img.shields.io/github/license/accelero-cloud/appkernel.svg "license")
 
 ## What is Appkernel?
-A beautiful, well tested python framework helping you to deliver REST enabled micro-services from zero to production within minutes (no kidding: literally within minutes).
+A REST API  framework, which enables micro-service development from zero to production within minutes (no kidding: literally within minutes).
 
-**It provides data serialisation, transformation, validation, security, ORM and service mash functions out of the box.**
+**It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box.** ([Check out the roadmap for more details](docs/roadmap.md))
 - [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
-- [Roadmap](docs/roadmap.md)
-- [Apache 2 License](docs/license.md)
 
-If you like the project, give a vote on [awesome-python](https://github.com/vinta/awesome-python/pull/1103), so it gets added to the list of RESTful python frameworks. **We only need 20 votes :)**
-
-## How does it helps you?
-We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
-you don't have to. You can focus entirely on delivering business value from day one and being the rockstar of your project.
-
+**Give a vote** on [awesome-python](https://github.com/vinta/awesome-python/pull/1103) if you like the project, so it gets added to the list of RESTful python frameworks. **Only 16 more votes are missing :)**
 ## Crash Course
-Let's build a mini identity service:
+Let's build an awseome mini identity service:
 ```python
 class User(Model, MongoRepository):
     id = Property(str)
@@ -49,19 +42,6 @@ if __name__ == '__main__':
 ```
 That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json schema for validation, or metadata to generate an SPA (Single Page Application).
 Of course validation and some more goodies are built-in as well :)
-
-**Let's issue a MongoDB query**: *db.getCollection('Users').find({})* ...**and check the result:**
-```bash
-﻿{
-    "_id" : "cf1368d8-b51a-4da0-b5c0-ef17eb2ba7b9",
-    "email" : "test@accelero.cloud",
-    "name" : "Test User",
-    "password" : "$pbkdf2-sha256$10$k5ISAqD0Xotxbg3hPCckBA$Kqssb.bTTHWj0clZZZavJBqWttHq0ePsYdGEJYXWyDk",
-    "roles" : [
-        "Login"
-    ]
-}
-```
 
 ### Retrieving our our User, using HTTP requests
 
@@ -91,13 +71,6 @@ curl -i -X GET \
   }
 }
 ```
-We can also call other services using the built-in REST client proxy. In the snippet bellow we call the `reservations` endpoint
-on the Inventory service, by POST-ing a `Reservation` object.
-
-```python
-    client = HttpClientServiceProxy('http://127.0.0.1:5000/')
-    status_code, rsp_dict = client.reservations.post(Reservation(order_id=order.id, products=order.products))
-```
 
 Adding extra and secure methods using the `@action` decorator is easy as well:
 
@@ -126,7 +99,7 @@ def before_post(cls, *args, **kwargs):
     print(f'going to create this user: {user}')
 ```
 
-or inspect the already persisted object:
+or inspect (and alter) the already persisted object:
 
 ```python
 @classmethod
@@ -134,6 +107,15 @@ def after_post(cls, *args, **kwargs):
     user = kwargs.get('model')
     print(f'this user was created: {user}')
 ```
+
+We can also call other services using the built-in REST client proxy. In the snippet bellow we call the `reservations` endpoint
+on the Inventory service, by POST-ing a `Reservation` object.
+
+```python
+    client = HttpClientServiceProxy('http://127.0.0.1:5000/')
+    status_code, rsp_dict = client.reservations.post(Reservation(order_id=order.id, products=order.products))
+```
+
 ### Some features of the REST endpoint
 
 - GET /users/12345 - retrieve a User object by its database ID;
@@ -226,6 +208,9 @@ user_service.deny_all().require(Role('user'), methods='GET').require(Role('admin
 The vision of the project is to provide you with a full-fledged [microservice chassis](http://microservices.io/microservices/news/2016/02/21/microservice-chassis.html),
 as defined by Chris Richardson.
 
+## How does it helps you?
+We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
+you don't have to. You can focus entirely on delivering business value from day one and being the rockstar of your project.
 
 Currently supported (and fully tested) features:
 - REST endpoints over HTTP

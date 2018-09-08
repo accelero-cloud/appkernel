@@ -1,9 +1,11 @@
 from datetime import datetime
+
 from money import Money
+
 from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, NotEmpty
+from appkernel.configuration import config
 from appkernel.http_client import HttpClientServiceProxy
 from tutorials.inventory_service import Reservation
-
 from tutorials.models import Product, PaymentMethod, Address, Payment
 from tutorials.shipping_service import Shipping
 
@@ -38,7 +40,11 @@ class Order(Model, MongoRepository):
         status_code, rsp_dict = Order.client.wrap('/payments/authorize').post(auth_req)
         print(f'<authorisation response> {rsp_dict}')
         if status_code not in [200, 201]:
-            #todo: cancel reservation
+            code, canceled_reservation = Order.client.wrap(f'/reservations/{order.reservation_id}/cancel').patch()
+            if code not in [200, 201]:
+                config.app_engine.logger.warn('reservation was not successful.')
             raise Exception('It is not aurhorised')
         else:
-            Order.client.shippings.post(Shipping(reservation_id=order.reservation_id, delivery_address=order.delivery_address))
+            code, result = Order.client.shippings.post(
+                Shipping(reservation_id=order.reservation_id, delivery_address=order.delivery_address))
+            print(f':: {result.tracking_id}')

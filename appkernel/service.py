@@ -151,8 +151,9 @@ def expose_service(clazz_or_instance, app_engine: AppKernelEngine, url_base: str
     if not url_base.endswith('/'):
         url_base = '{}/'.format(url_base)
 
-    clazz_or_instance.methods = methods  # todo: check the usage of this
-    clazz_or_instance.enable_hateoas = enable_hateoas  # todo: check the usage of this
+    clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
+    clazz.methods = methods  # todo: check the usage of this
+    clazz.enable_hateoas = enable_hateoas  # todo: check the usage of this
     class_methods = [cm for cm in dir(clazz_or_instance) if
                      not cm.startswith('_') and callable(getattr(clazz_or_instance, cm))]
     if inspect.isclass(clazz_or_instance):
@@ -585,7 +586,7 @@ def _xvert(cls, result_item, generate_links=True):
         model = Model.to_dict(result_item, skip_omitted_fields=True)
         if '_type' not in model:
             model.update(_type=cls.__name__)
-        if cls.enable_hateoas and generate_links:
+        if hasattr(cls, 'enable_hateoas') and cls.enable_hateoas and generate_links:
             model.update(_links=_calculate_links(cls, result_item.id))
         return model
     elif is_dictionary(result_item) or is_dictionary_subclass(result_item):
