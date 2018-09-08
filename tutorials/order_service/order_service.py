@@ -5,9 +5,9 @@ from money import Money
 from appkernel import MongoRepository, Model, Property, create_uuid_generator, date_now_generator, NotEmpty
 from appkernel.configuration import config
 from appkernel.http_client import HttpClientServiceProxy
-from tutorials.inventory_service import Reservation
-from tutorials.models import Product, PaymentMethod, Address, Payment
-from tutorials.shipping_service import Shipping
+from tutorials.order_service.inventory_service import Reservation
+from tutorials.order_service.models import Product, PaymentMethod, Address, Payment
+from tutorials.order_service.shipping_service import Shipping
 
 
 class AuthorisationRequest(Model):

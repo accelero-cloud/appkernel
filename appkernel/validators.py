@@ -1,7 +1,9 @@
-from enum import Enum
-from datetime import datetime, date
+import datetime
 import re
+from enum import Enum
+
 from flask_babel import _
+
 from .model import AppKernelException
 
 
@@ -19,10 +21,10 @@ class ValidatorType(Enum):
 
 
 class ValidationException(AppKernelException):
-    def __init__(self, validator_type, validable_object, message):
-        self.validable_object_name = validable_object.__class__.__name__
-        super().__init__(
-            '{} on type {} - {}'.format(validator_type, self.validable_object_name, message))
+    def __init__(self, message, validable_object=None, validator_type=None):
+        self.validable_object_name = validable_object.__class__.__name__ if validable_object else 'unspec'
+        validator_name = str(validator_type) if validator_type else 'unspec'
+        super().__init__(f'{validator_name} on type {self.validable_object_name} - {message}')
 
 
 class Validator(object):
@@ -50,7 +52,7 @@ class Validator(object):
         pass
 
     def _is_date(self, validable_object):
-        return isinstance(validable_object, (datetime, date))
+        return isinstance(validable_object, (datetime.datetime, datetime.date))
 
 
 class Regexp(Validator):
@@ -60,9 +62,8 @@ class Regexp(Validator):
     def validate(self, parameter_name, validable_object):
         if isinstance(validable_object, str):
             if not re.match(self.value, validable_object):
-                raise ValidationException(self.type, validable_object,
-                                          _('The property %(prop_name)s cannot be validated against %(value)s.',
-                                            prop_name=parameter_name, value=self.value))
+                raise ValidationException(_('The property %(prop_name)s cannot be validated against %(value)s.',
+                                            prop_name=parameter_name, value=self.value), self.type, validable_object)
 
 
 class Email(Regexp):
@@ -81,9 +82,8 @@ class Min(Validator):
 
     def validate(self, parameter_name, validable_object):
         if isinstance(validable_object, (int, float)) and validable_object < self.value:
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter {} should hava a min. value of {}'.format(parameter_name,
-                                                                                               self.value))
+            raise ValidationException(f'The parameter {parameter_name} should hava a min. value of {self.value}',
+                                      validable_object, self.type)
 
 
 class Max(Validator):
@@ -92,9 +92,8 @@ class Max(Validator):
 
     def validate(self, parameter_name, validable_object):
         if isinstance(validable_object, (int, float)) and validable_object > self.value:
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter {} should have a max. value of {}'.format(parameter_name,
-                                                                                               self.value))
+            raise ValidationException(f'The parameter {parameter_name} should have a max. value of {self.value}',
+                                      validable_object, self.type)
 
 
 # class Range(Validator):
@@ -104,10 +103,9 @@ class Max(Validator):
 #
 #     def validate(self, parameter_name, validable_object):
 #         if isinstance(validable_object, (int, float, long)) and self.value <= validable_object <= self.maximum:
-#             raise ValidationException(self.type, validable_object,
-#                                       'The parameter {} value should be in the range of {}-{}'.format(parameter_name,
-#                                                                                                       self.value,
-#                                                                                                       self.maximum))
+#             raise ValidationException(
+#                 f'The parameter {parameter_name} value should be in the range of {self.value}-{self.maximum}',
+#                 validable_object, self.type)
 
 
 class Unique(Validator):
@@ -117,9 +115,8 @@ class Unique(Validator):
     def validate(self, parameter_name, validable_object):
         if validable_object and isinstance(validable_object, list):
             if len(set(validable_object)) != len(validable_object):
-                raise ValidationException(self.type, validable_object,
-                                          'The parameter {} must not contain duplicated elements'.format(
-                                              parameter_name))
+                raise ValidationException(f'The parameter {parameter_name} must not contain duplicated elements',
+                                          validable_object, self.type)
 
 
 class NotEmpty(Validator):
@@ -133,8 +130,7 @@ class NotEmpty(Validator):
     def validate(self, parameter_name, validable_object):
         if not validable_object or not isinstance(validable_object,
                                                   (str, list, set, dict, tuple)) or len(validable_object) == 0:
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is None or empty.'.format(parameter_name))
+            raise ValidationException(f'The parameter {parameter_name} is None or empty.', validable_object, self.type)
 
 
 class Past(Validator):
@@ -145,11 +141,11 @@ class Past(Validator):
         if validable_object is None:
             return
         elif not self._is_date(validable_object):
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is none or not date type.'.format(parameter_name))
-        elif validable_object >= datetime.now():
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* must define the past.'.format(parameter_name))
+            raise ValidationException(f'The parameter {parameter_name} is none or not date type.', validable_object,
+                                      self.type)
+        elif validable_object >= datetime.datetime.now():
+            raise ValidationException(f'The parameter {parameter_name} must define the past.', validable_object,
+                                      self.type)
 
 
 class Future(Validator):
@@ -158,8 +154,8 @@ class Future(Validator):
 
     def validate(self, parameter_name, validable_object):
         if validable_object is None or not self._is_date(validable_object):
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* is none or not date type.'.format(parameter_name))
-        elif validable_object <= datetime.now():
-            raise ValidationException(self.type, validable_object,
-                                      'The parameter *{}* must define the future.'.format(parameter_name))
+            raise ValidationException(f'The parameter {parameter_name} is none or not date type.', validable_object,
+                                      self.type)
+        elif validable_object <= datetime.datetime.now():
+            raise ValidationException(f'The parameter {parameter_name} must define the future.', validable_object,
+                                      self.type)

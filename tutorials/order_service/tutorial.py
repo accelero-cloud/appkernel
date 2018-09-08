@@ -1,13 +1,9 @@
 from flask import Flask
-from money import Money
-
 from appkernel import AppKernelEngine
-from tests.test_util import ProductSize, Product
-from tutorials.inventory_service import InventoryService
-from tutorials.models import Address, PaymentMethod, Payment
+from tutorials.order_service.inventory_service import InventoryService
 from tutorials.order_service import Order
-from tutorials.payment_service import PaymentService
-from tutorials.shipping_service import Shipping, ShippingService
+from tutorials.order_service.payment_service import PaymentService
+from tutorials.order_service.shipping_service import ShippingService
 
 if __name__ == '__main__':
     app_id = "{} Service".format(Order.__name__)

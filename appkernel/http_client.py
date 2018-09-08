@@ -34,7 +34,12 @@ class RequestWrapper(object):
 
     def __execute(self, func, **kwargs):
         try:
-            response = func(self.url, **kwargs)
+            path_ext = kwargs.pop('path_extension')
+            if path_ext:
+                endpoint_url = '{}/{}'.format(self.url.rstrip('/'), path_ext.lstrip('/'))
+            else:
+                endpoint_url = self.url
+            response = func(endpoint_url, **kwargs)
             if 200 <= response.status_code <= 299:
                 try:
                     response_object = response.json()
@@ -59,37 +64,47 @@ class RequestWrapper(object):
             else:
                 raise RequestHandlingException(response.status_code, 'Error while calling service.')
 
-    def post(self, request_object: any = None, stream: bool = False, timeout: int = 3):
-        data_content = request_object.dumps() if isinstance(request_object, Model) else request_object
-        return self.__execute(self.session.post, data=data_content,
+    def post(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+        data_content = payload.dumps() if isinstance(payload, Model) else payload
+        return self.__execute(self.session.post,
+                              path_extension=path_extension,
+                              data=data_content,
                               stream=stream,
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def get(self, request_object: any = None, stream: bool = False, timeout: int = 3):
-        data_content = request_object.dumps() if isinstance(request_object, Model) else request_object
-        return self.__execute(self.session.get, data=data_content,
+    def get(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+        data_content = payload.dumps() if isinstance(payload, Model) else payload
+        return self.__execute(self.session.get,
+                              path_extension=path_extension,
+                              data=data_content,
                               stream=stream,
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def put(self, request_object: any = None, stream: bool = False, timeout: int = 3):
-        data_content = request_object.dumps() if isinstance(request_object, Model) else request_object
-        return self.__execute(self.session.put, data=data_content,
+    def put(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+        data_content = payload.dumps() if isinstance(payload, Model) else payload
+        return self.__execute(self.session.put,
+                              path_extension=path_extension,
+                              data=data_content,
                               stream=stream,
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def patch(self, request_object: any = None, stream: bool = False, timeout: int = 3):
-        data_content = request_object.dumps() if isinstance(request_object, Model) else request_object
-        return self.__execute(self.session.patch, data=data_content,
+    def patch(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+        data_content = payload.dumps() if isinstance(payload, Model) else payload
+        return self.__execute(self.session.patch,
+                              path_extension=path_extension,
+                              data=data_content,
                               stream=stream,
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def delete(self, request_object: any = None, stream: bool = False, timeout: int = 3):
-        data_content = request_object.dumps() if isinstance(request_object, Model) else request_object
-        return self.__execute(self.session.delete, data=data_content,
+    def delete(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+        data_content = payload.dumps() if isinstance(payload, Model) else payload
+        return self.__execute(self.session.delete,
+                              path_extension=path_extension,
+                              data=data_content,
                               stream=stream,
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)

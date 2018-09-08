@@ -961,6 +961,9 @@ class Model(object, metaclass=_TaggingMetaClass):
         """
         obj_items = self.__dict__
         class_items = self.__class__.__dict__
+        val_method = getattr(self, 'validate', None)
+        if val_method and callable(val_method):
+            val_method()
         cls_items = {k: v for k, v in class_items.items() if isinstance(v, Property)}
         for param_name, param_object in list(cls_items.items()):
             # initialise default values and generators for parameters which were not defined by the user

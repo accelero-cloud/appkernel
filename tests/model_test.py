@@ -2,12 +2,10 @@ import json
 from decimal import Decimal
 from pymongo import MongoClient
 from appkernel import PropertyRequiredException
-from appkernel import ValidationException
 from appkernel.configuration import config
 from appkernel.repository import mongo_type_converter_to_dict, mongo_type_converter_from_dict
 from .test_util import *
 import pytest
-from datetime import timedelta
 from jsonschema import validate
 
 
@@ -23,22 +21,6 @@ def setup_function(function):
     User.delete_all()
 
 
-def test_regexp_validation():
-    test_model_correct_format = ExampleClass()
-    test_model_correct_format.just_numbers = '123456'
-    test_model_correct_format.finalise_and_validate()
-
-    with pytest.raises(ValidationException):
-        test_model_correct_format = ExampleClass()
-        test_model_correct_format.just_numbers = 'pppppp1234566p3455pppp'
-        test_model_correct_format.finalise_and_validate()
-
-    with pytest.raises(ValidationException):
-        test_model_correct_format = ExampleClass()
-        test_model_correct_format.just_numbers = '1234566p3455pppp'
-        test_model_correct_format.finalise_and_validate()
-
-
 def test_required_field():
     project = Project()
     with pytest.raises(PropertyRequiredException):
@@ -48,41 +30,6 @@ def test_required_field():
         project.finalise_and_validate()
     project.update(name='some_name')
     project.finalise_and_validate()
-
-
-def test_not_empty_validation():
-    project = Project().update(name='')
-    with pytest.raises(ValidationException):
-        project.finalise_and_validate()
-    project.update(name='some_name')
-    project.finalise_and_validate()
-
-
-def test_past_validation():
-    project = Project().update(name='some project').append_to(
-        tasks=Task().update(name='some task', description='some description'))
-    project.tasks[0].complete()
-    project.finalise_and_validate()
-    print(('{}'.format(project)))
-    project.tasks[0].update(closed_date=(datetime.now() - timedelta(days=1)))
-    print(('\n\n> one day in the past \n{}'.format(project)))
-    project.finalise_and_validate()
-    with pytest.raises(ValidationException):
-        project.tasks[0].update(closed_date=(datetime.now() + timedelta(days=1)))
-        print(('\n\n> one day in the in the future \n{}'.format(project)))
-        project.finalise_and_validate()
-
-
-def test_future_validation():
-    test_model = ExampleClass()
-    test_model.just_numbers = 123
-    test_model.finalise_and_validate()
-    test_model.future_field = (datetime.now() + timedelta(days=1))
-    test_model.finalise_and_validate()
-    with pytest.raises(ValidationException):
-        test_model.future_field = (datetime.now() - timedelta(days=1))
-        print(('\n\n> one day in the in the future \n{}'.format(test_model)))
-        test_model.finalise_and_validate()
 
 
 def test_append_to_non_existing_non_defined_element():

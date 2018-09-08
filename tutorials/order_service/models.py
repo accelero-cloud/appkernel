@@ -1,5 +1,7 @@
 from enum import Enum
+
 from money import Money
+
 from appkernel import Model, Property, NotEmpty, ValidationException
 
 
@@ -42,7 +44,7 @@ class Payment(Model):
     def validate(self):
         if self.method in (PaymentMethod.MASTER, PaymentMethod.VISA):
             if len(self.customer_id) < 16 or len(self.customer_secret) < 3:
-                raise ValidationException('The card number must be 16 character long and the CVC 3.')
+                raise ValidationException('The card number must be 16 character long and the CVC 3.', self, 'payment')
         elif self.method in (PaymentMethod.PAYPAL, PaymentMethod.DIRECT_DEBIT):
             if len(self.customer_id) < 22:
-                raise ValidationException('The IBAN must be at least 22 character long.')
+                raise ValidationException('The IBAN must be at least 22 character long.', self, 'payment')

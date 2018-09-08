@@ -164,6 +164,30 @@ Built-in validators
 :class:`Unique` - the field value should be unique in the collection of this Model object (it will install a unique
 index in the Mongo database and will cause cause a special unique property in the Json schema;
 
+One of specific validator
+..........................
+
+Sometimes your Model requires a very special conditional validator, specific to the model, where's no need for building a generic one.
+In such cases it is enough to implement a method called `validate()`.
+Take the example of a Payment class, where the method (credit card or alternative payment method) defines the validation conditions: ::
+
+    class Payment(Model):
+        method = Property(PaymentMethod, required=True)
+        customer_id = Property(str, required=True, validators=[NotEmpty])
+        customer_secret = Property(str, required=True, validators=[NotEmpty])
+
+        def validate(self):
+            if self.method in (PaymentMethod.MASTER, PaymentMethod.VISA):
+                if len(self.customer_id) < 16 or len(self.customer_secret) < 3:
+                    raise ValidationException('The card number must be 16 character long and the CVC 3.')
+            elif self.method in (PaymentMethod.PAYPAL, PaymentMethod.DIRECT_DEBIT):
+                if len(self.customer_id) < 22:
+                    raise ValidationException('The IBAN must be at least 22 character long.')
+
+
+Write your own custom validator
+...............................
+
 In case you would like to create a new type of validator, you just need to extend the :class:`Validator` base class and implement the **validate** method: ::
 
     class CustomValidator(Validator):

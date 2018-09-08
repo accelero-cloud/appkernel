@@ -4,7 +4,7 @@ from datetime import datetime
 from appkernel import date_now_generator, NotEmpty, Role, create_custom_error
 from appkernel.http_client import HttpClientServiceProxy
 from appkernel.model import Model, Property, resource
-from tutorials.models import Address
+from tutorials.order_service.models import Address
 
 client = HttpClientServiceProxy('http://127.0.0.1:5000/')
 

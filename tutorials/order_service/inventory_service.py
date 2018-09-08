@@ -7,7 +7,7 @@ from appkernel import MongoRepository, Model, Property, date_now_generator, crea
     AppKernelEngine, Role
 from appkernel.configuration import config
 from appkernel.model import action
-from tutorials.models import Product, ProductSize
+from tutorials.order_service.models import Product, ProductSize
 
 
 class ReservationException(Exception):
