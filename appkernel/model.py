@@ -403,7 +403,8 @@ class Property(DslBase):
         self.generator = generator
 
     def __getattr__(self, attribute):
-        if self.python_type == list and issubclass(self.sub_type, Model):
+        if self.python_type == list and (
+                hasattr(self, 'sub_type') and self.sub_type and issubclass(self.sub_type, Model)):
             if hasattr(self.sub_type, attribute):
                 nested_parameter = getattr(self.sub_type, attribute)
                 nested_parameter.backreference.array_parameter_name = self.backreference.parameter_name
@@ -987,6 +988,12 @@ class Model(object, metaclass=_TaggingMetaClass):
                 obj = obj_items.get(param_name)
                 if obj:
                     obj.finalise_and_validate()
+            if issubclass(param_object.python_type, (list, set)) and param_name in obj_items:
+                list_of_objects = obj_items.get(param_name)
+                if list_of_objects:
+                    for item in list_of_objects:
+                        if isinstance(item, Model):
+                            item.finalise_and_validate()
 
     @staticmethod
     def __check_validity(validator: Validator, param_name, obj_items):

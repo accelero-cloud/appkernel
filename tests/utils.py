@@ -6,7 +6,7 @@ from flask_babel import _
 from money import Money
 from passlib.hash import pbkdf2_sha256
 
-from appkernel import AuditableRepository, MongoRepository, AppKernelException, ValidationException
+from appkernel import AuditableRepository, MongoRepository, AppKernelException, ValidationException, Email, Unique
 from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Max, Min
 from appkernel import Model, Property, UniqueIndex
@@ -247,6 +247,9 @@ def create_and_save_portfolio_with_owner():
 class ExampleClass(Model):
     just_numbers = Property(str, required=True, validators=[Regexp('^[0-9]+$')])
     future_field = Property(datetime, validators=[Future])
+    email = Property(str, validators=Email)
+    distance = Property(int, validators=[Min(10), Max(15)])
+    numbers = Property(list, validators=Unique)
 
 
 class Priority(Enum):
