@@ -1,4 +1,5 @@
 import os
+import uuid
 
 import pytest
 import requests
@@ -51,8 +52,26 @@ def create_order() -> Order:
     order = Order(products=[Product(code='BTX', name='t-shirt', size=ProductSize.M, price=Money(10, 'EUR'))])
     order.delivery_address = Address(first_name='John', last_name='Doe', city='Big City', street='some address 8',
                                      country='Country', postal_code='1234')
-    order.payment_method = Payment(method=PaymentMethod.PAYPAL, customer_id='1234567890123456789012', customer_secret='120')
+    order.payment_method = Payment(method=PaymentMethod.PAYPAL, customer_id='1234567890123456789012',
+                                   customer_secret='120')
     return order
+
+
+def create_operation_result() -> dict:
+    return {'_type': 'OperationResult', 'result': str(uuid.uuid4())}
+
+
+def create_delete_result() -> dict:
+    return {'_type': 'OperationResult', 'result': 1}
+
+
+def create_not_found_result() -> dict:
+    return {
+        '_type': 'ErrorMessage',
+        'code': 404,
+        'message': 'Document with id Oc2e5b438-8d12-4533-b085-c38add1e126d was not deleted.',
+        'upstream_service': 'Order'
+    }
 
 
 def test_simple_get():
@@ -94,4 +113,48 @@ def test_simple_delete():
 def test_service_get():
     adapter.register_uri('GET', 'mock://test.com/orders/12345', status_code=200, text=create_order().dumps())
     rsp_code, rcvd_order = client.orders.get(path_extension='12345')
-    print(f' received order {rsp_code} >>> {rcvd_order}')
+    print(f' received order {rsp_code} >>> {rcvd_order.dumps(pretty_print=True)}')
+    assert hasattr(rcvd_order, 'delivery_address')
+    assert hasattr(rcvd_order, 'payment_method')
+    assert '_type' in Model.to_dict(rcvd_order)
+    assert len(rcvd_order.products) > 0
+
+
+def test_service_post():
+    adapter.register_uri('POST', 'mock://test.com/orders/', status_code=200, json=create_operation_result())
+    rsp_code, payload = client.orders.post(create_order())
+    print(f' received order {rsp_code} >>> {payload}')
+    assert '_type' in payload
+    assert payload.get('_type') == 'OperationResult'
+
+
+def test_patch():
+    adapter.register_uri('PATCH', 'mock://test.com/orders/12345', status_code=200, text=create_order().dumps())
+    rsp_code, order = client.orders.patch(create_operation_result(), path_extension='12345')
+    print(f' received order {rsp_code} >>> {order.dumps(pretty_print=True)}')
+    assert hasattr(order, 'delivery_address')
+    assert hasattr(order, 'payment_method')
+    assert '_type' in Model.to_dict(order)
+
+
+def test_put():
+    adapter.register_uri('PUT', 'mock://test.com/orders/12345', status_code=200, text=create_order().dumps())
+    rsp_code, order = client.orders.put(create_operation_result(), path_extension='12345')
+    print(f' received order {rsp_code} >>> {order.dumps(pretty_print=True)}')
+    assert hasattr(order, 'delivery_address')
+    assert hasattr(order, 'payment_method')
+    assert '_type' in Model.to_dict(order)
+
+
+def test_delete():
+    adapter.register_uri('DELETE', 'mock://test.com/orders/12345', status_code=200, json=create_delete_result())
+    rsp_code, payload = client.orders.delete(path_extension='12345')
+    assert '_type' in payload
+    assert payload.get('_type') == 'OperationResult'
+    assert payload.get('result') == 1
+
+
+def test_delete_not_found():
+    adapter.register_uri('DELETE', 'mock://test.com/orders/12345', status_code=404, json=create_not_found_result())
+    with pytest.raises(RequestHandlingException):
+        rsp_code, payload = client.orders.delete(path_extension='12345')

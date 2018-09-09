@@ -64,7 +64,7 @@ class RequestWrapper(object):
             else:
                 raise RequestHandlingException(response.status_code, 'Error while calling service.')
 
-    def post(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+    def post(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.post,
                               path_extension=path_extension,
@@ -73,7 +73,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def get(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+    def get(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.get,
                               path_extension=path_extension,
@@ -82,7 +82,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def put(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+    def put(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.put,
                               path_extension=path_extension,
@@ -91,7 +91,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def patch(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+    def patch(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.patch,
                               path_extension=path_extension,
@@ -100,7 +100,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def delete(self, path_extension: str = None, payload: any = None, stream: bool = False, timeout: int = 3):
+    def delete(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.delete,
                               path_extension=path_extension,

@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from typing import Callable
+
 from flask import jsonify, request, url_for
 from werkzeug.datastructures import MultiDict, ImmutableMultiDict
 
@@ -16,8 +17,8 @@ from .model import Model, PropertyRequiredException, get_argument_spec, OPS, tag
 from .query import QueryProcessor
 from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
 from .repository import xtract, Repository
-from .validators import ValidationException
 from .util import create_custom_error
+from .validators import ValidationException
 
 try:
     import simplejson as json
@@ -223,7 +224,8 @@ def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool =
                 payload = _extract_dict_from_payload()
                 if '_type' in payload:
                     mdl = Model.load_and_or_convert_object(payload)
-                    result = executable_method(mdl, **_autobox_parameters(executable_method, request_and_posted_arguments))
+                    result = executable_method(mdl,
+                                               **_autobox_parameters(executable_method, request_and_posted_arguments))
                 else:
                     request_and_posted_arguments.update(payload)
                     result = executable_method(
@@ -397,9 +399,10 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
         except ValidationException as vexc:
             app_engine.logger.warn('validation error: {}'.format(str(vexc)))
             return create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)),
-                                                  cls.__name__)
+                                       cls.__name__)
         except RequestHandlingException as rexc:
-            app_engine.logger.warn(f'request forwarding error: {str(rexc)}')
+            app_engine.logger.error(f'request forwarding error: {str(rexc)}')
+            app_engine.logger.exception(rexc)
             return create_custom_error(rexc.status_code, rexc.message, rexc.upstream_service)
         except Exception as exc:
             return app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
