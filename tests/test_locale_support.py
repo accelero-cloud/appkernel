@@ -4,7 +4,7 @@ import pytest
 from flask import Flask
 from werkzeug.test import Client
 from appkernel import extract_model_messages, AppKernelEngine
-from tests.test_util import User
+from tests.utils import User
 
 try:
     import simplejson as json
@@ -38,7 +38,7 @@ def setup_function(function):
 def test_custom_message_xtractor():
     current_file_path = os.path.dirname(os.path.realpath(__file__))
     print('reading test_util py from {}'.format(current_file_path))
-    with open('{}/test_util.py'.format(current_file_path), 'rb') as file:
+    with open('{}/utils.py'.format(current_file_path), 'rb') as file:
         print('------------------------------ \n')
         for tple in extract_model_messages(file, ['_l'], [], {}):
             print(tple)

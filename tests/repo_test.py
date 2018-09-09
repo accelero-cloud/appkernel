@@ -3,7 +3,7 @@ import json
 from pymongo.errors import WriteError
 import time
 from appkernel.model import CustomProperty
-from .test_util import *
+from .utils import *
 from appkernel.configuration import config
 from pymongo import MongoClient
 import pytest

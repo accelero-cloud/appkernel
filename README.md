@@ -13,6 +13,13 @@ A REST API  framework, which enables micro-service development from zero to prod
 - [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
 
 **Give a vote** on [awesome-python](https://github.com/vinta/awesome-python/pull/1103) if you like the project, so it gets added to the list of RESTful python frameworks. **Only 16 more votes are missing :)**
+
+## Installation
+
+```bash
+    pip install appkernel
+```
+
 ## Crash Course
 Let's build an awseome mini identity service:
 ```python

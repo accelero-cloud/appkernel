@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from flask import Flask
 from appkernel import AppKernelEngine
-from tests.test_util import list_flask_routes, PaymentService
+from tests.utils import list_flask_routes, PaymentService
 
 try:
     import simplejson as json

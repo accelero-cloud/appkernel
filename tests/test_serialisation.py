@@ -1,4 +1,4 @@
-from .test_util import *
+from .utils import *
 
 
 def setup_function(function):

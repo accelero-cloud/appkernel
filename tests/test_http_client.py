@@ -9,7 +9,7 @@ from requests import Request
 
 from appkernel import Model
 from appkernel.http_client import HttpClientServiceProxy, RequestHandlingException
-from tests.test_util import Order, Product, ProductSize, Address, Payment, PaymentMethod
+from tests.utils import Order, Product, ProductSize, Address, Payment, PaymentMethod
 
 try:
     import simplejson as json

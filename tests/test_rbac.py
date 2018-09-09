@@ -5,7 +5,7 @@ from flask import Flask
 from werkzeug.datastructures import Headers
 from appkernel import AppKernelEngine, Role
 from appkernel.authorisation import check_token
-from tests.test_util import User, create_and_save_a_user, PaymentService
+from tests.utils import User, create_and_save_a_user, PaymentService
 
 try:
     import simplejson as json

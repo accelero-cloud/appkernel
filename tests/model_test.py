@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from appkernel import PropertyRequiredException
 from appkernel.configuration import config
 from appkernel.repository import mongo_type_converter_to_dict, mongo_type_converter_from_dict
-from .test_util import *
+from .utils import *
 import pytest
 from jsonschema import validate
 

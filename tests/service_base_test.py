@@ -3,7 +3,7 @@ from appkernel import AppKernelEngine
 from datetime import datetime
 
 from appkernel.util import OBJ_PREFIX
-from .test_util import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max, \
+from .utils import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max, \
     Project, Task, list_flask_routes
 import os
 import pytest
@@ -87,7 +87,7 @@ def test_get_basic(client):
     result = rsp.json
     assert result.get('id') == user_id
     assert '_type' in result
-    assert result.get('_type') == 'tests.test_util.User'
+    assert result.get('_type') == 'tests.utils.User'
 
 
 def test_get_not_found(client):
@@ -228,7 +228,7 @@ def test_pagination(client):
         assert len(result_set.get('_items')) == 5
         assert result_set.get('_items')[4].get('sequence') == page * 5, 'the sequence number should be a multiple of 5'
         assert result_set.get('_type') == 'list', 'the type should be a list here'
-        assert result_set.get('_items')[0].get('_type') == 'tests.test_util.User', 'the item type should be User'
+        assert result_set.get('_items')[0].get('_type') == 'tests.utils.User', 'the item type should be User'
 
 
 def test_pagination_with_sort(client):

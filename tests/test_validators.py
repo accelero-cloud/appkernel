@@ -3,7 +3,7 @@ import datetime
 import pytest
 from datetime import timedelta
 from appkernel import ValidationException
-from tests.test_util import ExampleClass, Project, Task, Payment, PaymentMethod
+from tests.utils import ExampleClass, Project, Task, Payment, PaymentMethod
 
 
 def test_regexp_validation():

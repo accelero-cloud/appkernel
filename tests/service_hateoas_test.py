@@ -1,7 +1,7 @@
 from flask import Flask
 from appkernel import AppKernelEngine
 import pytest
-from .test_util import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max
+from .utils import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max
 import os
 from passlib.hash import pbkdf2_sha256
 

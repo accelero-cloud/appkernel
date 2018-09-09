@@ -3,7 +3,7 @@ from datetime import datetime
 from pymongo import MongoClient
 
 from appkernel.configuration import config
-from tests.test_util import User, create_and_save_a_user, Task
+from tests.utils import User, create_and_save_a_user, Task
 
 
 def setup_module(module):
