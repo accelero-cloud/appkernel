@@ -1,6 +1,5 @@
 # pylint: skip-file
 
-from .compat import PY3
 import types
 import inspect
 import operator
@@ -16,20 +15,8 @@ PRIMITIVES = set((str, bool, float, int, int))
 
 
 def is_type(obj):
-    """Returns True is obj is a reference to a type.
-    >>> is_type(1)
-    False
-    >>> is_type(object)
-    True
-    >>> class Klass: pass
-    >>> is_type(Klass)
-    True
-    """
     # use "isinstance" and not "is" to allow for metaclasses
-    if PY3:
-        return isinstance(obj, type)
-    else:
-        return isinstance(obj, type)
+    return isinstance(obj, type)
 
 
 def has_method(obj, name):
@@ -63,7 +50,7 @@ def has_method(obj, name):
         return True
 
     # at this point, the method has to be an instancemthod or a classmethod
-    self_attr = '__self__' if PY3 else 'im_self'
+    self_attr = '__self__'
     if not hasattr(func, self_attr):
         return False
     bound_to = getattr(func, self_attr)
@@ -258,7 +245,7 @@ def translate_module_name(module):
     name and unmap it when importing.
     See untranslate_module_name() for the reverse operation.
     """
-    if (PY3 and module == 'builtins') or module == 'exceptions':
+    if module == 'builtins' or module == 'exceptions':
         # We map the Python2 `exceptions` module to `__builtin__` because
         # `__builtin__` is a superset and contains everything that is
         # available in `exceptions`, which makes the translation simpler.
@@ -272,12 +259,11 @@ def untranslate_module_name(module):
     This reverses the translation applied by translate_module_name() to
     a module name available to the current version of Python.
     """
-    if PY3:
-        # remap `__builtin__` and `exceptions` to the `builtins` module
-        if module == '__builtin__':
-            module = 'builtins'
-        elif module == 'exceptions':
-            module = 'builtins'
+    # remap `__builtin__` and `exceptions` to the `builtins` module
+    if module == '__builtin__':
+        module = 'builtins'
+    elif module == 'exceptions':
+        module = 'builtins'
     return module
 
 

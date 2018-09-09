@@ -1,12 +1,14 @@
-import datetime, os, tarfile
 import base64
+import datetime
 import itertools
+import os
+import tarfile
 
 from bson import ObjectId
 from flask import make_response, jsonify
 
 from appkernel.core import MessageType
-from .compat import PY3
+
 OBJ_PREFIX = 'OBJ_'  # pylint: disable-msg=C0103
 
 
@@ -33,20 +35,20 @@ def default_json_serializer(obj):
 
 def b64encode(data):
     payload = base64.b64encode(data)
-    if PY3 and type(payload) is bytes:
+    if type(payload) is bytes:
         payload = payload.decode('ascii')
     return payload
 
 
 def b64decode(payload):
-    if PY3 and type(payload) is not bytes:
+    if type(payload) is not bytes:
         payload = bytes(payload, 'ascii')
     return base64.b64decode(payload)
 
 
 def sanitize(content):
-    if content or content == 0:
-        if content:
+    if content:
+        if content and len(content) > 0:
             try:
                 return ('%s' % content).replace(',', ';').replace('\n', ' ').replace('"', '').replace('\\', '')
             except Exception as ex:
@@ -75,7 +77,7 @@ def to_boolean(string_expression):
         return string_expression
     if type(string_expression) == int:
         return False if string_expression == 0 else True
-    return True if string_expression in ['true', 'True', 'y', 'yes', '1'] else False
+    return True if string_expression.lower() in ['true', 'y', 'yes', '1'] else False
 
 
 def assure_folder(folder_path):
@@ -84,7 +86,9 @@ def assure_folder(folder_path):
 
 
 def merge_dicts(x_dict, y_dict):
-    return x_dict.copy().update(y_dict)
+    res = x_dict.copy()
+    res.update(y_dict)
+    return res
 
 
 def extract_model_messages(fileobj, keywords, comment_tags, options):
@@ -125,7 +129,8 @@ def extract_model_messages(fileobj, keywords, comment_tags, options):
                 for param in [p for p in class_.body if isinstance(p, ast.Assign) and is_parameter(p)]:
                     clazz_name = class_.name
                     parameter_name = param.targets[0].id
-                    yield (param.lineno, '', '{}.{}'.format(clazz_name, parameter_name), ['Parameter "{}" on "{}"'.format(parameter_name, clazz_name)])
+                    yield (param.lineno, '', '{}.{}'.format(clazz_name, parameter_name),
+                           ['Parameter "{}" on "{}"'.format(parameter_name, clazz_name)])
 
     from babel.messages.extract import extract_python
     return itertools.chain(extract_python(fileobj, keywords, comment_tags, options), extract_model())
