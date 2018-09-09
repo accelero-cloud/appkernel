@@ -25,7 +25,7 @@ Appkernel features a thin and beautiful Object Relational Mapping (ORM/a.k.a dat
 - [x] Bulk Inserts
 - [x] Atomic updates
 - [ ] Optimistic locking
-- [ ] Concunrrecny and transaction control
+- [ ] Concurrency and transaction control
 - [ ] Predefined Database Filters
 - [ ] Projections
 - [ ] Internal Resources
