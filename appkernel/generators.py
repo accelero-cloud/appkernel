@@ -23,13 +23,13 @@ class TimestampMarshaller(Marshaller):
 
 class MongoDateTimeMarshaller(Marshaller):
 
-    def to_wireformat(self, instance_value):
+    def to_wireformat(self, instance_value: date):
         if isinstance(instance_value, date):
             return datetime.combine(instance_value, dtime.min)
         else:
             return instance_value
 
-    def from_wire_format(self, wire_value):
+    def from_wire_format(self, wire_value: datetime):
         if isinstance(wire_value, datetime):
             return wire_value.date()
         else:
@@ -54,11 +54,6 @@ def create_uuid_generator(prefix=None):
 
 def date_now_generator():
     return datetime.now()
-
-
-def current_user_generator():
-    # todo: finalise this
-    return ''
 
 
 def content_hasher(rounds=20000, salt_size=16):

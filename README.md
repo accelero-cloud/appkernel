@@ -9,10 +9,10 @@
 ## What is Appkernel?
 A REST API  framework, which enables micro-service development from zero to production within minutes (no kidding: literally within minutes).
 
-**It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box.** ([Check out the roadmap for more details](docs/roadmap.md))
+**It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](docs/roadmap.md)).
 - [Full documentation on Read The Docs](http://appkernel.readthedocs.io/en/latest/)
 
-**Give a vote** on [awesome-python](https://github.com/vinta/awesome-python/pull/1103) if you like the project, so it gets added to the list of RESTful python frameworks. **Only 16 more votes are missing :)**
+**Give a vote on [awesome-python](https://github.com/vinta/awesome-python/pull/1103)** if you like the project, so it gets added to the list of RESTful python frameworks. **Only 16 more votes are missing :)**
 
 ## Installation
 
