@@ -1,3 +1,16 @@
+import sys
+try:
+    from gevent import monkey
+    gettrace = getattr(sys, 'gettrace', None)
+    if gettrace and gettrace():
+        # we are in debug mode
+        pass
+    else:
+        # need to patch sockets to make requests async
+        monkey.patch_all()
+except ImportError:
+    # skipping patching
+    pass
 from .core import AppKernelException
 from .util import extract_model_messages, create_custom_error
 from .model import Model, Property, Index, TextIndex, UniqueIndex, PropertyRequiredException, Marshaller, action, resource

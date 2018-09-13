@@ -13,7 +13,7 @@ A REST API  framework, which enables micro-service development from zero to prod
 - [Check out the tutorial :)](https://github.com/accelero-cloud/tutorials)
 - [or read the full documentation.](http://appkernel.readthedocs.io/en/latest/)
 
-... and finally **give a vote on [awesome-python](https://github.com/vinta/awesome-python/pull/1103)** if you like the project, so it gets added to the list of RESTful python frameworks. **Only 16 more votes are missing :)**
+... and finally **give a vote on [awesome-python](https://github.com/vinta/awesome-python/pull/1103)** if you like the project, so it gets added to the list of RESTful python frameworks. **Only 15 more votes are missing :)**
 
 ## Installation
 
@@ -33,6 +33,7 @@ class User(Model, MongoRepository):
 
     @classmethod
     def before_post(cls, *args, **kwargs):
+        # this method is automatically called before persisting the instance
         user = kwargs.get('model')
         print(f'going to create the following user: {user}')
 

@@ -410,7 +410,7 @@ class Property(DslBase):
                 nested_parameter.backreference.array_parameter_name = self.backreference.parameter_name
                 nested_parameter.backreference.within_an_array = True
                 return nested_parameter
-        elif issubclass(self.python_type, Model):
+        elif inspect.isclass(self.python_type) and issubclass(self.python_type, Model):
             if hasattr(self.python_type, attribute):
                 nested_parameter = getattr(self.python_type, attribute)
                 nested_parameter.backreference.parameter_name = '{}.{}'.format(self.backreference.parameter_name,
@@ -915,7 +915,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             return_list.append(list_obj)
         elif list_obj:
             for item in list_obj:
-                if issubclass(item_cls, Model):
+                if item_cls and issubclass(item_cls, Model):
                     return_list.append(
                         Model.from_dict(item, item_cls, convert_ids=convert_ids, converter_func=converter_func))
                 else:

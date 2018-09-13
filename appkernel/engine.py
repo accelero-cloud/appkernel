@@ -245,15 +245,37 @@ class AppKernelEngine(object):
     def run(self):
         self.app.logger.info('===== Starting {} ====='.format(self.app_id))
         self.app.logger.debug(f'--> registered routes:\n {self.app.url_map}')
-        # todo: make the threading and deployment configurable
-        self.app.run(debug=self.development, threaded=True)
-        # self.app.run(debug=self.development, processes=8)
+        if self.development:
+            self.app.run(debug=self.development, threaded=True)
+            # todo: make the threading and deployment configurable
+            # self.app.run(debug=self.development, processes=8)
+        else:
+            try:
+                from gevent.pywsgi import WSGIServer, LoggingLogAdapter
+                port = self.cfg_engine.get('appkernel.server.port', 5000)
+                binding_address = self.cfg_engine.get('appkernel.server.address', '')
+                backlog = self.cfg_engine.get('appkernel.server.backlog', 256)
+                logging_adapter = LoggingLogAdapter(self.app.logger)
+                self.http_server = WSGIServer((binding_address, port),
+                                              application=self.app,
+                                              backlog=backlog,
+                                              log=logging_adapter,
+                                              error_log=logging_adapter)
+                shutdown_timeout = self.cfg_engine.get('appkernel.server.shutdown_timeout', 10)
+                self.http_server.serve_forever(stop_timeout=shutdown_timeout)
+            except ImportError:
+                self.app.logger.warn(
+                    '--> falling back to the builtin development server (since gevent is missing / issue: pip install gevent')
+                self.app.run(debug=self.development, threaded=True)
 
     def shutdown_hook(self):
         if config.mongo_database:
             self.mongo_client.close()
         if self.app and self.app.logger:
             self.app.logger.info('======= Shutting Down {} ======='.format(self.app_id))
+        # no need for the following code snippet while the http_server.serve_forever() is used
+        # if hasattr(self, 'http_server'):
+        #     self.http_server.stop(10)
 
     @staticmethod
     def get_cmdline_options():
@@ -335,7 +357,8 @@ class AppKernelEngine(object):
             handler.setLevel(level)
         handler.setFormatter(formatter)
         self.app.logger.setLevel(level)
-        self.app.logger.addHandler(handler)
+        #self.app.logger.addHandler(handler)
+        self.app.logger.handlers=[handler]
         self.app.logger.info('Logger initialised')
 
     @staticmethod
@@ -422,7 +445,7 @@ class CfgEngine(object):
             except yaml.scanner.ScannerError as se:
                 raise AppInitialisationError('cannot read configuration file due to: {}'.format(config_file))
 
-    def get(self, path_expression):
+    def get(self, path_expression, default_value=None):
         """
         :param path_expression: a . (dot) separated path to the configuration value: 'appkernel.backup_count'
         :type path_expression: str
@@ -431,19 +454,19 @@ class CfgEngine(object):
         assert path_expression is not None, 'Path expression should be provided.'
 
         nodes = path_expression.split('.')
-        return self.get_value_for_path_list(nodes)
+        return self.get_value_for_path_list(nodes, default_value=default_value)
 
-    def get_value_for_path_list(self, config_nodes, section_dict=None):
+    def get_value_for_path_list(self, config_nodes, section_dict=None, default_value=None):
         """
         :return: a section (or value) under the given array keys
         """
         if not self.initialised:
-            return
+            default_value
         assert isinstance(config_nodes, list), 'config_nodes should be a string list'
         if section_dict is None:
             section_dict = self.cfg
         if len(config_nodes) == 0:
-            return None
+            return default_value
         elif len(config_nodes) == 1:
             # final element
             return section_dict.get(config_nodes[0])

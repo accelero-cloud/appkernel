@@ -1,8 +1,13 @@
 appkernel:
   logging:
-    file_name: appkernel.log
+    file_name: appkernel
     max_size: 5048
     backup_count: 5
+  server:
+    address: 0.0.0.0
+    port: 8080
+    shutdown_timeout: 10
+    backlog: 100
   mongo:
     host: localhost
     db: appkernel
