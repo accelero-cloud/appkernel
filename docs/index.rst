@@ -3,10 +3,11 @@ Welcome to Appkernel- microservices made easy!
 
 What is Appkernel?
 ------------------
-A beautiful python framework "safe for human consumption", enabling to deliver a REST based micro-services from zero to production within minutes (no kidding: literally within minutes).
-It is powered by Flask and it offers native support for MongoDB repositories.
+A super-easy microservice and API framework, which enables API development from zero to production within minutes (no kidding: literally within minutes).
 
-The codebase is thoroughly tested under Python 3.6 (Python 2.7 support was dropped somewhere on the road).
+**It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](docs/roadmap.md)).
+
+The codebase is thoroughly tested under Python 3.7 (Python 2.7 support was dropped somewhere on the road).
 
 
 Read the docs :)
@@ -27,8 +28,7 @@ Let's build a mini identity service: ::
                              converter=content_hasher(), omit=True)
         roles = Property(list, sub_type=str, default_value=['Login'])
 
-    app = Flask(__name__)
-    kernel = AppKernelEngine('demo app', app=app, enable_defaults=True)
+    kernel = AppKernelEngine('demo app')
 
     if __name__ == '__main__':
 

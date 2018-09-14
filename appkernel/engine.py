@@ -9,17 +9,17 @@ import sys
 from logging.handlers import RotatingFileHandler
 
 import eventlet.debug
-import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from flask import Flask, current_app, request, g
+from flask import Flask, request, g
 from flask_babel import Babel, get_locale
 from pymongo import MongoClient
 from werkzeug.exceptions import default_exceptions, HTTPException
 
 from .authorisation import authorize_request
+from .infrastructure import CfgEngine
 from .configuration import config
-from .core import AppKernelException
+from .core import AppInitialisationError
 from .iam import RbacMixin
 from .model import Model
 from .util import default_json_serializer, create_custom_error
@@ -44,35 +44,44 @@ class AppKernelJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
+def get_option_value(option_dict, opts):
+    for opt, arg in opts:
+        if opt in option_dict:
+            return arg or True
+    return None
+
+
 def get_cmdline_options():
     # working dir is also available on: self.app.root_path
     argv = sys.argv[1:]
-    opts, args = getopt.getopt(argv, 'c:dw:', ['config-dir=', 'development', 'working-dir='])
-    # -- config directory
-    config_dir_provided, config_dir_param = AppKernelEngine.is_option_provided(('-c', '--config-dir'), opts, args)
+    opts, args = getopt.getopt(argv, 'c:dw:h:', ['config-dir=', 'development', 'working-dir=', 'db-host='])
     cwd = os.path.dirname(os.path.realpath(sys.argv[0]))
-    if config_dir_provided:
+    # -- config directory
+    config_dir_param = get_option_value(('-c', '--config-dir'), opts)
+
+    if config_dir_param:
         cfg_dir = '{}/'.format(str(config_dir_param).rstrip('/'))
         cfg_dir = os.path.expanduser(cfg_dir)
         if not os.path.isdir(cfg_dir) or not os.access(cfg_dir, os.W_OK):
             raise AppInitialisationError('The config directory [{}] is not found/not writable.'.format(cfg_dir))
     else:
-        cfg_dir = '{}/../'.format(cwd.rstrip('/'))
+        cfg_dir = None
 
     # -- working directory
-    working_dir_provided, working_dir_param = AppKernelEngine.is_option_provided(('-w', '--working-dir'), opts,
-                                                                                 args)
-    if working_dir_provided:
+    working_dir_param = get_option_value(('-w', '--working-dir'), opts)
+    if working_dir_param:
         cwd = os.path.expanduser('{}/'.format(str(config_dir_param).rstrip('/')))
         if not os.path.isdir(cwd) or not os.access(cwd, os.W_OK):
             raise AppInitialisationError('The working directory[{}] is not found/not writable.'.format(cwd))
     else:
-        cwd = '{}/../'.format(cwd.rstrip('/'))
-    development, param = AppKernelEngine.is_option_provided(('-d', '--development'), opts, args)
+        cwd = f'{cwd.rstrip("/")}'
+    development = get_option_value(('-d', '--development'), opts)
+    db_host = get_option_value(('-h', '--db-host'), opts)
     return {
         'cfg_dir': cfg_dir,
         'development': development,
-        'cwd': cwd
+        'cwd': cwd,
+        'db': db_host
     }
 
 
@@ -80,12 +89,6 @@ class ResourceController(RbacMixin):
     def __init__(self, cls):
         super().__init__(cls)
         self.cls = cls
-
-
-class AppInitialisationError(AppKernelException):
-
-    def __init__(self, message):
-        super().__init__(message)
 
 
 class AppKernelEngine(object):
@@ -112,7 +115,7 @@ class AppKernelEngine(object):
         assert app_id is not None, 'The app_id must be provided'
         assert re.match('[A-Za-z0-9-_]',
                         app_id), 'The app_id must be a single word, no space or special characters except - or _ .'
-        self.app: Flask = app or current_app or Flask(app_id)
+        self.app: Flask = app or Flask(app_id)
         assert self.app is not None, 'The Flask App must be provided as init parameter.'
         try:
             config.service_registry = {}
@@ -141,11 +144,11 @@ class AppKernelEngine(object):
             atexit.register(self.shutdown_hook)
             if hasattr(app, 'teardown_appcontext'):
                 app.teardown_appcontext(self.teardown)
-            else:
+            elif hasattr(app, 'teardown_request'):
                 app.teardown_request(self.teardown)
             # -- database host
-            db_host = self.cfg_engine.get('appkernel.mongo.host') or 'localhost'
-            db_name = self.cfg_engine.get('appkernel.mongo.db') or 'app'
+            db_host = self.cmd_line_options.get('db') or self.cfg_engine.get('appkernel.mongo.host', 'localhost')
+            db_name = self.cfg_engine.get('appkernel.mongo.db', 'app')
             self.mongo_client = MongoClient(host=db_host)
             config.mongo_database = self.mongo_client[db_name]
             config.flask_app: Flask = self.app
@@ -224,7 +227,7 @@ class AppKernelEngine(object):
         # translations.merge(Translations.load())
         # todo: support for multiple plugins
         supported_languages = []
-        for supported_lang in self.cfg_engine.get('appkernel.i18n.languages') or ['en-US']:
+        for supported_lang in self.cfg_engine.get('appkernel.i18n.languages', ['en-US']):
             supported_languages.append(supported_lang)
             if '-' in supported_lang:
                 supported_languages.append(supported_lang.split('-')[0])
@@ -270,9 +273,9 @@ class AppKernelEngine(object):
                 self.app.run(debug=self.development, threaded=True)
 
     def shutdown_hook(self):
-        if config.mongo_database:
+        if config and hasattr(config, 'mongo_database') and config.mongo_database:
             self.mongo_client.close()
-        if self.app and self.app.logger:
+        if hasattr(self, 'app') and self.app and hasattr(self.app, 'logger') and self.app.logger:
             self.app.logger.info('======= Shutting Down {} ======='.format(self.app_id))
         # no need for the following code snippet while the http_server.serve_forever() is used
         # if hasattr(self, 'http_server'):
@@ -292,7 +295,7 @@ class AppKernelEngine(object):
             if not os.path.isdir(cfg_dir) or not os.access(cfg_dir, os.W_OK):
                 raise AppInitialisationError('The config directory [{}] is not found/not writable.'.format(cfg_dir))
         else:
-            cfg_dir = '{}/../'.format(cwd.rstrip('/'))
+            cfg_dir = None
 
         # -- working directory
         working_dir_provided, working_dir_param = AppKernelEngine.is_option_provided(('-w', '--working-dir'), opts,
@@ -309,13 +312,6 @@ class AppKernelEngine(object):
             'development': development,
             'cwd': cwd
         }
-
-    @staticmethod
-    def is_option_provided(option_dict, opts, args):
-        for opt, arg in opts:
-            if opt in option_dict:
-                return True, arg
-        return False, ''
 
     def __configure_flask_app(self):
         if hasattr(self.app, 'teardown_appcontext'):
@@ -349,10 +345,11 @@ class AppKernelEngine(object):
             # self.cfg_engine.get_value_for_section()
             # log_format = ' in %(module)s [%(pathname)s:%(lineno)d]:\n%(message)s'
             formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s:%(lineno)d - %(message)s")
-            max_bytes = self.cfg_engine.get('appkernel.logging.max_size') or 10485760
-            backup_count = self.cfg_engine.get('appkernel.logging.backup_count') or 3
-            file_name = self.cfg_engine.get('appkernel.logging.file_name') or '{}.log'.format(self.app_id)
-            handler = RotatingFileHandler('{}/{}.log'.format(log_folder, file_name), maxBytes=max_bytes,
+            max_bytes = self.cfg_engine.get('appkernel.logging.max_size', 10485760)
+            backup_count = self.cfg_engine.get('appkernel.logging.backup_count', 3)
+            file_name = self.cfg_engine.get(
+                'appkernel.logging.file_name') or f"{self.app_id.replace(' ', '_').lower()}.log"
+            handler = RotatingFileHandler('{}/{}'.format(log_folder, file_name), maxBytes=max_bytes,
                                           backupCount=backup_count)
             # handler = TimedRotatingFileHandler('logs/foo.log', when='midnight', interval=1)
             handler.setLevel(level)
@@ -417,60 +414,3 @@ class AppKernelEngine(object):
         expose_service(service_class_or_instance, self, url_base or self.root_url, methods=methods,
                        enable_hateoas=enable_hateoas)
         return ResourceController(service_class_or_instance)
-
-
-class CfgEngine(object):
-    """
-    Encapsulates application configuration. One can use it for retrieving various section form the configuration.
-    """
-
-    def __init__(self, cfg_dir, config_file_name='cfg.yml', optional=False):
-        """
-        :param cfg_dir: the directory which holds the configuration files;
-        :param config_file_name: the file name which contains the configuration (cfg.yml by default);
-        :param optional: if True it will initialise even if config resource is not found (defaults to False);
-        """
-        self.optional = optional
-        self.initialised = False
-        config_file = '{}/{}'.format(cfg_dir.rstrip('/'), config_file_name)
-        if not os.access(config_file, os.R_OK):
-            if not optional:
-                raise AppInitialisationError('The config file {} is missing or not readable. '.format(config_file))
-            else:
-                return
-
-        with open(config_file, 'r') as ymlfile:
-            try:
-                self.cfg = yaml.load(ymlfile)
-                self.initialised = True
-            except yaml.scanner.ScannerError as se:
-                raise AppInitialisationError('cannot read configuration file due to: {}'.format(config_file))
-
-    def get(self, path_expression, default_value=None):
-        """
-        :param path_expression: a . (dot) separated path to the configuration value: 'appkernel.backup_count'
-        :type path_expression: str
-        :return:
-        """
-        assert path_expression is not None, 'Path expression should be provided.'
-
-        nodes = path_expression.split('.')
-        return self.get_value_for_path_list(nodes, default_value=default_value)
-
-    def get_value_for_path_list(self, config_nodes, section_dict=None, default_value=None):
-        """
-        :return: a section (or value) under the given array keys
-        """
-        if not self.initialised:
-            default_value
-        assert isinstance(config_nodes, list), 'config_nodes should be a string list'
-        if section_dict is None:
-            section_dict = self.cfg
-        if len(config_nodes) == 0:
-            return default_value
-        elif len(config_nodes) == 1:
-            # final element
-            return section_dict.get(config_nodes[0])
-        else:
-            key = config_nodes.pop(0)
-            return self.get_value_for_path_list(config_nodes, section_dict.get(key))

@@ -18,7 +18,7 @@ setup(
     # 1.2.0b1     # Beta Release
     # 1.2.0rc1    # Release Candidate
     # 1.2.0       # Final Release
-    version='1.2.0',
+    version='1.2.4',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     setup_requires=['pytest-runner'],
     install_requires=[
@@ -31,9 +31,9 @@ setup(
     tests_require=['pytest', 'pytest-flask', 'requests-mock', 'codecov', 'pytest-cov', 'recommonmark', 'money'],
     include_package_data=True,
     platforms='any',
-    url='https://appkernel.accelero.cloud',
+    url='https://github.com/accelero-cloud/',
     license='Apache 2.0',
-    author='csaba',
+    author='thingsplode',
     author_email='tamas.csaba@gmail.com',
     description='An easy to use microservice framework.',
     long_description=long_description,

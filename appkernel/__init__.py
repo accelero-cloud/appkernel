@@ -21,3 +21,4 @@ from .service import ServiceException
 from .iam import IdentityMixin, Role, Anonymous, Denied, CurrentSubject, Authority, Permission, RbacMixin
 from .engine import AppKernelEngine, ResourceController
 from .configuration import config
+from .infrastructure import CfgEngine

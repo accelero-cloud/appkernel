@@ -83,12 +83,17 @@ Create docker file
     COPY . /app
 
     EXPOSE 5000
-    CMD ["python", "orderservice.py"]
+    CMD ["python", "orderservice.py", "-h 172.17.0.2"]
+
+The third parameter in the command section is the address of the Mongo docker image. One can check the address of his own
+installation with the following command: ::
+
+    docker inspect bridge |grep -A 5 mongo
 
 Build the image
 ...............
 
-    Let's build the docker image in the current service directory: ::
+Let's build the docker image in the current service directory: ::
 
     docker build -t order_service_image -f order_service_docker_file .
 
@@ -99,7 +104,12 @@ And as a last stap we start the service ::
 
     docker run --name orderservice -d -p 5000:5000 order_service_image
 
-Check the output: ::
+You can list the log file: ::
+
+    docker exec -it orderservice tail -fn 300 /order_service.log
+
+Alternative status output  check could be done with the following command
+(note: by default this won't show you anything, since appkernel is not writing to the standard output if it is set to production mode): ::
 
     docker logs orderservice
 
@@ -107,14 +117,14 @@ Alternatively you can run the image in interactive mode ::
 
     docker run -it --rm --name order-service order_service_image sh
 
-Optionally you can create config file
-.....................................
+Optionally you can create a config file
+........................................
 
 Just create a file under the name cfg.yml and place it next to your service initiator script: ::
 
     appkernel:
       logging:
-        file_name: myapp # the name of the log file
+        file_name: myapp.log # the name of the log file
         max_size: 5048 # the maximum size of a log file
         backup_count: 5 # the max. number of log files
       server:

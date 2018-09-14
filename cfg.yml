@@ -1,6 +1,6 @@
 appkernel:
   logging:
-    file_name: appkernel
+    file_name: ../appkernel.log
     max_size: 5048
     backup_count: 5
   server:

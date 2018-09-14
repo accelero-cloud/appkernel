@@ -9,7 +9,7 @@
 ## What is Appkernel?
 A super-easy microservice and API framework, which enables API development from zero to production within minutes (no kidding: literally within minutes).
 
-**It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](docs/roadmap.md)).
+**It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](https://github.com/accelero-cloud/appkernel/blob/master/docs/roadmap.md)).
 - [Check out the tutorial :)](https://github.com/accelero-cloud/tutorials)
 - [or read the full documentation.](http://appkernel.readthedocs.io/en/latest/)
 
