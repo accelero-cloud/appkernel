@@ -18,7 +18,7 @@ setup(
     # 1.2.0b1     # Beta Release
     # 1.2.0rc1    # Release Candidate
     # 1.2.0       # Final Release
-    version='1.1.0',
+    version='1.2.0',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires=[
         'pyyaml', 'enum34', 'pymongo==3.7.1', 'simplejson',
