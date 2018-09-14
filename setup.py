@@ -20,6 +20,7 @@ setup(
     # 1.2.0       # Final Release
     version='1.2.0',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    setup_requires=['pytest-runner'],
     install_requires=[
         'pyyaml', 'enum34', 'pymongo==3.7.1', 'simplejson',
         'Flask > 0.12.3', 'werkzeug', 'eventlet',
@@ -27,7 +28,7 @@ setup(
         'flask-babel', 'babel', 'pyjwt', 'cryptography',
         'sets', 'aiohttp', 'cchardet', 'aiodns', 'requests'
     ],
-    tests_require=['pytest', 'pytest-flask', 'requests-mock', 'codecov', 'pytest-cov', 'recommonmark'],
+    tests_require=['pytest', 'pytest-flask', 'requests-mock', 'codecov', 'pytest-cov', 'recommonmark', 'money'],
     include_package_data=True,
     platforms='any',
     url='https://appkernel.accelero.cloud',
