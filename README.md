@@ -1,4 +1,4 @@
-# appkernel - microservices made easy
+# appkernel - microservice APIs made easy
 
 
 ![alt build_status](https://travis-ci.org/accelero-cloud/appkernel.svg?branch=master "build status")
@@ -7,7 +7,7 @@
 ![GitHub license](https://img.shields.io/github/license/accelero-cloud/appkernel.svg "license")
 
 ## What is Appkernel?
-A REST API  framework, which enables micro-service development from zero to production within minutes (no kidding: literally within minutes).
+A super-easy microservice and API framework, which enables API development from zero to production within minutes (no kidding: literally within minutes).
 
 **It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](docs/roadmap.md)).
 - [Check out the tutorial :)](https://github.com/accelero-cloud/tutorials)
@@ -37,15 +37,17 @@ class User(Model, MongoRepository):
         user = kwargs.get('model')
         print(f'going to create the following user: {user}')
 
-kernel = AppKernelEngine(__name__, app=Flask(__name__))
+
 
 if __name__ == '__main__':
     # let's expose the user resource
+    kernel = AppKernelEngine()
     kernel.register(User)
 
-    # let's create a sample user
+    # let's create and persist a sample user
     user = User(name='Test User', email='test@accelero.cloud', password='some pass')
     user.save()
+
     # and we are all set
     kernel.run()
 ```

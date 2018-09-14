@@ -1,8 +1,9 @@
 # encoding=utf8
 
-from setuptools import setup, find_packages
 from codecs import open
 from os import path
+
+from setuptools import setup, find_packages
 
 here = path.abspath(path.dirname(__file__))
 
@@ -24,25 +25,20 @@ setup(
         'Flask > 0.12.3', 'werkzeug', 'eventlet',
         'wrapt', 'passlib==1.7.1', 'jsonschema',
         'flask-babel', 'babel', 'pyjwt', 'cryptography',
-        'recommonmark', 'sets', 'money',
-        'aiohttp', 'cchardet', 'aiodns', 'requests'
-        # , 'Flask-SocketIO==2.9.2', 'Flask-Login==0.4.0', 'Flask-Session==0.3.1',
-        # 'flask-emails', 'flask-httpauth', 'flask-cors',
-        # 'python-engineio==1.7.0', 'python-socketio==1.8.1',
-        # 'flasgger', 'eventlet', 'six==1.10.0',
-        # "jsonstruct==0.2a1", "mockito"
-        # 'redis',
+        'sets', 'aiohttp', 'cchardet', 'aiodns', 'requests'
     ],
-    tests_require=['pytest', 'pytest-flask', 'requests-mock', 'codecov', 'pytest-cov'],
+    tests_require=['pytest', 'pytest-flask', 'requests-mock', 'codecov', 'pytest-cov', 'recommonmark'],
     include_package_data=True,
     platforms='any',
     url='https://appkernel.accelero.cloud',
     license='Apache 2.0',
     author='csaba',
     author_email='tamas.csaba@gmail.com',
-    description='An easy to use, beautiful, opinionated micro-service-chassis.',
+    description='An easy to use microservice framework.',
     long_description=long_description,
-    keywords=['microservice', 'flask', 'pymongo'],
+    long_description_content_type="text/markdown",
+    keywords=['microservice', 'flask', 'pymongo', 'serverless', 'rest', 'flask', 'serialisation', 'orm', 'mongo', 'api',
+              'rest api'],
     # classifier options are available here: https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         'Environment :: Console',
