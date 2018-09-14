@@ -358,8 +358,8 @@ class AppKernelEngine(object):
             handler.setLevel(level)
         handler.setFormatter(formatter)
         self.app.logger.setLevel(level)
-        #self.app.logger.addHandler(handler)
-        self.app.logger.handlers=[handler]
+        # self.app.logger.addHandler(handler)
+        self.app.logger.handlers = [handler]
         self.app.logger.info('Logger initialised')
 
     @staticmethod
