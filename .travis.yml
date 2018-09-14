@@ -14,14 +14,14 @@ services:
   - redis-server
 
 install:
-  - pip install -U pip setuptools pytest pytest-flask flake8 requests-mock codecov pytest-cov
+  - pip install -U pip setuptools pytest pytest-flask flake8 requests-mock codecov pytest-cov money
   # trying to include unreleased fixes for pylint in combination w. Python 3.7
   - pip install --pre -U pylint astroid
   - pip install --editable .
   - cd tests && pybabel compile -d ./translations && cd ..
 
 script:
-  - python setup.py test
+  #- python setup.py test
   - coverage run -m pytest ./tests
   #- pytest tests/ -v --capture=no
   - pylint --rcfile=./pylintrc appkernel

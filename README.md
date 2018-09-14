@@ -25,6 +25,7 @@ A super-easy microservice and API framework, which enables API development from 
 Let's build an awseome mini identity service:
 ```python
 class User(Model, MongoRepository):
+    # define the resource schema as class meta data
     id = Property(str)
     name = Property(str, index=UniqueIndex)
     email = Property(str, validators=[Email], index=UniqueIndex)
@@ -34,6 +35,7 @@ class User(Model, MongoRepository):
     @classmethod
     def before_post(cls, *args, **kwargs):
         # this method is automatically called before persisting the instance
+        # one can use after_post for hook after the persistence.
         user = kwargs.get('model')
         print(f'going to create the following user: {user}')
 

@@ -62,6 +62,6 @@ def content_hasher(rounds=20000, salt_size=16):
         if password.startswith('$pbkdf2-sha256'):
             return password
         else:
-            return pbkdf2_sha256.encrypt(password, rounds=rounds, salt_size=salt_size)
+            return pbkdf2_sha256.hash(password, rounds=rounds, salt_size=salt_size)
 
     return hash_content
