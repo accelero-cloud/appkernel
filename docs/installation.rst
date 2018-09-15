@@ -61,6 +61,11 @@ Take the following sample as a minimalist microservice (offering CRUD operations
 
 
 
+Create a minimalistic configuration file
+........................................
+
+
+
 Create docker file
 ..................
 
@@ -83,7 +88,7 @@ Create docker file
     COPY . /app
 
     EXPOSE 5000
-    CMD ["python", "orderservice.py", "-h 172.17.0.2"]
+    CMD ["python", "orderservice.py"]
 
 The third parameter in the command section is the address of the Mongo docker image. One can check the address of his own
 installation with the following command: ::

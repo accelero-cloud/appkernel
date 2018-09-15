@@ -266,6 +266,8 @@ class AppKernelEngine(object):
                                               log=logging_adapter,
                                               error_log=logging_adapter)
                 shutdown_timeout = self.cfg_engine.get('appkernel.server.shutdown_timeout', 10)
+                self.app.logger.info(f'--> starting production mode |host: {binding_address}|port: {port}|backlog: {backlog}')
+                print(f'=== starting server ===')
                 self.http_server.serve_forever(stop_timeout=shutdown_timeout)
             except ImportError:
                 self.app.logger.warn(
