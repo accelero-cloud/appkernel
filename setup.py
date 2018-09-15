@@ -35,7 +35,7 @@ setup(
     license='Apache 2.0',
     author='thingsplode',
     author_email='tamas.csaba@gmail.com',
-    description='An easy to use microservice framework.',
+    description='An easy to use API framework.',
     long_description=long_description,
     long_description_content_type="text/markdown",
     keywords=['microservice', 'flask', 'pymongo', 'serverless', 'rest', 'flask', 'serialisation', 'orm', 'mongo', 'api',

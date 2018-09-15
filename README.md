@@ -11,6 +11,7 @@ A super-easy to use API framework, enabling API creation from zero to production
 
 **It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](https://github.com/accelero-cloud/appkernel/blob/master/docs/roadmap.md)).
 - [Check out the tutorial :)](https://github.com/accelero-cloud/tutorials)
+- [Join the commuity and ask questions](https://gitter.im/accelero-cloud/Lobby)
 - [or read the full documentation.](http://appkernel.readthedocs.io/en/latest/)
 
 ... and finally **give a vote on [awesome-python](https://github.com/vinta/awesome-python/pull/1103)** if you like the project, so it gets added to the list of RESTful python frameworks. **Only 15 more votes are missing :)**
