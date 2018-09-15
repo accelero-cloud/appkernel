@@ -1,9 +1,9 @@
-Welcome to Appkernel- microservices made easy!
+Welcome to Appkernel- API development made easy!
 ==============================================
 
 What is Appkernel?
 ------------------
-A super-easy microservice and API framework, which enables API development from zero to production within minutes (no kidding: literally within minutes).
+A super-easy to use API framework, enabling API creation from zero to production within minutes (no kidding: literally within minutes).
 
 **It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](docs/roadmap.md)).
 

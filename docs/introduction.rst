@@ -4,7 +4,7 @@ How does it works?
 Base Model
 ..........
 
-AppKernel is built around the concepts of Domain Driven Design. You can start the project by laying out the model (the Enitity).
+AppKernel is built around the concepts of Domain Driven Design. You can start the project by laying out the model (the Entity).
 
 .. note::
     All the example code below was tested in Python's interactive console so that you can follow this documentation by trying out the code snippets.

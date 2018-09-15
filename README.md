@@ -1,4 +1,4 @@
-# appkernel - microservice APIs made easy
+# appkernel - API development made easy
 
 
 ![alt build_status](https://travis-ci.org/accelero-cloud/appkernel.svg?branch=master "build status")
@@ -7,7 +7,7 @@
 ![GitHub license](https://img.shields.io/github/license/accelero-cloud/appkernel.svg "license")
 
 ## What is Appkernel?
-A super-easy microservice and API framework, which enables API development from zero to production within minutes (no kidding: literally within minutes).
+A super-easy to use API framework, enabling API creation from zero to production within minutes (no kidding: literally within minutes).
 
 **It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](https://github.com/accelero-cloud/appkernel/blob/master/docs/roadmap.md)).
 - [Check out the tutorial :)](https://github.com/accelero-cloud/tutorials)
@@ -219,7 +219,7 @@ user_service.deny_all().require(Role('user'), methods='GET').require(Role('admin
 
 ## What are we building here?
 The vision of the project is to provide you with a full-fledged [microservice chassis](http://microservices.io/microservices/news/2016/02/21/microservice-chassis.html),
-as defined by Chris Richardson.
+as defined by Chris Richardson to help creating beautiful APIs quikly and efficiently.
 
 ## How does it helps you?
 We've spent the time on analysing the stack, made the hard choices for you in terms of Database/ORM/Security/Rate Limiting and so on, so
