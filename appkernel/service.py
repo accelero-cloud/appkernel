@@ -270,7 +270,7 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
                     result_dic_tentative = {} if result is None else _xvert(cls, result)
                     return jsonify(result_dic_tentative), 200
                 except ServiceException as sexc:
-                    config.app_engine.logger.warn('Service error: {}'.format(str(sexc)))
+                    config.app_engine.logger.warning('Service error: {}'.format(str(sexc)))
                     return create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
                 except Exception as exc:
                     config.app_engine.logger.exception(exc)
@@ -394,10 +394,10 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
             result_dic_tentative = {} if result is None else _xvert(cls, result)
             return jsonify(result_dic_tentative), return_code
         except PropertyRequiredException as pexc:
-            app_engine.logger.warn('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
+            app_engine.logger.warning('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
             return create_custom_error(400, str(pexc), cls.__name__)
         except ValidationException as vexc:
-            app_engine.logger.warn('validation error: {}'.format(str(vexc)))
+            app_engine.logger.warning('validation error: {}'.format(str(vexc)))
             return create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)),
                                        cls.__name__)
         except RequestHandlingException as rexc:

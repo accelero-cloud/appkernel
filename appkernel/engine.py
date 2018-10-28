@@ -270,7 +270,7 @@ class AppKernelEngine(object):
                 print(f'=== starting server ===')
                 self.http_server.serve_forever(stop_timeout=shutdown_timeout)
             except ImportError:
-                self.app.logger.warn(
+                self.app.logger.warning(
                     '--> falling back to the builtin development server (since gevent is missing / issue: pip install gevent')
                 self.app.run(debug=self.development, threaded=True)
 
@@ -384,7 +384,7 @@ class AppKernelEngine(object):
             self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
         else:
             msg = 'Generic server error.'
-            self.logger.warn('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
+            self.logger.warning('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
         return create_custom_error(code, msg, upstream_service=upstream_service)
 
     def teardown(self, exception):
@@ -395,7 +395,7 @@ class AppKernelEngine(object):
         :return:
         """
         if exception is not None:
-            self.app.logger.warn(exception.message if hasattr(exception, 'message') else str(exception))
+            self.app.logger.warning(exception.message if hasattr(exception, 'message') else str(exception))
 
     def register(self, service_class_or_instance, url_base=None, methods=['GET'],
                  enable_hateoas=True) -> ResourceController:
