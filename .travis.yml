@@ -1,6 +1,6 @@
 language: python
-dist: xenial  # required for Python 3.7
-sudo: true    # required for Python 3.7
+dist: xenial # required for Python 3.7
+sudo: true # required for Python 3.7
 
 python:
   - 3.7
@@ -14,7 +14,8 @@ services:
   - redis-server
 
 install:
-  - pip install -U pip setuptools pytest pytest-flask flake8 requests-mock codecov pytest-cov money
+  - pip install -U pip setuptools
+  - pip install -U -r dev-requirements.txt
   # trying to include unreleased fixes for pylint in combination w. Python 3.7
   - pip install --pre -U pylint astroid
   - pip install --editable .
@@ -35,7 +36,6 @@ after_script:
 
 before_deploy:
   - python setup.py build -vf
-
 #  deploy:
 #  - provider: pypi
 #    user: $REPO_USER

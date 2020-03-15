@@ -11,7 +11,7 @@ After cloning the project, you might want to setup a virtual environment:
 ```bash
 cd appkernel
 pip install --user pipenv
-virtualenv -p python3 venv
+virtualenv -p python3 .venv
 source venv/bin/activate
 pip install -e .
 pip install -r dev-requirements.txt
