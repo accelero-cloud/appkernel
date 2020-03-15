@@ -1,6 +1,7 @@
 ## Development environment
 
 Clone the project:
+
 ```bash
 git clone git@github.com:accelero-cloud/appkernel.git
 ```
@@ -13,10 +14,7 @@ pip install --user pipenv
 virtualenv -p python3 venv
 source venv/bin/activate
 pip install -e .
-pip install pytest
-pip install pytest-flask
-pip install pylint
-pip install flake8
+pip install -r dev-requirements.txt
 ```
 
 Since astroid (a dependency of pylint) is not supporting python 3.7 yet, you might need to run the
@@ -26,10 +24,10 @@ command from above if your pylint analysis ends with `RuntimeError: generator ra
 pip install --pre -U pylint astroid
 ```
 
-*Hint for PyCharm users*
+_Hint for PyCharm users_
 
-* you might want to set the Project Interpreter (in the project settings) to the virtual environment just have created;
-* you might want to set to excluded your .idea, appkernel.egg-info and venv folder in case of using Pycharm;
+- you might want to set the Project Interpreter (in the project settings) to the virtual environment just have created;
+- you might want to set to excluded your .idea, appkernel.egg-info and venv folder in case of using Pycharm;
 
 #### Setup git hooks
 
@@ -50,39 +48,50 @@ Some tests require compiled translations:
 cd tests
 pybabel compile -d ./translations
 ```
+
 And many others a working local mongo db:
 
- ```bash
- docker create -v ~/data:/data/db -p 27017:27017 --name mongo mongo
- docker start mongo
- ```
+```bash
+docker create -v ~/data:/data/db -p 27017:27017 --name mongo mongo
+docker start mongo
+```
+
 ...where `~/data` might be replaced by any folder where you would like to store
 database files;
 
-*Hint*: the schema installation feature expects a MongoDB version min. 3.6.
- In case you have an older version you might need to upgrade your mongo image (`docker pull mongo:latest`).
+_Hint_: the schema installation feature expects a MongoDB version min. 3.6.
+In case you have an older version you might need to upgrade your mongo image (`docker pull mongo:latest`).
 
 Run the following command in the test folder:
+
 ```bash
 pytest
 ```
 
 ### Publish the project to PyPi
+
 Make sure yuo have the latest twine version:
+
 ```bash
 python3 -m pip install --upgrade twine
 ```
+
 Make a test run:
+
 ```bash
 python setup.py build -vf && python setup.py bdist_wheel
 twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```
+
 Once we are ready we can upload the package the repo:
+
 ```bash
 python setup.py build -vf && python setup.py bdist_wheel
 twine upload dist/*
 ```
+
 In case you have a ~/.pypirc you can use the shortcut names:
+
 ```bash
 [distutils]
 index-servers=
