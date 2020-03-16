@@ -369,14 +369,14 @@ class Property(DslBase):
     """
 
     def __init__(self, python_type,
-                 required=False,
-                 sub_type=None,
-                 validators=None,
-                 converter=None,
-                 default_value=None,
-                 generator=None: Callable,
-                 index=None: Index
-                 marshaller = None,
+                 required: Boolean = False,
+                 sub_type: Callable = None,
+                 validators: Callable = None,
+                 converter: Callable = None,
+                 default_value: Callable = None,
+                 generator: Callable =None:,
+                 index=None: Index,
+                 marshaller: Callable = None,
                  omit=False) -> ():
         """
         Args:
