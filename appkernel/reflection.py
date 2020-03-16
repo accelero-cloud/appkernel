@@ -72,8 +72,8 @@ def is_object(obj):
     >>> is_object(lambda x: 1)
     False
     """
-    return (isinstance(obj, object) and
-            not isinstance(obj, (type, types.FunctionType)))
+    return (isinstance(obj, object)
+            and not isinstance(obj, (type, types.FunctionType)))
 
 
 def is_primitive(obj):
@@ -152,8 +152,8 @@ def is_dictionary_subclass(obj):
     >>> is_dictionary_subclass(Temp())
     True
     """
-    return (hasattr(obj, '__class__') and
-            issubclass(obj.__class__, dict) and not is_dictionary(obj))
+    return (hasattr(obj, '__class__')
+            and issubclass(obj.__class__, dict) and not is_dictionary(obj))
 
 
 def is_sequence_subclass(obj):
@@ -164,10 +164,10 @@ def is_sequence_subclass(obj):
     >>> is_sequence_subclass(Temp())
     True
     """
-    return (hasattr(obj, '__class__') and
-            (issubclass(obj.__class__, SEQUENCES) or
-                is_list_like(obj)) and
-            not is_sequence(obj))
+    return (hasattr(obj, '__class__')
+            and (issubclass(obj.__class__, SEQUENCES)
+                 or is_list_like(obj))
+            and not is_sequence(obj))
 
 
 def is_list_like(obj):
@@ -206,11 +206,11 @@ def is_function(obj):
         return False
     module = translate_module_name(obj.__class__.__module__)
     name = obj.__class__.__name__
-    return (module == '__builtin__' and
-            name in ('function',
-                     'builtin_function_or_method',
-                     'instancemethod',
-                     'method-wrapper'))
+    return (module == '__builtin__'
+            and name in ('function',
+                         'builtin_function_or_method',
+                         'instancemethod',
+                         'method-wrapper'))
 
 
 def is_module_function(obj):
@@ -222,11 +222,11 @@ def is_module_function(obj):
     False
     """
 
-    return (hasattr(obj, '__class__') and
-            isinstance(obj, types.FunctionType) and
-            hasattr(obj, '__module__') and
-            hasattr(obj, '__name__') and
-            obj.__name__ != '<lambda>')
+    return (hasattr(obj, '__class__')
+            and isinstance(obj, types.FunctionType)
+            and hasattr(obj, '__module__')
+            and hasattr(obj, '__name__')
+            and obj.__name__ != '<lambda>')
 
 
 def is_module(obj):

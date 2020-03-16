@@ -103,26 +103,26 @@ class Query(object):
         Creates a cursor based on the filter and sorting criteria and yields the results;
         :return: a generator object which yields found instances of Model class
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     def find_one(self):
         """
         :return: One or none instances of the Model, depending on the query criteria
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     def count(self):
         """
         :return: the number of items in the repository matching the filter expression;
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     def delete(self):
         """
         Delete all elements which fulfill the filter criteria (defined in the where method);
         :return: the deleted item count
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     def get(self, page=0, page_size=100):
         """
@@ -131,7 +131,7 @@ class Query(object):
         :param page_size: the size of the page (number of elements requested
         :return: the result of the query as a list of Model instance objects
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
 
 def mongo_type_converter_to_dict(value: any) -> any:
@@ -235,7 +235,7 @@ class Repository(object):
         :param object_id: the database id
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def delete_by_id(cls, object_id):
@@ -244,7 +244,7 @@ class Repository(object):
         :param object_id: the unique object ID
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def create_object(cls, document):
@@ -253,7 +253,7 @@ class Repository(object):
         :param document:
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def replace_object(cls, object_id, document):
@@ -263,15 +263,15 @@ class Repository(object):
         :param document:
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def patch_object(cls, document, object_id=None):
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def save_object(cls, document, object_id=None):
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def find(cls, *expressions):
@@ -281,7 +281,7 @@ class Repository(object):
         :type expressions: Expression
         :return: a Model Generator
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def find_one(cls, *expressions):
@@ -292,7 +292,7 @@ class Repository(object):
         :return: one Model object
         :rtype: Model
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def where(cls, *expressions):
@@ -302,7 +302,7 @@ class Repository(object):
         :return: a query object preconfigured with the
         :rtype: Query
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def find_by_query(cls, query={}, page=1, page_size=50, sort_by=None, sort_order=SortOrder.ASC):
@@ -318,11 +318,11 @@ class Repository(object):
         :param sort_order:
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def create_cursor_by_query(cls, query):
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def update_many(cls, match_query_dict, update_expression_dict):
@@ -332,7 +332,7 @@ class Repository(object):
         :param update_expression_dict:
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def delete_many(cls, match_query_dict):
@@ -341,7 +341,7 @@ class Repository(object):
         :param match_query_dict:
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def delete_all(cls):
@@ -349,7 +349,7 @@ class Repository(object):
 
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     @classmethod
     def count(cls, query_filter={}):
@@ -359,21 +359,21 @@ class Repository(object):
         :type query_filter: dict
         :return:
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     def save(self):
         """
         Saves or updates a model instance in the database
         :return: the id of the inserted or updated document
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
     def delete(self):
         """
         Delete the current instance.
         :raises RepositoryException: in case the instance was not deleted.
         """
-        raise NotImplemented('abstract method')
+        raise NotImplementedError('abstract method')
 
 
 class MongoRepository(Repository):
@@ -411,7 +411,8 @@ class MongoRepository(Repository):
         MongoRepository.version_check(tuple([3, 6, 0]))
         try:
             config.mongo_database.create_collection(xtract(cls))
-        except CollectionInvalid as cix:
+        except CollectionInvalid:
+            # schema not found
             pass
 
         config.mongo_database.command(
@@ -424,7 +425,6 @@ class MongoRepository(Repository):
     @staticmethod
     def create_index(collection, field_name, sort_order, unique=False):
         # type: (pymongo.collection.Collection, str, SortOrder, bool) -> ()
-
         """
         Args:
             collection(pymongo.collection.Collection): the collection to which the index is applied to
