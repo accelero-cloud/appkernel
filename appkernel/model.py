@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable,
 import collections
 import inspect
 from datetime import datetime, date
@@ -369,7 +369,7 @@ class Property(DslBase):
     """
 
     def __init__(self, python_type,
-                 required: Boolean = False,
+                 required: bool = False,
                  sub_type: Callable = None,
                  validators: Callable = None,
                  converter: Callable = None,
