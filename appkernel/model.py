@@ -1,9 +1,8 @@
-from typing import Callable,
+from typing import Callable
 import collections
 import inspect
 from datetime import datetime, date
 from enum import Enum
-from typing import Callable
 
 from bson import ObjectId
 from flask_babel import lazy_gettext
