@@ -374,8 +374,8 @@ class Property(DslBase):
                  validators: Callable = None,
                  converter: Callable = None,
                  default_value: Callable = None,
-                 generator: Callable =None:,
-                 index=None: Index,
+                 generator: Callable = None,
+                 index: Index = None,
                  marshaller: Callable = None,
                  omit=False) -> ():
         """
