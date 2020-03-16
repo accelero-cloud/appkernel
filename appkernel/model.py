@@ -1,3 +1,4 @@
+from typing import Callable
 import collections
 import inspect
 from datetime import datetime, date
@@ -373,11 +374,10 @@ class Property(DslBase):
                  validators=None,
                  converter=None,
                  default_value=None,
-                 generator=None,
-                 index=None,
-                 marshaller=None,
-                 omit=False):
-        # type: (type, bool, type, function, function, function, function, Index) -> ()
+                 generator=None: Callable,
+                 index=None: Index
+                 marshaller = None,
+                 omit=False) -> ():
         """
         Args:
             python_type(type): the primary python type of the attribute (eg. str, datetime or anything else);
@@ -437,7 +437,7 @@ class Property(DslBase):
 
     def length(self):
         if self.python_type in (list):
-            raise NotImplemented('Not yet implemented.')
+            raise NotImplementedError('Not yet implemented.')
         else:
             raise TypeError('Only list type have length')
 
