@@ -83,10 +83,10 @@ def test_auth_basic_deny_without_token(client):
     user = default_config()
     headers = Headers()
     headers.add('X-Tenant', 'rockee')
-    rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    #print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
-    #assert rsp.status_code == 401, 'should be unauthorized'
-    #assert rsp.json.get('message') == 'The authorisation header is missing.'
+    rsp = client.get(f'/users/{user.id}', headers=headers)
+    print(f'\nResponse: {rsp.status} -> {rsp.data.decode()}')
+    # assert rsp.status_code == 401, 'should be unauthorized'
+    # assert rsp.json.get('message') == 'The authorisation header is missing.'
 
 
 def test_auth_basic_garbage_token(client):
@@ -94,8 +94,8 @@ def test_auth_basic_garbage_token(client):
     headers = Headers()
     user.update(roles=['user', 'admin'])
     headers.add('Authorization', 'Bearer {}'.format('eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.'))
-    rsp = client.get('/users/{}'.format(user.id), headers=headers)
-    print('\nResponse: {} -> {}'.format(rsp.status, rsp.data.decode()))
+    rsp = client.get('/users/{user.id}', headers=headers)
+    print(f'\nResponse: {rsp.status} -> {rsp.data.decode()}')
     assert rsp.status_code == 403, 'should be forbidden'
     assert rsp.json.get('message') == 'Not enough segments'
 

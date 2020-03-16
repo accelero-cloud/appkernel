@@ -40,7 +40,7 @@ class CfgEngine(object):
                 self.cfg = yaml.load(ymlfile)
                 self.initialised = True
             except yaml.scanner.ScannerError as se:
-                raise AppInitialisationError('cannot read configuration file due to: {}'.format(config_file))
+                raise AppInitialisationError(f'cannot read config file {config_file} due to: {str(se)}')
 
     def get(self, path_expression, default_value=None):
         """

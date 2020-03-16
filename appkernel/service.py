@@ -562,14 +562,14 @@ def _autobox_parameters(provisioner_method, arguments):
                             arguments[arg_key] = result
                         else:
                             arguments[arg_key] = [result]
-                    except ValueError as verr:
+                    except ValueError:
                         # skip boxing
                         pass
             elif issubclass(required_type, dict) and provided_type in [str, str, str]:
                 # if the required type is dict, but provided string
                 try:
                     arguments[arg_key] = json.loads(arg_value)
-                except ValueError as verr:
+                except ValueError:
                     # skip boxing
                     pass
             else:
