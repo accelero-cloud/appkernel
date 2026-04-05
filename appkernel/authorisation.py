@@ -1,25 +1,33 @@
-from typing import Type
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
 
 import jwt
 
-def _(message, **kwargs):
+if TYPE_CHECKING:
+    from starlette.datastructures import Headers
+    from starlette.responses import JSONResponse
+
+
+def _(message: str, **kwargs: Any) -> str:
     """Minimal i18n passthrough replacing flask_babel."""
     if kwargs:
         return message % kwargs
     return message
+
 
 from appkernel import iam
 from .util import create_custom_error
 from appkernel.configuration import config
 
 
-def check_token(jwt_token) -> dict:
+def check_token(jwt_token: str) -> dict[str, Any]:
     return jwt.decode(jwt_token, config.public_key, algorithms=['RS256'])
 
 
-def __has_current_subject_authority(token: dict, authority, view_args=None):
+def __has_current_subject_authority(token: dict[str, Any], authority: Any, view_args: dict[str, str] | None = None) -> bool:
     if not isinstance(authority, iam.CurrentSubject):
-        raise TypeError('This method required authority of type {}.'.format(iam.CurrentSubject.__name__))
+        raise TypeError(f'This method required authority of type {iam.CurrentSubject.__name__}.')
     subject = token.get('sub', None)
     view_args = view_args or {}
     binding_id = view_args.get(authority.view_arg)
@@ -28,7 +36,7 @@ def __has_current_subject_authority(token: dict, authority, view_args=None):
     return subject == binding_id
 
 
-def __get_required_permissions(clazz, method, endpoint):
+def __get_required_permissions(clazz: Any, method: str, endpoint: str) -> list[Any]:
     pms = clazz.protected_methods.get(method)
     if endpoint in pms:
         perms = list(pms.get(endpoint))
@@ -43,15 +51,15 @@ def __get_required_permissions(clazz, method, endpoint):
     return perms
 
 
-def __contains(required_permissions: list, permission_type: Type):
+def __contains(required_permissions: list[Any], permission_type: type) -> bool:
     contained_permissions = [permission for permission in required_permissions if
                              isinstance(permission, permission_type)]
     return len(contained_permissions) > 0
 
 
-def __split_to_roles_and_authorities(required_permissions: list):
-    required_roles = set()
-    required_authorities = set()
+def __split_to_roles_and_authorities(required_permissions: list[Any]) -> tuple[set[str], set[Any]]:
+    required_roles: set[str] = set()
+    required_authorities: set[Any] = set()
     for item in required_permissions:
         if isinstance(item, iam.Role):
             required_roles.add(item.name)
@@ -60,7 +68,7 @@ def __split_to_roles_and_authorities(required_permissions: list):
     return required_roles, required_authorities
 
 
-def __has_required_authority(required_authorities: list, token: dict, view_args=None):
+def __has_required_authority(required_authorities: set[Any], token: dict[str, Any], view_args: dict[str, str] | None = None) -> bool:
     if not required_authorities or len(required_authorities) == 0:
         return False
     else:
@@ -72,17 +80,22 @@ def __has_required_authority(required_authorities: list, token: dict, view_args=
     return False
 
 
-authority_evaluators = {
+authority_evaluators: dict[str, Any] = {
     iam.CurrentSubject.__name__: __has_current_subject_authority
 }
 
 
-def authorize_request(method, endpoint, headers, view_args=None):
+def authorize_request(
+    method: str,
+    endpoint: str,
+    headers: Any,
+    view_args: dict[str, str] | None = None,
+) -> JSONResponse | None:
     """
     Authorize a request based on the method, endpoint, headers, and view_args.
     :param method: HTTP method (GET, POST, etc.)
     :param endpoint: the endpoint name
-    :param headers: request headers (dict-like)
+    :param headers: request headers (dict-like, e.g. starlette Headers)
     :param view_args: path parameters (dict)
     :return: None if authorized, or a JSONResponse error
     """
@@ -94,7 +107,7 @@ def authorize_request(method, endpoint, headers, view_args=None):
         return create_custom_error(403, _('Not allowed to access method.'))
 
     if __contains(required_permissions, iam.Anonymous):
-        return
+        return None
 
     authorisation_header = headers.get('Authorization') if hasattr(headers, 'get') else headers.get('authorization')
     if not authorisation_header:
@@ -112,3 +125,4 @@ def authorize_request(method, endpoint, headers, view_args=None):
         return create_custom_error(401, _('The permission type is not supported.'))
     except Exception as exc:
         return create_custom_error(403, str(exc))
+    return None

@@ -1,4 +1,5 @@
-#!/usr/bin/python
+from __future__ import annotations
+
 import atexit
 import getopt
 import inspect
@@ -7,6 +8,9 @@ import os
 import re
 import sys
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Any, TYPE_CHECKING
+from collections.abc import Callable
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -22,20 +26,23 @@ from .iam import RbacMixin
 from .model import Model
 from .util import default_json_serializer, create_custom_error
 
+if TYPE_CHECKING:
+    from starlette.responses import Response
+
 try:
     import simplejson as json
 except ImportError:
     import json
 
 
-def get_option_value(option_dict, opts):
+def get_option_value(option_dict: tuple[str, ...], opts: list[tuple[str, str]]) -> str | bool | None:
     for opt, arg in opts:
         if opt in option_dict:
             return arg or True
     return None
 
 
-def get_cmdline_options():
+def get_cmdline_options() -> dict[str, Any]:
     # working dir is also available on: self.app.root_path
     argv = sys.argv[1:]
     opts, args = getopt.getopt(argv, 'c:dw:h:', ['config-dir=', 'development', 'working-dir=', 'db-host='])
@@ -44,19 +51,20 @@ def get_cmdline_options():
     config_dir_param = get_option_value(('-c', '--config-dir'), opts)
 
     if config_dir_param:
-        cfg_dir = '{}/'.format(str(config_dir_param).rstrip('/'))
+        cfg_dir = f'{str(config_dir_param).rstrip("/")}/'
         cfg_dir = os.path.expanduser(cfg_dir)
-        if not os.path.isdir(cfg_dir) or not os.access(cfg_dir, os.W_OK):
-            raise AppInitialisationError('The config directory [{}] is not found/not writable.'.format(cfg_dir))
+        cfg_path = Path(cfg_dir)
+        if not cfg_path.is_dir() or not os.access(cfg_dir, os.W_OK):
+            raise AppInitialisationError(f'The config directory [{cfg_dir}] is not found/not writable.')
     else:
         cfg_dir = None
 
     # -- working directory
     working_dir_param = get_option_value(('-w', '--working-dir'), opts)
     if working_dir_param:
-        cwd = os.path.expanduser('{}/'.format(str(config_dir_param).rstrip('/')))
-        if not os.path.isdir(cwd) or not os.access(cwd, os.W_OK):
-            raise AppInitialisationError('The working directory[{}] is not found/not writable.'.format(cwd))
+        cwd = os.path.expanduser(f'{str(config_dir_param).rstrip("/")}/')
+        if not Path(cwd).is_dir() or not os.access(cwd, os.W_OK):
+            raise AppInitialisationError(f'The working directory[{cwd}] is not found/not writable.')
     else:
         cwd = f'{cwd.rstrip("/")}'
     development = get_option_value(('-d', '--development'), opts)
@@ -70,21 +78,23 @@ def get_cmdline_options():
 
 
 class ResourceController(RbacMixin):
-    def __init__(self, cls):
+    def __init__(self, cls: type) -> None:
         super().__init__(cls)
         self.cls = cls
 
 
-class AppKernelEngine(object):
+class AppKernelEngine:
 
-    def __init__(self,
-                 app_id: str,
-                 app: FastAPI = None,
-                 root_url: str = '/',
-                 log_level=logging.DEBUG,
-                 cfg_dir: str = None,
-                 development: bool = False,
-                 enable_defaults: bool = True):
+    def __init__(
+        self,
+        app_id: str,
+        app: FastAPI | None = None,
+        root_url: str = '/',
+        log_level: int = logging.DEBUG,
+        cfg_dir: str | None = None,
+        development: bool = False,
+        enable_defaults: bool = True,
+    ) -> None:
         """
         Initialiser of AppKernel Engine.
         :param app: the FastAPI App
@@ -106,8 +116,8 @@ class AppKernelEngine(object):
             config.service_registry = {}
             config.url_rules = {}
             config.url_to_endpoint = {}
-            self.before_request_functions = []
-            self.after_request_functions = []
+            self.before_request_functions: list[Callable] = []
+            self.after_request_functions: list[Callable] = []
             self.app_id = app_id
             self.root_url = root_url
             self.cmd_line_options = get_cmdline_options()
@@ -131,7 +141,7 @@ class AppKernelEngine(object):
             self.logger.error(str(init_err))
             sys.exit(-1)
 
-    def enable_security(self, authorisation_method=None):
+    def enable_security(self, authorisation_method: Callable | None = None) -> AppKernelEngine:
         self.enable_pki()
         if not authorisation_method:
             authorisation_method = authorize_request
@@ -140,21 +150,21 @@ class AppKernelEngine(object):
         config.security_enabled = True
         return self
 
-    def enable_pki(self):
+    def enable_pki(self) -> None:
         if not hasattr(config, 'public_key'):
             self.__init_crypto()
 
-    def add_before_request_function(self, func):
+    def add_before_request_function(self, func: Callable) -> None:
         self.before_request_functions.append(func)
 
-    def add_after_request_function(self, func):
+    def add_after_request_function(self, func: Callable) -> None:
         self.after_request_functions.append(func)
 
-    def __init_security_middleware(self):
+    def __init_security_middleware(self) -> None:
         authorisation_method = self._security_authorisation_method
 
         class SecurityMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request: Request, call_next):
+            async def dispatch(self, request: Request, call_next: Callable) -> Response:
                 # Look up the endpoint from the URL path and method
                 path = request.url.path
                 method = request.method
@@ -162,7 +172,7 @@ class AppKernelEngine(object):
                 endpoint = config.url_to_endpoint.get(lookup_key)
 
                 # Try pattern matching for parameterized routes
-                view_args = {}
+                view_args: dict[str, str] = {}
                 if not endpoint:
                     endpoint, view_args = _resolve_endpoint(method, path)
 
@@ -180,23 +190,24 @@ class AppKernelEngine(object):
 
         self.app.add_middleware(SecurityMiddleware)
 
-    def __init_crypto(self):
-        with open('{}/keys/appkernel.pem'.format(self.cfg_dir), "rb") as key_file:
+    def __init_crypto(self) -> None:
+        key_path = Path(self.cfg_dir)
+        with open(key_path / 'keys' / 'appkernel.pem', 'rb') as key_file:
             private_key = serialization.load_pem_private_key(
                 key_file.read(),
                 password=None,
                 backend=default_backend()
             )
             config.private_key = private_key
-        with open('{}/keys/appkernel.pub'.format(self.cfg_dir), 'rb') as key_file:
+        with open(key_path / 'keys' / 'appkernel.pub', 'rb') as key_file:
             public_key = serialization.load_pem_public_key(
                 key_file.read(),
                 backend=default_backend()
             )
             config.public_key = public_key
 
-    def __init_locale(self):
-        supported_languages = []
+    def __init_locale(self) -> None:
+        supported_languages: list[str] = []
         try:
             for supported_lang in self.cfg_engine.get('appkernel.i18n.languages', ['en-US']):
                 supported_languages.append(supported_lang)
@@ -208,14 +219,14 @@ class AppKernelEngine(object):
         the_supported_languages = supported_languages
 
         # Load translations if translations directory exists
-        translations_dir = None
+        translations_dir: str | None = None
         if self.cfg_dir:
             for candidate_path in [
                 os.path.join(self.cfg_dir, 'translations'),
                 os.path.join(self.cfg_dir, 'tests', 'translations'),
                 os.path.join(os.path.dirname(self.cfg_dir.rstrip('/')), 'translations'),
             ]:
-                if os.path.isdir(candidate_path):
+                if Path(candidate_path).is_dir():
                     translations_dir = candidate_path
                     break
 
@@ -233,7 +244,7 @@ class AppKernelEngine(object):
             config.translations_dir = None
 
         class LocaleMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request: Request, call_next):
+            async def dispatch(self, request: Request, call_next: Callable) -> Response:
                 accept_language = request.headers.get('accept-language', 'en')
                 # Simple best-match: parse Accept-Language and pick the first supported
                 best = 'en'
@@ -259,18 +270,18 @@ class AppKernelEngine(object):
 
         self.app.add_middleware(LocaleMiddleware)
 
-    def __init_error_handlers(self):
+    def __init_error_handlers(self) -> None:
         @self.app.exception_handler(Exception)
-        async def generic_exception_handler(request: Request, exc: Exception):
+        async def generic_exception_handler(request: Request, exc: Exception) -> Response:
             return self.generic_error_handler(exc)
 
         @self.app.exception_handler(404)
-        async def not_found_handler(request: Request, exc):
+        async def not_found_handler(request: Request, exc: Exception) -> Response:
             msg = f'Not Found: {request.method} {request.url}'
             return create_custom_error(404, msg)
 
-    def run(self):
-        self.logger.info('===== Starting {} ====='.format(self.app_id))
+    def run(self) -> None:
+        self.logger.info(f'===== Starting {self.app_id} =====')
         try:
             import uvicorn
             port = self.cfg_engine.get('appkernel.server.port', 5000)
@@ -282,14 +293,14 @@ class AppKernelEngine(object):
             self.logger.error('uvicorn is required to run the server. Install it with: pip install uvicorn')
             sys.exit(-1)
 
-    def shutdown_hook(self):
+    def shutdown_hook(self) -> None:
         if config and hasattr(config, 'mongo_database') and config.mongo_database is not None:
             try:
                 self.mongo_client.close()
             except Exception:
                 pass
 
-    def init_logger(self, log_folder, level=logging.DEBUG):
+    def init_logger(self, log_folder: str, level: int = logging.DEBUG) -> None:
         assert log_folder is not None, 'The log folder must be provided.'
         if self.development:
             formatter = logging.Formatter("%(levelname)s - %(message)s")
@@ -301,7 +312,7 @@ class AppKernelEngine(object):
             backup_count = self.cfg_engine.get('appkernel.logging.backup_count', 3)
             file_name = self.cfg_engine.get(
                 'appkernel.logging.file_name') or f"{self.app_id.replace(' ', '_').lower()}.log"
-            handler = RotatingFileHandler('{}/{}'.format(log_folder, file_name), maxBytes=max_bytes,
+            handler = RotatingFileHandler(f'{log_folder}/{file_name}', maxBytes=max_bytes,
                                           backupCount=backup_count)
             handler.setLevel(level)
         handler.setFormatter(formatter)
@@ -309,7 +320,7 @@ class AppKernelEngine(object):
         self.logger.handlers = [handler]
         self.logger.info('Logger initialised')
 
-    def generic_error_handler(self, ex: Exception = None, upstream_service: str = None):
+    def generic_error_handler(self, ex: Exception | None = None, upstream_service: str | None = None) -> Response:
         """
         Takes a generic exception and returns a json error message which will be returned to the client.
         :param ex: the exception which is reported by this method
@@ -320,17 +331,17 @@ class AppKernelEngine(object):
         if not isinstance(code, int):
             code = 500
         if ex and code != 404:
-            msg = '{}/{}'.format(ex.__class__.__name__, str(ex))
-            self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
+            msg = f'{ex.__class__.__name__}/{str(ex)}'
+            self.logger.exception(f'generic error handler: {ex.__class__.__name__}/{str(ex)}')
         elif ex and code == 404:
-            msg = '{}: {}'.format(ex.__class__.__name__, str(ex))
-            self.logger.exception('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
+            msg = f'{ex.__class__.__name__}: {str(ex)}'
+            self.logger.exception(f'generic error handler: {ex.__class__.__name__}/{str(ex)}')
         else:
             msg = 'Generic server error.'
-            self.logger.warning('generic error handler: {}/{}'.format(ex.__class__.__name__, str(ex)))
+            self.logger.warning(f'generic error handler: {ex.__class__.__name__}/{str(ex)}')
         return create_custom_error(code, msg, upstream_service=upstream_service)
 
-    def teardown(self, exception):
+    def teardown(self, exception: Exception | None) -> None:
         """
         context teardown based deallocation
         :param exception:
@@ -340,8 +351,13 @@ class AppKernelEngine(object):
         if exception is not None:
             self.logger.warning(exception.message if hasattr(exception, 'message') else str(exception))
 
-    def register(self, service_class_or_instance, url_base=None, methods=['GET'],
-                 enable_hateoas=True) -> ResourceController:
+    def register(
+        self,
+        service_class_or_instance: type | object,
+        url_base: str | None = None,
+        methods: list[str] | None = None,
+        enable_hateoas: bool = True,
+    ) -> ResourceController:
         """
         :param service_class_or_instance:
         :param url_base:
@@ -350,6 +366,7 @@ class AppKernelEngine(object):
         :return:
         :rtype: Service
         """
+        methods = methods or ['GET']
         if inspect.isclass(service_class_or_instance):
             assert issubclass(service_class_or_instance, (
                 Model)), 'Only subclasses of Model can be registered as class. If you want to register a controller, please use its instance.'
@@ -360,11 +377,11 @@ class AppKernelEngine(object):
         return ResourceController(service_class_or_instance)
 
 
-def _parse_accept_language(header_value):
+def _parse_accept_language(header_value: str) -> list[str]:
     """Parse Accept-Language header and return list of languages sorted by quality."""
     if not header_value:
         return ['en']
-    parts = []
+    parts: list[tuple[str, float]] = []
     for part in header_value.split(','):
         part = part.strip()
         if ';' in part:
@@ -384,7 +401,7 @@ def _parse_accept_language(header_value):
     return [lang for lang, q in parts]
 
 
-def _resolve_endpoint(method, path):
+def _resolve_endpoint(method: str, path: str) -> tuple[str | None, dict[str, str]]:
     """
     Try to match a request path against registered URL patterns to find the endpoint.
     This handles parameterized routes like /users/{object_id}.

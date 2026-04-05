@@ -1,61 +1,63 @@
+from __future__ import annotations
+
 import datetime
 import jwt
 
 from appkernel.configuration import config
 
 
-class Permission(object):
+class Permission:
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
 
 
 class Role(Permission):
-    def __init__(self, role_name='anonymous'):
-        super(Role, self).__init__(role_name)
+    def __init__(self, role_name: str = 'anonymous') -> None:
+        super().__init__(role_name)
 
-    def __str__(self):
-        return 'ROLE_{}'.format(self.name.upper())
+    def __str__(self) -> str:
+        return f'ROLE_{self.name.upper()}'
 
 
 class Anonymous(Role):
-    def __init__(self):
-        super(Anonymous, self).__init__(role_name='anonymous')
+    def __init__(self) -> None:
+        super().__init__(role_name='anonymous')
 
 
 class Denied(Role):
-    def __init__(self):
-        super(Denied, self).__init__(role_name='denied')
+    def __init__(self) -> None:
+        super().__init__(role_name='denied')
 
 
 class Authority(Permission):
-    def __init__(self, identity_name='anonymous', id=None):
-        super(Authority, self).__init__(identity_name)
+    def __init__(self, identity_name: str = 'anonymous', id: str | None = None) -> None:
+        super().__init__(identity_name)
         self.id = id  # pylint: disable=C0103
 
-    def __str__(self):
-        return 'AUTHORITY_{}'.format(self.name.upper())
+    def __str__(self) -> str:
+        return f'AUTHORITY_{self.name.upper()}'
 
 
 class CurrentSubject(Authority):
-    def __init__(self, binding_view_arg='object_id'):
-        super(CurrentSubject, self).__init__('current_user')
+    def __init__(self, binding_view_arg: str = 'object_id') -> None:
+        super().__init__('current_user')
         self.view_arg = binding_view_arg
 
 
-class IdentityMixin(object):
-    token_validity_in_seconds = 3600
+class IdentityMixin:
+    token_validity_in_seconds: int = 3600
 
-    def __init__(self, id=None, roles=[Anonymous()]):
+    def __init__(self, id: str | None = None, roles: list | None = None) -> None:
         self.id = id  # pylint: disable=C0103
-        self.roles = roles
+        self.roles = roles if roles is not None else [Anonymous()]
 
     @staticmethod
-    def set_validity(seconds):
+    def set_validity(seconds: int) -> None:
         IdentityMixin.token_validity_in_seconds = seconds
 
     @property
-    def auth_token(self):
+    def auth_token(self) -> str:
         if not self.id:
             raise AttributeError('The id of the Identity is not defined.')
         payload = {
@@ -75,7 +77,7 @@ class IdentityMixin(object):
         )
 
 
-class RbacMixin(object):
+class RbacMixin:
 
     # format of the method registry
     # {
@@ -85,13 +87,20 @@ class RbacMixin(object):
     #           }
     # }
 
-    def __init__(self, cls):
+    def __init__(self, cls: type) -> None:
         if not hasattr(cls, 'protected_methods'):
             cls.protected_methods = {}
 
     @staticmethod
-    def set_list(cls, methods=[], permissions=Denied(), endpoint=None):
-        def add_endpoint_and_permissions(meth):
+    def set_list(
+        cls: type,
+        methods: list[str] | None = None,
+        permissions: Permission = Denied(),
+        endpoint: str | None = None,
+    ) -> None:
+        methods = methods if methods is not None else []
+
+        def add_endpoint_and_permissions(meth: str) -> None:
             if not hasattr(cls, 'protected_methods'):
                 cls.protected_methods = {}
             if meth not in cls.protected_methods:
@@ -113,7 +122,7 @@ class RbacMixin(object):
         else:
             raise TypeError('Methods must be of type list or string.')
 
-    def deny_all(self):
+    def deny_all(self) -> RbacMixin:
         for method in ['GET', 'POST', 'PUT', 'DELETE']:
             if method not in self.cls.protected_methods:
                 self.cls.protected_methods[method] = {'*': [Denied()]}
@@ -121,7 +130,7 @@ class RbacMixin(object):
                 self.cls.protected_methods[method]['*'] = [Denied()]
         return self
 
-    def allow_all(self):
+    def allow_all(self) -> RbacMixin:
         for method in ['GET', 'POST', 'PUT', 'DELETE']:
             if method not in self.cls.protected_methods:
                 self.cls.protected_methods[method] = {'*': [Anonymous()]}
@@ -129,10 +138,10 @@ class RbacMixin(object):
                 self.cls.protected_methods[method]['*'] = [Anonymous()]
         return self
 
-    def deny(self, permission, methods, endpoint=None):
+    def deny(self, permission: Permission, methods: list[str] | str, endpoint: str | None = None) -> RbacMixin:
         RbacMixin.set_list(methods, permission, endpoint)
         return self
 
-    def require(self, permission, methods, endpoint=None):
+    def require(self, permission: Permission, methods: list[str] | str, endpoint: str | None = None) -> RbacMixin:
         RbacMixin.set_list(self.cls, methods, permission, endpoint)
         return self

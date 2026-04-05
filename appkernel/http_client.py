@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
+
 import requests
 
 from appkernel import Model, AppKernelException
@@ -6,39 +10,39 @@ from appkernel.model import _get_custom_class
 
 
 class RequestHandlingException(AppKernelException):
-    def __init__(self, status_code, message):
+    def __init__(self, status_code: int, message: str) -> None:
         super().__init__(message)
         self.status_code: int = status_code
-        self.upstream_service: str = None
+        self.upstream_service: str | None = None
 
 
-class RequestWrapper(object):
+class RequestWrapper:
 
     # todo: timeout, retry, request timing,
     # todo: post to unknown url brings to infinite time...
-    def __init__(self, url: str, session=None):
+    def __init__(self, url: str, session: requests.Session | None = None) -> None:
         self.url = url
         self.session = session if session else requests.Session()
 
     @staticmethod
-    def get_headers(auth_header=None, accept_language='en'):
+    def get_headers(auth_header: str | None = None, accept_language: str | None = 'en') -> dict[str, str]:
         """
         Build request headers.
         :param auth_header: Optional Authorization header value
         :param accept_language: Accept-Language value, defaults to 'en'
         :return: headers dict
         """
-        headers = {}
+        headers: dict[str, str] = {}
         if auth_header:
             headers['Authorization'] = auth_header
-        headers['Accept-Language'] = accept_language
+        headers['Accept-Language'] = accept_language or 'en'
         return headers
 
-    def __execute(self, func, **kwargs):
+    def __execute(self, func: Any, **kwargs: Any) -> tuple[int, Any]:
         try:
             path_ext = kwargs.pop('path_extension')
             if path_ext:
-                endpoint_url = '{}/{}'.format(self.url.rstrip('/'), path_ext.lstrip('/'))
+                endpoint_url = f'{self.url.rstrip("/")}/{path_ext.lstrip("/")}'
             else:
                 endpoint_url = self.url
             response = func(endpoint_url, **kwargs)
@@ -66,7 +70,7 @@ class RequestWrapper(object):
             else:
                 raise RequestHandlingException(response.status_code, 'Error while calling service.')
 
-    def post(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
+    def post(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.post,
                               path_extension=path_extension,
@@ -75,7 +79,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def get(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
+    def get(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.get,
                               path_extension=path_extension,
@@ -84,7 +88,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def put(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
+    def put(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.put,
                               path_extension=path_extension,
@@ -93,7 +97,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def patch(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
+    def patch(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.patch,
                               path_extension=path_extension,
@@ -102,7 +106,7 @@ class RequestWrapper(object):
                               headers=self.get_headers(),
                               timeout=timeout, allow_redirects=True)
 
-    def delete(self, payload: any = None, path_extension: str = None, stream: bool = False, timeout: int = 3):
+    def delete(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
         data_content = payload.dumps() if isinstance(payload, Model) else payload
         return self.__execute(self.session.delete,
                               path_extension=path_extension,
@@ -112,22 +116,22 @@ class RequestWrapper(object):
                               timeout=timeout, allow_redirects=True)
 
 
-class HttpClientServiceProxy(object):
+class HttpClientServiceProxy:
 
-    def __init__(self, root_url: str):
+    def __init__(self, root_url: str) -> None:
         self.root_url = root_url.rstrip('/')
         self.session = requests.Session()
 
-    def wrap(self, resource_path: str):
+    def wrap(self, resource_path: str) -> RequestWrapper:
         return RequestWrapper(f'{self.root_url}/{resource_path.lstrip("/")}', session=self.session)
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> RequestWrapper:
         if isinstance(item, str):
             return RequestWrapper(f'{self.root_url}/{item}/', session=self.session)
 
 
-class HttpClientFactory(object):
+class HttpClientFactory:
 
     @staticmethod
-    def get(root_url: str):
+    def get(root_url: str) -> HttpClientServiceProxy:
         return HttpClientServiceProxy(root_url=root_url)

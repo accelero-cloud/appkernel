@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import inspect
 import re
 import types
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Callable
+from typing import Any
 
 from fastapi import Request
 from .util import AppJSONResponse as JSONResponse
@@ -28,7 +31,7 @@ except ImportError:
 
 
 class ServiceException(AppKernelException):
-    def __init__(self, http_error_code, message):
+    def __init__(self, http_error_code: int, message: str) -> None:
         super().__init__(message)
         self.http_error_code = http_error_code
 
@@ -37,8 +40,8 @@ pretty_print = True
 qp = QueryProcessor()  # pylint: disable=C0103
 
 
-def _hook(cls, inner_function: Callable, hook_method: str):
-    def wrapper(*args, **kws):
+def _hook(cls: type, inner_function: Callable, hook_method: str) -> Callable:
+    def wrapper(*args: Any, **kws: Any) -> Any:
         before_hook_method = f'before_{hook_method}'
         after_hook_method = f'after_{hook_method}'
         if hasattr(cls, before_hook_method):
@@ -62,7 +65,7 @@ def _flask_to_fastapi_path(path_param):
     return re.sub(r'<(?:\w+:)?(\w+)>', r'{\1}', path_param)
 
 
-def url_for_endpoint(endpoint, **kwargs):
+def url_for_endpoint(endpoint: str, **kwargs: Any) -> str:
     """Generate a URL for the given endpoint name, substituting path parameters."""
     rule = config.url_rules.get(endpoint, '/')
     url = re.sub(r'\{(\w+)\}', lambda m: str(kwargs.get(m.group(1), '')), rule)
@@ -74,7 +77,7 @@ def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable,
     Registers the service in the service registry and adds a route to FastAPI.
     """
     clazz_name = xtract(cls).lower()
-    base_name = '{}{}'.format(url_base, clazz_name)
+    base_name = f'{url_base}{clazz_name}'
     if path_param and path_param.startswith('./'):
         rule = f'{base_name}/{path_param[2:]}'
     elif path_param and not path_param.startswith('/'):
@@ -85,7 +88,7 @@ def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable,
         rule = f'{base_name}/'
     # Convert Flask-style path params to FastAPI-style
     rule = _flask_to_fastapi_path(rule)
-    endpoint = '{}_{}_{}'.format(clazz_name, method_name, options.get('methods')[0].lower())
+    endpoint = f'{clazz_name}_{method_name}_{options.get("methods")[0].lower()}'
     config.service_registry[endpoint] = cls
     config.url_rules[endpoint] = rule
 
@@ -187,8 +190,8 @@ model_endpoints = {
 }
 
 
-def expose_service(clazz_or_instance, app_engine: AppKernelEngine, url_base: str, methods: list,
-                   enable_hateoas: bool = True):
+def expose_service(clazz_or_instance: type | Any, app_engine: AppKernelEngine, url_base: str, methods: list[str],
+                   enable_hateoas: bool = True) -> None:
     """
     :param clazz_or_instance: the class name of the service which is going to be exposed
     :param enable_hateoas: if enabled (default) it will expose the service descriptors
@@ -206,7 +209,7 @@ def expose_service(clazz_or_instance, app_engine: AppKernelEngine, url_base: str
             setattr(clazz, key, value)
 
     if not url_base.endswith('/'):
-        url_base = '{}/'.format(url_base)
+        url_base = f'{url_base}/'
 
     clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
     clazz.methods = methods
@@ -260,7 +263,7 @@ def __get_http_methods(tagged_item):
 resource_instances = {}
 
 
-def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool = False, class_items=None):
+def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_security: bool = False, class_items: dict | None = None) -> None:
     def create_resource_executor(function_name):
         def resource_executor(request_data=None, **named_args):
             clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
@@ -306,11 +309,10 @@ def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool =
         if enable_security:
             required_permissions = resource.get('decorator_kwargs').get('require', Denied())
             RbacMixin.set_list(cls=clazz_or_instance, methods=methods, permissions=required_permissions,
-                               endpoint='{}_{}_{}'.format(xtract(clazz_or_instance).lower(), func_name,
-                                                          methods[0].lower()))
+                               endpoint=f'{xtract(clazz_or_instance).lower()}_{func_name}_{methods[0].lower()}')
 
 
-def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_items=None):
+def _prepare_actions(cls: type, url_base: str, enable_security: bool = False, class_items: dict | None = None) -> None:
     def create_action_executor(function_name):
         def action_executor(request_data=None, **named_args):
             if 'object_id' not in named_args:
@@ -327,7 +329,7 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
                     result_dic_tentative = {} if result is None else _xvert(cls, result)
                     return JSONResponse(content=result_dic_tentative, status_code=200)
                 except ServiceException as sexc:
-                    config.app_engine.logger.warning('Service error: {}'.format(str(sexc)))
+                    config.app_engine.logger.warning(f'Service error: {sexc}')
                     return create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
                 except Exception as exc:
                     config.app_engine.logger.exception(exc)
@@ -341,11 +343,11 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
             relation = this_link.get('decorator_kwargs').get('rel', func_name)
             methods = __get_http_methods(this_link)
             _add_app_rule(cls, url_base, relation, create_action_executor(func_name),
-                          path_param='{{object_id}}/{}'.format(relation), methods=methods)
+                          path_param=f'{{object_id}}/{relation}', methods=methods)
             if enable_security:
                 required_permissions = this_link.get('decorator_kwargs').get('require', Denied())
                 RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions,
-                                   endpoint='{}_{}_{}'.format(xtract(cls).lower(), relation, methods[0].lower()))
+                                   endpoint=f'{xtract(cls).lower()}_{relation}_{methods[0].lower()}')
 
 
 def _extract_dict_from_payload(request_data=None):
@@ -457,22 +459,21 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
             if method in ['GET', 'PUT', 'PATCH']:
                 if result is None:
                     object_id = named_args.get('object_id', None)
-                    return create_custom_error(404, 'Document{} is not found.'.format(
-                        ' with id {}'.format(object_id) if object_id else ''), cls.__name__)
+                    id_part = f' with id {object_id}' if object_id else ''
+                    return create_custom_error(404, f'Document{id_part} is not found.', cls.__name__)
             if method == 'DELETE' and isinstance(result, int) and result == 0:
-                return create_custom_error(404, 'Document with id {} was not deleted.'.format(
-                    named_args.get('object_id', '-1')), cls.__name__)
+                return create_custom_error(404,
+                    f'Document with id {named_args.get("object_id", "-1")} was not deleted.', cls.__name__)
             if result is None or isinstance(result, list) and len(result) == 0:
                 return_code = 204
             result_dic_tentative = {} if result is None else _xvert(cls, result)
             return JSONResponse(content=result_dic_tentative, status_code=return_code)
         except PropertyRequiredException as pexc:
-            app_engine.logger.warning('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
+            app_engine.logger.warning(f'missing parameter: {pexc.__class__.__name__}/{pexc}')
             return create_custom_error(400, str(pexc), cls.__name__)
         except ValidationException as vexc:
-            app_engine.logger.warning('validation error: {}'.format(str(vexc)))
-            return create_custom_error(400, '{}/{}'.format(vexc.__class__.__name__, str(vexc)),
-                                       cls.__name__)
+            app_engine.logger.warning(f'validation error: {vexc}')
+            return create_custom_error(400, f'{vexc.__class__.__name__}/{vexc}', cls.__name__)
         except RequestHandlingException as rexc:
             app_engine.logger.error(f'request forwarding error: {str(rexc)}')
             app_engine.logger.exception(rexc)
@@ -485,7 +486,7 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
     return create_executor
 
 
-def convert_to_query(query_param_names, request_args):
+def convert_to_query(query_param_names: set[str], request_args: Any) -> dict[str, Any]:
     """
     Result example: ::
 
@@ -568,7 +569,7 @@ def convert_to_query(query_param_names, request_args):
         return {logic: expression_list}
 
 
-def _remap_expressions(expression):
+def _remap_expressions(expression: Any) -> Any:
     """
     Takes a query expression such as >1994-12-02 and turns into a {'$gte':'1994-12-02'}.
     Additionally converts the date string into datetime object;
@@ -580,7 +581,7 @@ def _remap_expressions(expression):
         return _convert_expressions(expression)
 
 
-def _convert_expressions(expression):
+def _convert_expressions(expression: Any) -> Any:
     """
     converts strings containing numbers to int, string containing a date to datetime,
     string containing a boolean expression to boolean
@@ -600,7 +601,7 @@ def _convert_expressions(expression):
     return expression
 
 
-def _autobox_parameters(provisioner_method, arguments):
+def _autobox_parameters(provisioner_method: Callable, arguments: dict[str, Any]) -> dict[str, Any]:
     method_structure = get_argument_spec(provisioner_method)
     for arg_key, arg_value in arguments.items():
         required_type = type(method_structure.get(arg_key))
@@ -631,7 +632,7 @@ def _autobox_parameters(provisioner_method, arguments):
     return arguments
 
 
-def _xvert(cls, result_item, generate_links=True):
+def _xvert(cls: type, result_item: Any, generate_links: bool = True) -> dict[str, Any] | None:
     """
     converts the response object into a dict for JSON serialization
     """
@@ -650,13 +651,13 @@ def _xvert(cls, result_item, generate_links=True):
             '_items': [_xvert(cls, item, generate_links=False) for item in result_item]
         }
         if hasattr(cls, 'enable_hateoas') and cls.enable_hateoas:
-            result.update(_links={'self': {'href': url_for_endpoint('{}_find_by_query_get'.format(xtract(cls).lower()))}})
+            result.update(_links={'self': {'href': url_for_endpoint(f'{xtract(cls).lower()}_find_by_query_get')}})
         return result
     elif is_primitive(result_item) or isinstance(result_item, (str, int)) or is_noncomplex(result_item):
         return {'_type': 'OperationResult', 'result': result_item}
 
 
-def _calculate_links(cls, object_id):
+def _calculate_links(cls: type, object_id: Any) -> dict[str, Any] | None:
     links = {}
     clazz_name = xtract(cls).lower()
     all_members = cls.__dict__
@@ -667,9 +668,9 @@ def _calculate_links(cls, object_id):
             rel = decorator_args.get('rel', func_name)
             args = [key for key in this_link.get('argspec').keys()]
             http_methods = decorator_args.get('method', 'POST' if len(args) > 0 else 'GET')
-            endpoint_name = '{}_{}_{}'.format(clazz_name, rel, http_methods[0].lower() if isinstance(http_methods,
-                                                                                                     list) else http_methods.lower())
-            href = '{}'.format(url_for_endpoint(endpoint_name, object_id=object_id))
+            method_lower = http_methods[0].lower() if isinstance(http_methods, list) else http_methods.lower()
+            endpoint_name = f'{clazz_name}_{rel}_{method_lower}'
+            href = url_for_endpoint(endpoint_name, object_id=object_id)
 
             links[rel] = {
                 'href': href,
@@ -679,11 +680,11 @@ def _calculate_links(cls, object_id):
                 links[rel].update(args=args)
 
         links['self'] = {
-            'href': url_for_endpoint('{}_find_by_id_get'.format(clazz_name), object_id=object_id),
+            'href': url_for_endpoint(f'{clazz_name}_find_by_id_get', object_id=object_id),
             'methods': cls.methods
         }
         links['collection'] = {
-            'href': url_for_endpoint('{}_find_by_query_get'.format(clazz_name)),
+            'href': url_for_endpoint(f'{clazz_name}_find_by_query_get'),
             'methods': 'GET'
         }
         return links

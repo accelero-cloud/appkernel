@@ -1,11 +1,16 @@
-from typing import Callable
-import collections
+from __future__ import annotations
+
+from collections.abc import Callable
+import collections.abc
 import inspect
 from datetime import datetime, date
-from enum import Enum
+from enum import Enum, IntEnum
+from typing import Any, TYPE_CHECKING
 
 from bson import ObjectId
-def _translate(s):
+
+
+def _translate(s: str) -> str:
     """Translate a string using the configured translation catalog."""
     from .configuration import config
     translations = getattr(config, 'translations', None)
@@ -65,16 +70,16 @@ bson_type_map = {
 }
 
 
-def create_tagging_decorator(tag_name):
+def create_tagging_decorator(tag_name: str) -> Callable:
     """
     Creates a new decorator which adds arbitrary tags to the decorated functions and methods, enabling these to be listed in a registry
     :param tag_name:
     :return:
     """
 
-    def tagging_decorator(*args, **kwargs):
+    def tagging_decorator(*args: Any, **kwargs: Any) -> Callable:
         # here we can receive the parameters handed over on the decorator (@decorator(a=b))
-        def wrapper(method):
+        def wrapper(method: Callable) -> Callable:
             method.member_tag = (tag_name, {'args': args, 'kwargs': kwargs})
             return method
 
@@ -88,7 +93,7 @@ action = create_tagging_decorator('actions')
 resource = create_tagging_decorator('resources')
 
 
-def _get_custom_class(fqdn):
+def _get_custom_class(fqdn: str) -> type | None:
     try:
         parts = fqdn.split('.')
         module_str = ".".join(parts[:-1])
@@ -101,7 +106,7 @@ def _get_custom_class(fqdn):
             f"Couldn't instantiate complex object due to {ex.__class__.__name__}: {str(ex)} -> {fqdn}")
 
 
-def _instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
+def _instantiate_custom_class(clazz: type, param_dict: dict[str, Any], converter_func: Callable | None = None) -> Any:
     assert inspect.isclass(clazz)
     const_args = inspect.getfullargspec(clazz.__init__).args
     if len(const_args) > 1:
@@ -125,7 +130,7 @@ def _instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
     return custom_instance
 
 
-def _xtract_custom_object_to_dict(custom_object, converter_func=None):
+def _xtract_custom_object_to_dict(custom_object: Any, converter_func: Callable | None = None) -> Any:
     if hasattr(custom_object, '__dict__'):
         instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
     else:
@@ -151,27 +156,27 @@ def _xtract_custom_object_to_dict(custom_object, converter_func=None):
 
 
 class PropertyRequiredException(AppKernelException):
-    def __init__(self, value):
-        super().__init__('The property {} is required.'.format(value))
+    def __init__(self, value: str) -> None:
+        super().__init__(f'The property {value} is required.')
 
 
 class AttrDict(dict):
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> Any:
         try:
             return self[attr]
         except KeyError:
             raise AttributeError(attr)
 
 
-class Opex(object):
-    def __init__(self, name=None, lmbda=None):
+class Opex:
+    def __init__(self, name: str | None = None, lmbda: Callable | None = None) -> None:
         self.name = name
         self.lmbda = lmbda
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
 
@@ -185,11 +190,11 @@ OPS = AttrDict(  # pylint: disable=C0103
     LTE=Opex('$lte', lambda exp: {'$lte': exp}),
     IS=Opex('$eq', lambda exp: {'$eq': exp}),
     IS_NOT=Opex('is_not', lambda exp: {'$ne': exp}),
-    LIKE=Opex('like', lambda exp: {'$regex': '.*{}.*'.format(exp), '$options': 'i'}),
+    LIKE=Opex('like', lambda exp: {'$regex': f'.*{exp}.*', '$options': 'i'}),
     ELEM_MATCH=Opex('$elemMatch', lambda exp: {'$elemMatch': {exp[0]: exp[1]}}),
     ELEM_DOES_NOT_MATCH=Opex('$elemMatchNot', lambda exp: {'$not': {'$elemMatch': {exp[0]: exp[1]}}}),
     ELEM_LIKE=Opex('$elemMatch',
-                   lambda exp: {'$elemMatch': {exp[0]: {'$regex': '.*{}.*'.format(exp[1]), '$options': 'i'}}}),
+                   lambda exp: {'$elemMatch': {exp[0]: {'$regex': f'.*{exp[1]}.*', '$options': 'i'}}}),
     NE=Opex('$ne', lambda exp: {'$ne': exp}),
     # ARRAY_GTW=('array_gte', lambda  exp: { '$exists: true', "this.{}.length > {}".format(exp) }),
     MUL=Opex('$mul', lambda exp: exp),
@@ -199,34 +204,34 @@ OPS = AttrDict(  # pylint: disable=C0103
 )
 
 
-class DslBase(object):
+class DslBase:
     # https://rszalski.github.io/magicmethods/#comparisons
-    def __eq__(self, right_hand_side):
+    def __eq__(self, right_hand_side: Any) -> Expression:
         if self.backreference.within_an_array:
             return Expression(self, OPS.ELEM_MATCH, right_hand_side)
         if right_hand_side is None:
             return Expression(self, OPS.IS, None)
         return Expression(self, OPS.EQ, right_hand_side)
 
-    def __ne__(self, right_hand_side):
+    def __ne__(self, right_hand_side: Any) -> Expression:
         if self.backreference.within_an_array:
             return Expression(self, OPS.ELEM_DOES_NOT_MATCH, right_hand_side)
         if right_hand_side is None:
             return Expression(self, OPS.IS_NOT, None)
         return Expression(self, OPS.NE, right_hand_side)
 
-    def __mod__(self, right_hand_side):
+    def __mod__(self, right_hand_side: Any) -> Expression:
         if self.backreference.within_an_array:
             return Expression(self, OPS.ELEM_LIKE, right_hand_side)
         return Expression(self, OPS.LIKE, right_hand_side)
 
-    def __create_expression(ops, inv=False):
+    def __create_expression(ops: Any, inv: bool = False) -> Callable:
         """
         Returns a method that builds an Expression
         consisting of the left-hand and right-hand operands, using `OPS`.
         """
 
-        def inner(self, rhs):
+        def inner(self: Any, rhs: Any) -> Expression:
             if inv:
                 return Expression(rhs, ops, self)
             return Expression(self, ops, rhs)
@@ -260,13 +265,13 @@ class DslBase(object):
     # bin_and = create_expression(Expression.OPS.BIN_AND)
     # bin_or = create_expression(Expression.OPS.BIN_OR)
 
-    def contains(self, rhs):
+    def contains(self, rhs: Any) -> Expression:
         return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
 
 
 class CustomProperty(DslBase):
 
-    def __init__(self, cls, property_name):
+    def __init__(self, cls: type, property_name: str) -> None:
         self.backreference = BackReference(class_name=cls.__name__, parameter_name=property_name)
 
 
@@ -275,19 +280,19 @@ class Expression(DslBase):
     a binary expression, eg. foo < bar, foo == bar, foo.contains(bar)
     """
 
-    def __init__(self, lhs, ops, rhs):
+    def __init__(self, lhs: Any, ops: Any, rhs: Any) -> None:
         self.lhs = lhs
         self.ops = ops
         self.rhs = rhs
 
-    def get_lhs_param_name(self):
-        def get_property(plhs):
+    def get_lhs_param_name(self) -> str:
+        def get_property(plhs: Any) -> Property:
             return plhs if isinstance(plhs, Property) else get_property(plhs.lhs)
 
         return get_property(self.lhs).backreference.parameter_name
 
 
-def get_argument_spec(provisioner_method):
+def get_argument_spec(provisioner_method: Callable) -> dict[str, Any]:
     """
     Provides the argument list and types of methods which have a default value;
     :param provisioner_method: the method of an instance
@@ -300,25 +305,25 @@ def get_argument_spec(provisioner_method):
     return dict(list(zip(args, defaults or [None for arg in args])))
 
 
-class BackReference(object):
-    def __init__(self, class_name, parameter_name):
+class BackReference:
+    def __init__(self, class_name: str, parameter_name: str) -> None:
         self.class_name = class_name
         self.parameter_name = parameter_name
         self.within_an_array = False
-        self.array_parameter_name = None
+        self.array_parameter_name: str | None = None
 
 
-class Marshaller(object):
+class Marshaller:
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> Marshaller:
         if cls is Marshaller:
             raise TypeError("the base Marsaller class may not be instantiated")
         return object.__new__(cls, *args, **kwargs)
 
-    def to_wireformat(self, instance_value):
+    def to_wireformat(self, instance_value: Any) -> Any:
         pass
 
-    def from_wire_format(self, wire_value):
+    def from_wire_format(self, wire_value: Any) -> Any:
         pass
 
 
@@ -331,8 +336,8 @@ class Marshaller(object):
 #         if isinstance(init_method, staticmethod):
 #             init_method.__func__(cls)
 
-def tag_class_items(class_name, class_dictionary):
-    tags = {}
+def tag_class_items(class_name: str, class_dictionary: dict[str, Any]) -> dict[str, Any]:
+    tags: dict[str, Any] = {}
     for member_name, member in class_dictionary.items():
         if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
             # if it is a tagged member
@@ -357,30 +362,29 @@ def tag_class_items(class_name, class_dictionary):
 
 
 class _TaggingMetaClass(type):
-    def __new__(mcs, class_name, bases, dct):
+    def __new__(mcs, class_name: str, bases: tuple[type, ...], dct: dict[str, Any]) -> type:
         dct.update(tag_class_items(class_name, dct))
         return type.__new__(mcs, class_name, bases, dct)
 
 
-class SortOrder(Enum):
+class SortOrder(IntEnum):
     ASC = 1
     DESC = -1
 
 
-class Index(object):
-    def __init__(self, sort_order):
-        # type: (SortOrder) -> ()
+class Index:
+    def __init__(self, sort_order: SortOrder = SortOrder.ASC) -> None:
         self.sort_order = sort_order
 
 
 class TextIndex(Index):
-    def __init__(self):
-        super(TextIndex, self).__init__(SortOrder.ASC)
+    def __init__(self) -> None:
+        super().__init__(SortOrder.ASC)
 
 
 class UniqueIndex(Index):
-    def __init__(self):
-        super(UniqueIndex, self).__init__(SortOrder.ASC)
+    def __init__(self) -> None:
+        super().__init__(SortOrder.ASC)
 
 
 class Property(DslBase):
@@ -388,16 +392,19 @@ class Property(DslBase):
     Metadata holder used by the Model classes.
     """
 
-    def __init__(self, python_type,
-                 required: bool = False,
-                 sub_type: Callable = None,
-                 validators: Callable = None,
-                 converter: Callable = None,
-                 default_value: Callable = None,
-                 generator: Callable = None,
-                 index: Index = None,
-                 marshaller: Callable = None,
-                 omit=False) -> ():
+    def __init__(
+        self,
+        python_type: type,
+        required: bool = False,
+        sub_type: type | None = None,
+        validators: Callable | list[Callable] | None = None,
+        converter: Callable | None = None,
+        default_value: Any = None,
+        generator: Callable | None = None,
+        index: Index | None = None,
+        marshaller: Any | None = None,
+        omit: bool = False,
+    ) -> None:
         """
         Args:
             python_type(type): the primary python type of the attribute (eg. str, datetime or anything else);
@@ -422,7 +429,7 @@ class Property(DslBase):
         self.marshaller = marshaller
         self.generator = generator
 
-    def __getattr__(self, attribute):
+    def __getattr__(self, attribute: str) -> Any:
         if self.python_type == list and (
                 hasattr(self, 'sub_type') and self.sub_type and issubclass(self.sub_type, Model)):
             if hasattr(self.sub_type, attribute):
@@ -433,12 +440,11 @@ class Property(DslBase):
         elif inspect.isclass(self.python_type) and issubclass(self.python_type, Model):
             if hasattr(self.python_type, attribute):
                 nested_parameter = getattr(self.python_type, attribute)
-                nested_parameter.backreference.parameter_name = '{}.{}'.format(self.backreference.parameter_name,
-                                                                               attribute)
+                nested_parameter.backreference.parameter_name = f'{self.backreference.parameter_name}.{attribute}'
                 return nested_parameter
-        raise AttributeError('Class {} has no attribute {}'.format(self.__class__.__name__, attribute))
+        raise AttributeError(f'Class {self.__class__.__name__} has no attribute {attribute}')
 
-    def __getitem__(self, item_expression):
+    def __getitem__(self, item_expression: Expression) -> Expression:
         # used when an item is accessed, using the notation self[key]
         if self.python_type == list and issubclass(self.sub_type,
                                                    Model) and self.sub_type.__name__ == item_expression.lhs.backreference.class_name:
@@ -450,18 +456,17 @@ class Property(DslBase):
                 item_expression.ops = OPS.ELEM_DOES_NOT_MATCH
         else:
             raise TypeError(
-                'The subtype {} of the parameter is not {}'.format(self.sub_type,
-                                                                   item_expression.lhs.backreference.class_name))  # if the type of the key is wrong
+                f'The subtype {self.sub_type} of the parameter is not {item_expression.lhs.backreference.class_name}')  # if the type of the key is wrong
             # raise KeyError()  # if there is no corresponding value for the key
         return item_expression
 
-    def length(self):
+    def length(self) -> None:
         if self.python_type in (list):
             raise NotImplementedError('Not yet implemented.')
         else:
             raise TypeError('Only list type have length')
 
-    def asc(self):
+    def asc(self) -> tuple[str, int]:
         """
         Adds ASCENDING sorting order to the query.
 
@@ -470,7 +475,7 @@ class Property(DslBase):
         """
         return self.backreference.parameter_name, 1
 
-    def desc(self):
+    def desc(self) -> tuple[str, int]:
         """
         Adds DESCENDING sorting order to the query.
 
@@ -480,29 +485,29 @@ class Property(DslBase):
         return self.backreference.parameter_name, -1
 
 
-def convert_date_time(string):
+def convert_date_time(string: str) -> datetime:
     return datetime.strptime(string, '%Y-%m-%dT%H:%M:%S.%f')
 
 
-def default_convert(string):
+def default_convert(string: str) -> str:
     return string
 
 
-string_to_type_converters = {
+string_to_type_converters: dict[type, Callable] = {
     date: convert_date_time,
     datetime: convert_date_time,
 }
 
 
-class Model(object, metaclass=_TaggingMetaClass):
+class Model(metaclass=_TaggingMetaClass):
     """
     The base class of all Model objects which are intended to be persisted in the database or served via REST;
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         self.update(**kwargs)
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: Any) -> Model:
         """
         Updates an existing attribute. The only difference compared to standard attribute value assignment is that it accepts multiple assignments in one line
         and returns the object instance, enabling further method calls;
@@ -517,7 +522,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             setattr(self, name, kwargs[name])
         return self
 
-    def append_to(self, **kwargs):
+    def append_to(self, **kwargs: Any) -> Model:
         """
         Appends one or more objects to a list (eg. User(name='user name').append(roles=['Admin']).
 
@@ -537,7 +542,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                     attr.append(kwargs[name])
         return self
 
-    def remove_from(self, **kwargs):
+    def remove_from(self, **kwargs: Any) -> Model:
         """
         Deletes one or more elements from a parameter of list type (eg. roles='Admin').
 
@@ -555,18 +560,17 @@ class Model(object, metaclass=_TaggingMetaClass):
                     attr.remove(kwargs[name])
                 else:
                     raise AttributeError(
-                        'The attribute {} is not a list on {}.'.format(name, self.__class__.__name__))
+                        f'The attribute {name} is not a list on {self.__class__.__name__}.')
             else:
                 raise AttributeError(
-                    'The attribute {} is missing from the {} class.'.format(name, self.__class__.__name__))
+                    f'The attribute {name} is missing from the {self.__class__.__name__} class.')
         return self
 
-    def __str__(self):
-        return "<{}> {}".format(self.__class__.__name__, Model.to_dict(self, validate=False, marshal_values=False))
+    def __str__(self) -> str:
+        return f"<{self.__class__.__name__}> {Model.to_dict(self, validate=False, marshal_values=False)}"
 
     @classmethod
-    def custom_property(cls, custom_field_name):
-        # (str) -> CustomProperty
+    def custom_property(cls, custom_field_name: str) -> CustomProperty:
         """
         It is used to be search for property names which are not defined explicitly on the class.
         Sample: project = Project.find_one(Project.custom_property('version') == 2)
@@ -577,14 +581,14 @@ class Model(object, metaclass=_TaggingMetaClass):
         return CustomProperty(cls, custom_field_name)
 
     @staticmethod
-    def init_model(instance, **kwargs):
+    def init_model(instance: Model, **kwargs: Any) -> None:
         if isinstance(instance, Model):
             instance.update(**kwargs)
         else:
             raise TypeError('The Model initialisation works only with instances which inherit from Model.')
 
     @classmethod
-    def get_json_schema(cls, additional_properties: bool = True, mongo_compatibility: bool = False) -> dict:
+    def get_json_schema(cls, additional_properties: bool = True, mongo_compatibility: bool = False) -> dict[str, Any]:
         """
         Generates a JSON Schema document from the Model.
 
@@ -597,10 +601,11 @@ class Model(object, metaclass=_TaggingMetaClass):
         specs = cls.get_parameter_spec(convert_types_to_string=False)
         properties, required_props, definitions = Model.__prepare_json_schema_properties(specs,
                                                                                          mongo_compatibility=mongo_compatibility)
+
         type_label = 'type' if not mongo_compatibility else 'bsonType'
 
         schema = {
-            'title': '{} Schema'.format(cls.__name__),
+            'title': f'{cls.__name__} Schema',
             type_label: 'object',
             'properties': properties,
             'required': required_props
@@ -614,16 +619,18 @@ class Model(object, metaclass=_TaggingMetaClass):
         return schema
 
     @staticmethod
-    def __prepare_json_schema_properties(specs, mongo_compatibility=False):
+    def __prepare_json_schema_properties(
+        specs: dict[str, Any], mongo_compatibility: bool = False
+    ) -> tuple[dict[str, Any], list[str], dict[str, Any]]:
 
         type_label = 'type' if not mongo_compatibility else 'bsonType'
 
-        def describe_enum(enum_class):
+        def describe_enum(enum_class: type) -> list[str]:
             return [e.name for e in enum_class]
 
-        properties = {}
-        required_props = []
-        definitions = {}
+        properties: dict[str, Any] = {}
+        required_props: list[str] = []
+        definitions: dict[str, Any] = {}
 
         for name, spec in specs.items():
             spec_type = spec.get('type')
@@ -690,7 +697,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                         definitions[def_name].update(properties=props)
                         definitions.update(defs)
                         properties[name].update(type=['array'])
-                        properties[name].update(items={'oneOf': [{"$ref": "#/definitions/{}".format(def_name)}]})
+                        properties[name].update(items={'oneOf': [{"$ref": f"#/definitions/{def_name}"}]})
                     else:
                         # the schema needs to be generated in mongo compatible way
                         properties[name].update(items={type_label: 'object'})
@@ -712,7 +719,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         return properties, required_props, definitions
 
     @classmethod
-    def get_parameter_spec(cls, convert_types_to_string=True):
+    def get_parameter_spec(cls, convert_types_to_string: bool = True) -> dict[str, Any]:
         """
         Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
 
@@ -723,7 +730,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         """
         props = cls.__dict__  # or: set(dir(cls))
         # print "params: %s" % [f for f in props if cls.__is_param_field(f, cls)]
-        result_dct = {}
+        result_dct: dict[str, Any] = {}
         for field_name in props:
             attribute = getattr(cls, field_name)
             if isinstance(attribute, Property):
@@ -732,7 +739,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         return result_dct
 
     @classmethod
-    def get_paramater_spec_as_json(cls):
+    def get_paramater_spec_as_json(cls) -> str:
         """
         Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
 
@@ -742,12 +749,14 @@ class Model(object, metaclass=_TaggingMetaClass):
         return json.dumps(cls.get_parameter_spec(), default=default_json_serializer, indent=4, sort_keys=True)
 
     @staticmethod
-    def __describe_attribute(clazz, field_name, attribute, convert_types_to_string=True):
-        attr_desc = {
+    def __describe_attribute(
+        clazz: type, field_name: str, attribute: Property, convert_types_to_string: bool = True
+    ) -> dict[str, Any]:
+        attr_desc: dict[str, Any] = {
             'type': attribute.python_type.__name__ if convert_types_to_string else attribute.python_type,
             'required': attribute.required,
         }
-        label = lazy_gettext('{}.{}'.format(clazz.__name__, field_name))
+        label = lazy_gettext(f'{clazz.__name__}.{field_name}')
         if label:
             attr_desc.update(label=str(label))
         if issubclass(attribute.python_type, Model):
@@ -775,11 +784,11 @@ class Model(object, metaclass=_TaggingMetaClass):
         return attr_desc
 
     @staticmethod
-    def __describe_validator(validator, convert_types_to_string=True):
-        def get_value(val):
+    def __describe_validator(validator: Any, convert_types_to_string: bool = True) -> dict[str, Any]:
+        def get_value(val: Any) -> Any:
             return val.__name__ if convert_types_to_string else val
 
-        val_desc = {
+        val_desc: dict[str, Any] = {
             'type': get_value(validator) if hasattr(validator, '__name__') else get_value(validator.__class__)
         }
 
@@ -789,8 +798,14 @@ class Model(object, metaclass=_TaggingMetaClass):
         return val_desc
 
     @staticmethod
-    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False, marshal_values=True,
-                converter_func=None) -> dict:
+    def to_dict(
+        instance: Model,
+        convert_id: bool = False,
+        validate: bool = True,
+        skip_omitted_fields: bool = False,
+        marshal_values: bool = True,
+        converter_func: Callable | None = None,
+    ) -> dict[str, Any]:
         """
         Turns the python instance object into a dictionary after finalising and validating it.
 
@@ -809,7 +824,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             instance.finalise_and_validate()
         if not hasattr(instance, '__dict__') and not isinstance(instance, dict):
             return instance
-        result = {}
+        result: dict[str, Any] = {}
         instance_items = list(instance.__dict__.items()) if not isinstance(instance, dict) else list(instance.items())
         cls_items = {k: v for k, v in instance.__class__.__dict__.items() if isinstance(v, Property)}
         for param, obj in instance_items:
@@ -849,8 +864,13 @@ class Model(object, metaclass=_TaggingMetaClass):
         return result
 
     @staticmethod
-    def from_dict(dict_obj: dict, cls, convert_ids=False, set_unmanaged_parameters=True, converter_func=None):
-        # type: (dict, cls) -> Model
+    def from_dict(
+        dict_obj: dict[str, Any],
+        cls: type,
+        convert_ids: bool = False,
+        set_unmanaged_parameters: bool = True,
+        converter_func: Callable | None = None,
+    ) -> Model:
         """
         Reads a dictionary representation of the model and turns it into a python object model.
 
@@ -865,8 +885,8 @@ class Model(object, metaclass=_TaggingMetaClass):
         """
         instance = cls()
         class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]
-        unmanaged_parameters = set()
-        processed_properties = set()
+        unmanaged_parameters: set[str] = set()
+        processed_properties: set[str] = set()
         # todo: initialise with none the properties which have no value in the dict
         if dict_obj and isinstance(dict_obj, dict):
             for key, val in list(dict_obj.items()):
@@ -909,7 +929,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         return instance
 
     @staticmethod
-    def load_and_or_convert_object(custom_value, converter_func=None):
+    def load_and_or_convert_object(custom_value: Any, converter_func: Callable | None = None) -> Any:
         if custom_value and isinstance(custom_value, dict) and '_type' in custom_value:
             custom_class = _get_custom_class(custom_value.get('_type'))
             custom_value = _instantiate_custom_class(custom_class, custom_value, converter_func=converter_func)
@@ -919,7 +939,12 @@ class Model(object, metaclass=_TaggingMetaClass):
             return custom_value
 
     @staticmethod
-    def from_list(list_obj, item_cls, convert_ids=False, converter_func=None):
+    def from_list(
+        list_obj: list[Any],
+        item_cls: type | None,
+        convert_ids: bool = False,
+        converter_func: Callable | None = None,
+    ) -> list[Any]:
         """
         Converts a list of dict structures to a list of Model instances. It is mainly used from the Model.from_dict method.
 
@@ -930,7 +955,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         Returns:
             list: the list of Model objects
         """
-        return_list = []
+        return_list: list[Any] = []
         if list_obj and not isinstance(list_obj, list):
             return_list.append(list_obj)
         elif list_obj:
@@ -942,7 +967,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                     return_list.append(item)
         return return_list
 
-    def dumps(self, validate: bool = True, pretty_print: bool = False, json_serialiser_func: Callable = None) -> str:
+    def dumps(self, validate: bool = True, pretty_print: bool = False, json_serialiser_func: Callable | None = None) -> str:
         """
         Returns the json representation of the object.
 
@@ -960,7 +985,7 @@ class Model(object, metaclass=_TaggingMetaClass):
                           sort_keys=True)
 
     @classmethod
-    def loads(cls, json_string) -> 'Model':
+    def loads(cls, json_string: str) -> Model:
         """
         Takes a json string and creates a python object from it.
 
@@ -971,7 +996,7 @@ class Model(object, metaclass=_TaggingMetaClass):
         """
         return Model.from_dict(json.loads(json_string), cls)
 
-    def finalise_and_validate(self):
+    def finalise_and_validate(self) -> None:
         """
         Calls the generator, default value calculator and converter methods first,
         than it validates the object;
@@ -996,7 +1021,7 @@ class Model(object, metaclass=_TaggingMetaClass):
             # validate fields
             if param_object.required and (param_name not in obj_items or obj_items.get(param_name) is None):
                 raise PropertyRequiredException(
-                    '[{}] on class [{}]'.format(param_name, self.__class__.__name__))
+                    f'[{param_name}] on class [{self.__class__.__name__}]')
             if param_object.converter and param_name in self.__dict__:
                 setattr(self, param_name, param_object.converter(getattr(self, param_name)))
             if param_object.validators and isinstance(param_object.validators, (list, set)):
@@ -1016,27 +1041,31 @@ class Model(object, metaclass=_TaggingMetaClass):
                             item.finalise_and_validate()
 
     @staticmethod
-    def __check_validity(validator: Validator, param_name, obj_items):
+    def __check_validity(validator: Validator, param_name: str, obj_items: dict[str, Any]) -> None:
         if isinstance(validator, Validator) and param_name in obj_items:
             validator.validate_objects(param_name, obj_items)
         elif isinstance(validator, type) and issubclass(validator, Validator) and param_name in obj_items:
             validator().validate_objects(param_name, obj_items)
 
-    def dump_spec(self):
+    def dump_spec(self) -> None:
         """
         Prints the parameter specification of the model
         """
         props = set(dir(self))
         # print '(P): %s' % dir(self)
         # obj_dict = {k: v for k, v in self.__dict__.items()}
-        print("params: %s" % [f for f in props if self.__is_param_field(f, self.__class__)])
+        print(f"params: {[f for f in props if self.__is_param_field(f, self.__class__)]}")
         # print "vars :: %s" % vars(list).keys()
 
-    def __include_instance(self, field):
+    def __include_instance(self, field: str) -> bool:
         return not field.startswith('__') and not isinstance(getattr(self, field),
-                                                             collections.Callable) and not isinstance(
+                                                             Callable) and not isinstance(
             getattr(self, field), Property)
 
     @staticmethod
-    def __is_param_field(field, cls):
+    def __is_param_field(field: str, cls: type) -> bool:
         return field in cls.__dict__ and isinstance(getattr(cls, field), Property)
+
+
+# Parameter is an alias for Property
+Parameter = Property
