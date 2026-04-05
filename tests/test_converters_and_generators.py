@@ -30,10 +30,10 @@ def test_generator():
 def test_converter():
     user = create_and_save_a_user('test user', 'test password', 'test description')
     print('\n{}'.format(user.dumps(pretty_print=True)))
-    assert user.password.startswith('$pbkdf2-sha256')
+    assert user.password.startswith('$2b$')
     hash1 = user.password
     user.save()
-    assert user.password.startswith('$pbkdf2-sha256')
+    assert user.password.startswith('$2b$')
     assert hash1 == user.password
 
 

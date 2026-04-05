@@ -2,7 +2,6 @@ setuptools
 autopep8
 pytest
 pytest-runner
-pytest-flask
 recommonmark
 pylint
 flake8
@@ -10,4 +9,4 @@ requests_mock
 codecov
 pytest-cov
 #--- test lib requirements
-money
+py-moneyed

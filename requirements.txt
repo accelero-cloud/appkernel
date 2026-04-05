@@ -6,7 +6,7 @@ uvicorn[standard]>=0.20
 python-multipart
 httpx
 wrapt
-passlib>=1.7.4
+bcrypt>=4.0
 jsonschema
 babel
 pyjwt>=2.0

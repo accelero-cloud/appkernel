@@ -147,7 +147,7 @@ class Past(Validator):
         elif not self._is_date(validable_object):
             raise ValidationException(f'The parameter {parameter_name} is none or not date type.', validable_object,
                                       self.type)
-        elif validable_object >= datetime.datetime.now():
+        elif validable_object > datetime.datetime.now():
             raise ValidationException(f'The parameter {parameter_name} must define the past.', validable_object,
                                       self.type)
 

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, date, time as dtime
 import time
-from passlib.hash import pbkdf2_sha256
+import bcrypt
 from appkernel.model import Marshaller
 
 
@@ -56,12 +56,12 @@ def date_now_generator():
     return datetime.now()
 
 
-def content_hasher(rounds=20000, salt_size=16):
+def content_hasher(rounds=12):
     def hash_content(password):
         # type: (str) -> str
-        if password.startswith('$pbkdf2-sha256'):
+        if password.startswith('$2b$'):
             return password
-        else:
-            return pbkdf2_sha256.using(rounds=rounds, salt_size=salt_size).hash(password)
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(rounds=rounds))
+        return hashed.decode('utf-8')
 
     return hash_content

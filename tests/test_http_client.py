@@ -4,7 +4,7 @@ import uuid
 import pytest
 import requests
 import requests_mock
-from money import Money
+from moneyed import Money
 from requests import Request
 
 from appkernel import Model

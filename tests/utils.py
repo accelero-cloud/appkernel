@@ -1,8 +1,8 @@
 from datetime import datetime, date
 from enum import Enum
 
-from money import Money
-from passlib.hash import pbkdf2_sha256
+from moneyed import Money
+import bcrypt
 
 from appkernel import AuditableRepository, MongoRepository, AppKernelException, ValidationException, Email, Unique
 from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
@@ -29,7 +29,7 @@ class User(Model, MongoRepository, IdentityMixin):
 
     @action(rel='change_password', method='POST', require=[CurrentSubject(), Role('admin')])
     def change_p(self, current_password, new_password):
-        if not pbkdf2_sha256.verify(current_password, self.password):
+        if not bcrypt.checkpw(current_password.encode('utf-8'), self.password.encode('utf-8')):
             raise ServiceException(403, _('Current password is not correct'))
         else:
             self.password = new_password

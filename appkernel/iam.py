@@ -59,8 +59,8 @@ class IdentityMixin(object):
         if not self.id:
             raise AttributeError('The id of the Identity is not defined.')
         payload = {
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=IdentityMixin.token_validity_in_seconds),
-            'iat': datetime.datetime.utcnow(),
+            'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=IdentityMixin.token_validity_in_seconds),
+            'iat': datetime.datetime.now(datetime.UTC),
             'sub': self.id
         }
         # iss: issuer

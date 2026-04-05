@@ -3,7 +3,7 @@ from appkernel import AppKernelEngine
 import pytest
 from .utils import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max
 import os
-from passlib.hash import pbkdf2_sha256
+import bcrypt
 
 try:
     import simplejson as json
@@ -62,7 +62,8 @@ def test_working_action(client):
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json()
     assert 'password' not in result
-    assert pbkdf2_sha256.verify(newpass, User.find_by_id(result.get('id')).password)
+    stored_hash = User.find_by_id(result.get('id')).password
+    assert bcrypt.checkpw(newpass.encode('utf-8'), stored_hash.encode('utf-8'))
 
 
 def test_failing_action(client):

@@ -107,8 +107,12 @@ def _instantiate_custom_class(clazz, param_dict: dict, converter_func=None):
     if len(const_args) > 1:
         constructor_dict = {}
         for c_arg in const_args:
-            if c_arg != 'self':
+            if c_arg != 'self' and c_arg in param_dict:
                 val = param_dict.pop(c_arg)
+                if isinstance(val, dict) and '_type' in val:
+                    nested_class = _get_custom_class(val['_type'])
+                    if nested_class:
+                        val = _instantiate_custom_class(nested_class, val, converter_func=converter_func)
                 if converter_func and isinstance(converter_func, Callable):
                     val = converter_func(val)
                 constructor_dict[c_arg] = val
@@ -133,8 +137,11 @@ def _xtract_custom_object_to_dict(custom_object, converter_func=None):
     result.update(_type=f'{custom_object.__module__}.{custom_object.__class__.__qualname__}')
 
     for prop_name, prop_value in instance_items:
-        result[prop_name] = _xtract_custom_object_to_dict(prop_value)
-    properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
+        result[prop_name] = _xtract_custom_object_to_dict(prop_value, converter_func=converter_func)
+    try:
+        properties = set(inspect.getmembers(custom_object.__class__, lambda o: isinstance(o, property)))
+    except Exception:
+        properties = set()
     for prop_name, prop_value in properties:
         if converter_func and isinstance(converter_func, Callable):
             result[prop_name] = converter_func(getattr(custom_object, prop_name))

@@ -95,10 +95,10 @@ def test_generator():
 def test_converter():
     user = create_and_save_a_user('test user', 'test password', 'test description')
     print(('\n{}'.format(user.dumps(pretty_print=True))))
-    assert user.password.startswith('$pbkdf2-sha256')
+    assert user.password.startswith('$2b$')
     hash1 = user.password
     user.save()
-    assert user.password.startswith('$pbkdf2-sha256')
+    assert user.password.startswith('$2b$')
     assert hash1 == user.password
 
 
@@ -255,8 +255,9 @@ def __assert_product_dict(product_dict: dict):
     assert isinstance(product_dict.get('price'), dict)
     price_dict = product_dict.get('price')
     assert '_type' in price_dict
-    assert price_dict.get('_type') == 'money.money.Money'
-    assert price_dict.get('currency') == 'EUR'
+    assert price_dict.get('_type') == 'moneyed.classes.Money'
+    currency = price_dict.get('currency')
+    assert (currency == 'EUR' or (isinstance(currency, dict) and currency.get('code') == 'EUR'))
 
 
 def test_custom_object_marshalling():
