@@ -5,9 +5,26 @@ import os
 import tarfile
 
 from bson import ObjectId
-from flask import make_response, jsonify
+from starlette.responses import JSONResponse as _StarletteJSONResponse
 
 from appkernel.core import MessageType
+
+
+class AppJSONResponse(_StarletteJSONResponse):
+    """JSONResponse that handles datetime, ObjectId, and other custom types."""
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            default=default_json_serializer,
+        ).encode("utf-8")
+
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 OBJ_PREFIX = 'OBJ_'  # pylint: disable-msg=C0103
 
@@ -16,7 +33,7 @@ def create_custom_error(code: int, message: str, upstream_service: str = None):
     rsp = {'_type': MessageType.ErrorMessage.name, 'code': code, 'message': message}
     if upstream_service:
         rsp.update(upstream_service=upstream_service)
-    return make_response(jsonify(rsp), code)
+    return AppJSONResponse(content=rsp, status_code=code)
 
 
 def default_json_serializer(obj):

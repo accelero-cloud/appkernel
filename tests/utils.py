@@ -1,8 +1,6 @@
 from datetime import datetime, date
 from enum import Enum
 
-from flask import Flask, url_for
-from flask_babel import _
 from money import Money
 from passlib.hash import pbkdf2_sha256
 
@@ -15,22 +13,7 @@ from appkernel import ServiceException
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
 from appkernel.model import action, resource
 
-
-def list_flask_routes(app: Flask):
-    import urllib
-    output = []
-    with app.test_request_context():
-        for rule in app.url_map.iter_rules():
-            options = {}
-            for arg in rule.arguments:
-                options[arg] = "<{0}>".format(arg)
-
-            methods = ','.join(rule.methods)
-            url = url_for(rule.endpoint, **options)
-            line = urllib.parse.unquote("{:50s} {:20s} {}".format(rule.endpoint, methods, url))
-            output.append(line)
-        for line in sorted(output):
-            print(line)
+_ = lambda x: x
 
 
 class User(Model, MongoRepository, IdentityMixin):

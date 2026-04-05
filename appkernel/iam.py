@@ -72,7 +72,7 @@ class IdentityMixin(object):
             payload,
             key=config.private_key,
             algorithm='RS256'
-        ).decode('utf-8')
+        )
 
 
 class RbacMixin(object):

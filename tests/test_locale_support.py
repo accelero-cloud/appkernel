@@ -1,8 +1,7 @@
 import os
 
 import pytest
-from flask import Flask
-from werkzeug.test import Client
+from starlette.testclient import TestClient
 from appkernel import extract_model_messages, AppKernelEngine
 from tests.utils import User
 
@@ -11,20 +10,19 @@ try:
 except ImportError:
     import json
 
-flask_app = Flask(__name__)
-flask_app.config['SECRET_KEY'] = 'S0m3S3cr3tC0nt3nt!'
-flask_app.testing = True
+kernel = None
 
 
 @pytest.fixture
-def app():
-    return flask_app
+def client():
+    return TestClient(kernel.app)
 
 
 def setup_module(module):
+    global kernel
     current_file_path = os.path.dirname(os.path.realpath(__file__))
     print('\nModule: >> {} at {}'.format(module, current_file_path))
-    kernel = AppKernelEngine('test_app', app=flask_app, cfg_dir='{}/../'.format(current_file_path), development=True)
+    kernel = AppKernelEngine('test_app', cfg_dir='{}/../'.format(current_file_path), development=True)
     kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
 
 
@@ -61,14 +59,14 @@ def test_basic_translation(client):
     """
 
     :param client:
-    :type client: Client
+    :type client: TestClient
     :return:
     """
     header_types = ['de, de-de;q=0.8, en;q=0.7', 'de-de, de;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5', 'de', 'de-de']
     for header in header_types:
         print(('\n==== current header [{}] ===='.format(header)))
         rsp = client.get('/users/meta', headers={'Accept-Language': header})
-        result = rsp.json
+        result = rsp.json()
         print('\n{}'.format(json.dumps(result, indent=2)))
         assert 200 <= rsp.status_code < 300
         validate_result(result)

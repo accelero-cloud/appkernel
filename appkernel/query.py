@@ -1,8 +1,6 @@
 import inspect, re
 import types
 
-from flask import request
-
 import appkernel.service
 from .model import get_argument_spec
 
@@ -67,12 +65,13 @@ class QueryProcessor(object):
             return False
 
     @staticmethod
-    def get_query_param_names(provisioner_method):
+    def get_query_param_names(provisioner_method, request_args_keys):
         """
-        Extract all parameters which are not required directly by the method signature and could be used in building a query
+        Extract all parameters which are not required directly by the method signature and could be used in building a query.
         :param provisioner_method: the method which will get the parameters
-        :return: the difference between 2 sets: a.) the argument names of the method and b.) the query parameters handed over by the client request
+        :param request_args_keys: a set (or set-like) of query parameter names from the request
+        :return: the difference between 2 sets: a.) the query parameter names from the request and b.) the reserved parameter names for this method
         """
-        request_set = set(request.args.keys())
+        request_set = set(request_args_keys)
         return request_set.difference(
             appkernel.service.qp.reserved_param_names.get(QueryProcessor.create_key_from_instance_method(provisioner_method)))

@@ -5,7 +5,21 @@ from datetime import datetime, date
 from enum import Enum
 
 from bson import ObjectId
-from flask_babel import lazy_gettext
+def _translate(s):
+    """Translate a string using the configured translation catalog."""
+    from .configuration import config
+    translations = getattr(config, 'translations', None)
+    if translations:
+        result = translations.ugettext(s) if hasattr(translations, 'ugettext') else translations.gettext(s)
+        return result if result != s else s
+    return s
+
+
+try:
+    from babel.support import LazyProxy
+    lazy_gettext = lambda s: LazyProxy(lambda: _translate(s))
+except ImportError:
+    lazy_gettext = lambda s: s
 
 from .core import AppKernelException
 from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email

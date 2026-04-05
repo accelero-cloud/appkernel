@@ -1,4 +1,4 @@
-from werkzeug.datastructures import ImmutableMultiDict
+from starlette.datastructures import QueryParams
 
 
 # test query AND and OR and NOT
@@ -7,7 +7,7 @@ from appkernel.service import convert_to_query
 
 
 def test_simple_query_processing():
-    query_expression = ImmutableMultiDict([('first_name', 'first Name')])
+    query_expression = QueryParams([('first_name', 'first Name')])
     res = convert_to_query(['first_name'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
@@ -17,7 +17,7 @@ def test_simple_query_processing():
 
 
 def test_simple_query_with_contains_expression():
-    query_expression = ImmutableMultiDict([('first_name', '~first Name')])
+    query_expression = QueryParams([('first_name', '~first Name')])
     res = convert_to_query(['first_name'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
@@ -26,7 +26,7 @@ def test_simple_query_with_contains_expression():
 
 
 def test_simple_query_with_less_then():
-    query_expression = ImmutableMultiDict([('birth_date', '<1980-07-31')])
+    query_expression = QueryParams([('birth_date', '<1980-07-31')])
     res = convert_to_query(['birth_date'], query_expression)
     print(('\n{}'.format(res)))
     assert isinstance(res, dict), 'it should be type of dict'
@@ -35,7 +35,7 @@ def test_simple_query_with_less_then():
 
 
 def test_simple_query_with_between_query():
-    query_expression = ImmutableMultiDict(
+    query_expression = QueryParams(
         [('birth_date', '>1980-07-01'), ('birth_date', '<1980-07-31'), ('logic', 'AND')])
     res = convert_to_query(['birth_date'], query_expression)
     print(('\n{}'.format(res)))
@@ -46,7 +46,7 @@ def test_simple_query_with_between_query():
 
 
 def test_or_logic():
-    query_expression = ImmutableMultiDict(
+    query_expression = QueryParams(
         [('first_name', 'first Name'), ('last_name', 'last Name'), ('logic', 'OR')])
     res = convert_to_query(['first_name', 'last_name'], query_expression)
     print(('\n{}'.format(res)))
@@ -63,7 +63,7 @@ def test_or_logic():
 #     print('\n{}'.format(res))
 
 def test_complex_query_processing():
-    query_expression = ImmutableMultiDict(
+    query_expression = QueryParams(
         [('first_name', 'first Name'), ('last_name', 'last Name'), ('birth_date', '>1980-07-01'),
          ('birth_date', '<1980-07-31'), ('logic', 'AND')])
     res = convert_to_query(['last_name', 'first_name', 'birth_date'], query_expression)

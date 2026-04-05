@@ -1,5 +1,4 @@
 import requests
-from flask import request
 
 from appkernel import Model, AppKernelException
 from appkernel.core import MessageType
@@ -22,14 +21,17 @@ class RequestWrapper(object):
         self.session = session if session else requests.Session()
 
     @staticmethod
-    def get_headers():
+    def get_headers(auth_header=None, accept_language='en'):
+        """
+        Build request headers.
+        :param auth_header: Optional Authorization header value
+        :param accept_language: Accept-Language value, defaults to 'en'
+        :return: headers dict
+        """
         headers = {}
-        if request:
-            auth_header = request.headers.get('Authorization')
-            if auth_header:
-                headers.update(Authorization=auth_header)
-        accept_lang = request.accept_languages if request else 'en'
-        headers['Accept-Language'] = accept_lang.best if not isinstance(accept_lang, str) else accept_lang
+        if auth_header:
+            headers['Authorization'] = auth_header
+        headers['Accept-Language'] = accept_language
         return headers
 
     def __execute(self, func, **kwargs):

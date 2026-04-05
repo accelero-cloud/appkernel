@@ -1,12 +1,13 @@
 import inspect
+import re
 import types
 from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from typing import Callable
 
-from flask import jsonify, request, url_for
-from werkzeug.datastructures import MultiDict, ImmutableMultiDict
+from fastapi import Request
+from .util import AppJSONResponse as JSONResponse
 
 from appkernel.http_client import RequestHandlingException
 from .configuration import config
@@ -34,11 +35,6 @@ class ServiceException(AppKernelException):
 
 pretty_print = True
 qp = QueryProcessor()  # pylint: disable=C0103
-"""
-The Flask App is set on this instance, so one can use the context:
-with self.app_context():
-    some_variable = some_context_aware_function()
-"""
 
 
 def _hook(cls, inner_function: Callable, hook_method: str):
@@ -59,14 +55,23 @@ def _hook(cls, inner_function: Callable, hook_method: str):
     return wrapper
 
 
+def _flask_to_fastapi_path(path_param):
+    """Convert Flask-style URL parameters to FastAPI-style.
+    E.g. <string:object_id> -> {object_id}, <object_id> -> {object_id}
+    """
+    return re.sub(r'<(?:\w+:)?(\w+)>', r'{\1}', path_param)
+
+
+def url_for_endpoint(endpoint, **kwargs):
+    """Generate a URL for the given endpoint name, substituting path parameters."""
+    rule = config.url_rules.get(endpoint, '/')
+    url = re.sub(r'\{(\w+)\}', lambda m: str(kwargs.get(m.group(1), '')), rule)
+    return url
+
+
 def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable, path_param: str = '', **options):
     """
-    Registers the service in the service registry and adds the rule to flask with the view function.
-    :param rule:
-    :param endpoint:
-    :param view_function:
-    :param options:
-    :return:
+    Registers the service in the service registry and adds a route to FastAPI.
     """
     clazz_name = xtract(cls).lower()
     base_name = '{}{}'.format(url_base, clazz_name)
@@ -78,9 +83,60 @@ def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable,
         rule = path_param
     else:
         rule = f'{base_name}/'
+    # Convert Flask-style path params to FastAPI-style
+    rule = _flask_to_fastapi_path(rule)
     endpoint = '{}_{}_{}'.format(clazz_name, method_name, options.get('methods')[0].lower())
     config.service_registry[endpoint] = cls
-    config.flask_app.add_url_rule(rule, endpoint, view_function, **options)
+    config.url_rules[endpoint] = rule
+
+    http_methods = options.get('methods', ['GET'])
+
+    # Register the URL-to-endpoint mapping for security middleware
+    for m in http_methods:
+        config.url_to_endpoint[f'{m}:{rule}'] = endpoint
+
+    # Create an async wrapper that extracts request data and calls the sync view function
+    async def _make_handler(request: Request):
+        # Read body
+        body = await request.body()
+        json_body = None
+        form_data = {}
+        if body:
+            content_type = request.headers.get('content-type', '')
+            if 'json' in content_type or (body and (body.startswith(b'{') or body.startswith(b'['))):
+                try:
+                    json_body = await request.json()
+                except Exception:
+                    json_body = None
+            if json_body is None and ('form' in content_type or 'urlencoded' in content_type):
+                try:
+                    form_data_raw = await request.form()
+                    # Convert FormData to a proper dict with lists for multi-values
+                    target = defaultdict(list)
+                    for key, value in form_data_raw.multi_items():
+                        target[key].append(value)
+                    form_data = dict((key, value[0] if len(value) == 1 else value) for key, value in target.items())
+                except Exception:
+                    form_data = {}
+
+        path_params = dict(request.path_params)
+
+        # Build request_data dict
+        request_data = {
+            'method': request.method,
+            'query_params': request.query_params,
+            'body': body,
+            'json_body': json_body,
+            'form_data': form_data,
+            'headers': request.headers,
+            'path_params': path_params,
+        }
+
+        # Call the sync view function with request_data and path params
+        return view_function(request_data=request_data, **path_params)
+
+    # Use include_in_schema=False to avoid FastAPI trying to parse the request parameter
+    config.app.add_api_route(rule, _make_handler, methods=http_methods, name=endpoint, include_in_schema=False)
 
 
 model_endpoints = {
@@ -94,7 +150,7 @@ model_endpoints = {
         {
             'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.find_by_id, 'get'), cls),
             'method': 'GET',
-            'param': '<string:object_id>'
+            'param': '{object_id}'
         }
     ],
     'aggregate': [
@@ -112,7 +168,7 @@ model_endpoints = {
         {
             'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.patch_object, 'patch'), cls),
             'method': 'PATCH',
-            'param': '<string:object_id>'
+            'param': '{object_id}'
         }
     ],
     'replace_object': [
@@ -125,7 +181,7 @@ model_endpoints = {
         {
             'func': lambda cls, engine: _execute(cls, engine, _hook(cls, cls.delete_by_id, 'delete'), cls),
             'method': 'DELETE',
-            'param': '<object_id>'
+            'param': '{object_id}'
         }
     ]
 }
@@ -135,7 +191,7 @@ def expose_service(clazz_or_instance, app_engine: AppKernelEngine, url_base: str
                    enable_hateoas: bool = True):
     """
     :param clazz_or_instance: the class name of the service which is going to be exposed
-    :param enable_hateoas: if enabled (default) it will expose the the service descriptors
+    :param enable_hateoas: if enabled (default) it will expose the service descriptors
     :param methods: the HTTP methods allowed for this service
     :param url_base: the url where the service is exposed
     :type url_base: basestring
@@ -153,8 +209,8 @@ def expose_service(clazz_or_instance, app_engine: AppKernelEngine, url_base: str
         url_base = '{}/'.format(url_base)
 
     clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
-    clazz.methods = methods  # todo: check the usage of this
-    clazz.enable_hateoas = enable_hateoas  # todo: check the usage of this
+    clazz.methods = methods
+    clazz.enable_hateoas = enable_hateoas
     class_methods = [cm for cm in dir(clazz_or_instance) if
                      not cm.startswith('_') and callable(getattr(clazz_or_instance, cm))]
     if inspect.isclass(clazz_or_instance):
@@ -190,10 +246,7 @@ def expose_service(clazz_or_instance, app_engine: AppKernelEngine, url_base: str
 def __get_http_methods(tagged_item):
     """
     extracts the http methods for a tagged link or resource decorator
-    :param tagged_item:
-    :return: the list of http methods
     """
-
     def default_method(args):
         return ['POST'] if len(args) > 0 else ['GET']
 
@@ -209,19 +262,18 @@ resource_instances = {}
 
 def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool = False, class_items=None):
     def create_resource_executor(function_name):
-        def resource_executor(**named_args):
+        def resource_executor(request_data=None, **named_args):
             clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
             try:
-                # todo: check the name for the named arg from above
                 instance = resource_instances.get(clazz.__name__)
                 if not instance:
                     instance = clazz_or_instance() if inspect.isclass(clazz_or_instance) else clazz_or_instance
                     resource_instances[clazz.__name__] = instance
                 executable_method = getattr(instance, function_name)
-                request_and_posted_arguments = _get_request_args()
+                request_and_posted_arguments = _get_request_args(request_data)
                 request_and_posted_arguments.update(named_args)
 
-                payload = _extract_dict_from_payload()
+                payload = _extract_dict_from_payload(request_data)
                 if '_type' in payload:
                     mdl = Model.load_and_or_convert_object(payload)
                     result = executable_method(mdl,
@@ -231,7 +283,7 @@ def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool =
                     result = executable_method(
                         **_autobox_parameters(executable_method, request_and_posted_arguments))
                 result_dic_tentative = {} if result is None else _xvert(clazz, result)
-                return jsonify(result_dic_tentative), 200
+                return JSONResponse(content=result_dic_tentative, status_code=200)
             except Exception as exc:
                 config.app_engine.logger.exception(exc)
                 return config.app_engine.generic_error_handler(exc, upstream_service=clazz.__name__)
@@ -239,7 +291,12 @@ def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool =
         return resource_executor
 
     if 'resources' in class_items:
-        for resource in class_items.get('resources'):
+        # Sort resources: static paths first, parameterized paths last
+        # This ensures FastAPI matches specific routes before catch-all parameterized routes
+        sorted_resources = sorted(class_items.get('resources'),
+                                   key=lambda r: ('<' in r.get('decorator_kwargs').get('path', ''),
+                                                   r.get('function_name')))
+        for resource in sorted_resources:
             func_name = resource.get('function_name')
             methods = __get_http_methods(resource)
             path_segment = resource.get('decorator_kwargs').get('path', f'./{func_name.lower()}')
@@ -255,7 +312,7 @@ def _prepare_resources(clazz_or_instance, url_base: str, enable_security: bool =
 
 def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_items=None):
     def create_action_executor(function_name):
-        def action_executor(**named_args):
+        def action_executor(request_data=None, **named_args):
             if 'object_id' not in named_args:
                 msg = 'The object_id property is required for this action to execute'
                 return create_custom_error(400, msg, cls.__name__)
@@ -263,12 +320,12 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
                 try:
                     instance = cls.find_by_id(named_args['object_id'])
                     executable_method = getattr(instance, function_name)
-                    request_and_posted_arguments = _get_request_args()
-                    request_and_posted_arguments.update(_extract_dict_from_payload())
+                    request_and_posted_arguments = _get_request_args(request_data)
+                    request_and_posted_arguments.update(_extract_dict_from_payload(request_data))
                     result = executable_method(
                         **_autobox_parameters(executable_method, request_and_posted_arguments))
                     result_dic_tentative = {} if result is None else _xvert(cls, result)
-                    return jsonify(result_dic_tentative), 200
+                    return JSONResponse(content=result_dic_tentative, status_code=200)
                 except ServiceException as sexc:
                     config.app_engine.logger.warning('Service error: {}'.format(str(sexc)))
                     return create_custom_error(sexc.http_error_code, sexc.message, cls.__name__)
@@ -284,57 +341,73 @@ def _prepare_actions(cls, url_base: str, enable_security: bool = False, class_it
             relation = this_link.get('decorator_kwargs').get('rel', func_name)
             methods = __get_http_methods(this_link)
             _add_app_rule(cls, url_base, relation, create_action_executor(func_name),
-                          path_param='<object_id>/{}'.format(relation), methods=methods)
+                          path_param='{{object_id}}/{}'.format(relation), methods=methods)
             if enable_security:
                 required_permissions = this_link.get('decorator_kwargs').get('require', Denied())
                 RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions,
                                    endpoint='{}_{}_{}'.format(xtract(cls).lower(), relation, methods[0].lower()))
 
 
-def _extract_dict_from_payload():
-    if request.data and len(request.data) > 0:
-        object_dict = request.json or json.loads(request.data)
-    elif request.form and len(request.form) > 0:
-        object_dict = _xtract_form()
+def _extract_dict_from_payload(request_data=None):
+    if request_data is None:
+        return {}
+    json_body = request_data.get('json_body')
+    body = request_data.get('body', b'')
+    form_data = request_data.get('form_data', {})
+
+    if json_body is not None:
+        return json_body
+    elif body and len(body) > 0:
+        # Try to parse as JSON
+        try:
+            return json.loads(body)
+        except (ValueError, TypeError):
+            pass
+    if form_data and len(form_data) > 0:
+        return _xtract_form(form_data)
+    return {}
+
+
+def _xtract_form(form_data):
+    """Extract form data into a dict. Values that are single-element lists are unwrapped."""
+    if hasattr(form_data, 'multi_items'):
+        # Starlette FormData
+        target = defaultdict(list)
+        for key, value in form_data.multi_items():
+            target[key].append(value)
+        return dict((key, value[0] if len(value) == 1 else value) for key, value in target.items())
+    elif isinstance(form_data, dict):
+        return form_data
     else:
-        object_dict = {}
-    return object_dict
+        return dict(form_data)
 
 
-def _xtract_form():
-    target = dict((key, request.form.getlist(key)) for key in list(request.form.keys()))
-    return dict((key, value[0] if len(value) == 1 else value) for key, value in target.items())
-
-
-def _get_merged_request_and_named_args(named_args):
+def _get_merged_request_and_named_args(named_args, request_data=None):
     """
-    Merge together the named args (url parameters) and the query parameters (from requests.args)
-    :param named_args:
-    :return: a dictionary with both: named and query parameters
+    Merge together the named args (url parameters) and the query parameters
     """
     named_and_request_arguments = named_args.copy()
-    named_and_request_arguments.update(_get_request_args())
+    named_and_request_arguments.update(_get_request_args(request_data))
     return named_and_request_arguments
 
 
-def _get_request_args():
+def _get_request_args(request_data=None):
     request_args = {}
-    # extract the query parameters and add to a generic parameter dictionary
-    if isinstance(request.args, MultiDict):
-        # Multidict is a werkzeug only type so we should check what happens in production
-        for arg in request.args:
-            query_item = {arg: request.args.get(arg)}
+    if request_data is None:
+        return request_args
+    query_params = request_data.get('query_params')
+    if query_params:
+        for arg in query_params:
+            query_item = {arg: query_params.get(arg)}
             request_args.update(query_item)
-    else:
-        request_args.update(request.args)
     return request_args
 
 
 def _create_simple_wrapper_executor(cls, app_engine, provisioner_method):
-    def create_executor(*args, **named_args):
+    def create_executor(request_data=None, *args, **named_args):
         try:
             result = provisioner_method(*args, **named_args)
-            return jsonify(result), 200
+            return JSONResponse(content=result, status_code=200)
         except Exception as genex:
             return app_engine.generic_error_handler(genex, upstream_service=cls.__name__)
 
@@ -343,9 +416,9 @@ def _create_simple_wrapper_executor(cls, app_engine, provisioner_method):
 
 def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, model_class: Model):
     """
-    The main view function for flask routes.
+    The main view function for FastAPI routes.
     :param app_engine: the app engine instance
-    :param provisioner_method: the method on our service object which will be executed by the Flask reflection
+    :param provisioner_method: the method on our service object which will be executed
     :param model_class: the class of the model
     :return: the result generated by the service
     """
@@ -353,46 +426,46 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
                                                                         types.FunctionType) and hasattr(
         provisioner_method, 'inner_function') else provisioner_method
 
-    def create_executor(**named_args):
+    def create_executor(request_data=None, **named_args):
         try:
             return_code = 200
-            named_and_request_arguments = _get_merged_request_and_named_args(named_args)
-            if QueryProcessor.supports_query(executable_method):
-                query_param_names = QueryProcessor.get_query_param_names(executable_method)
-                if query_param_names and len(query_param_names) > 0:
-                    # in case there are parameters on the query which do not belong to a service
-                    named_and_request_arguments.update(
-                        query=convert_to_query(query_param_names, request.args))
+            named_and_request_arguments = _get_merged_request_and_named_args(named_args, request_data)
+            query_params = request_data.get('query_params') if request_data else {}
+            method = request_data.get('method', 'GET') if request_data else 'GET'
 
-                    # delete the query params from the named and request arguments
+            if QueryProcessor.supports_query(executable_method):
+                query_param_names = QueryProcessor.get_query_param_names(
+                    executable_method, set(query_params.keys()) if query_params else set())
+                if query_param_names and len(query_param_names) > 0:
+                    named_and_request_arguments.update(
+                        query=convert_to_query(query_param_names, query_params))
+
                     for query_param_name in query_param_names:
                         if query_param_name in named_and_request_arguments:
                             del named_and_request_arguments[query_param_name]
-                elif 'query' in list(request.args.keys()):
-                    named_and_request_arguments.update(query=json.loads(request.args.get('query')))
+                elif query_params and 'query' in list(query_params.keys()):
+                    named_and_request_arguments.update(query=json.loads(query_params.get('query')))
 
-            if request.method in ['POST', 'PUT']:
-                # load and validate the posted object
-                model_instance = Model.from_dict(_extract_dict_from_payload(), model_class)
-                # save or update the object
+            if method in ['POST', 'PUT']:
+                model_instance = Model.from_dict(_extract_dict_from_payload(request_data), model_class)
                 named_and_request_arguments.update(model=model_instance)
                 return_code = 201
-            elif request.method == 'PATCH':
-                named_and_request_arguments.update(document=_extract_dict_from_payload())
+            elif method == 'PATCH':
+                named_and_request_arguments.update(document=_extract_dict_from_payload(request_data))
             result = provisioner_method(
                 **_autobox_parameters(executable_method, named_and_request_arguments))
-            if request.method in ['GET', 'PUT', 'PATCH']:
+            if method in ['GET', 'PUT', 'PATCH']:
                 if result is None:
                     object_id = named_args.get('object_id', None)
                     return create_custom_error(404, 'Document{} is not found.'.format(
                         ' with id {}'.format(object_id) if object_id else ''), cls.__name__)
-            if request.method == 'DELETE' and isinstance(result, int) and result == 0:
+            if method == 'DELETE' and isinstance(result, int) and result == 0:
                 return create_custom_error(404, 'Document with id {} was not deleted.'.format(
                     named_args.get('object_id', '-1')), cls.__name__)
             if result is None or isinstance(result, list) and len(result) == 0:
                 return_code = 204
             result_dic_tentative = {} if result is None else _xvert(cls, result)
-            return jsonify(result_dic_tentative), return_code
+            return JSONResponse(content=result_dic_tentative, status_code=return_code)
         except PropertyRequiredException as pexc:
             app_engine.logger.warning('missing parameter: {}/{}'.format(pexc.__class__.__name__, str(pexc)))
             return create_custom_error(400, str(pexc), cls.__name__)
@@ -407,8 +480,7 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
         except Exception as exc:
             return app_engine.generic_error_handler(exc, upstream_service=cls.__name__)
 
-    # add supported method parameter names to the list of reserved keywords;
-    # These won't be added to query expressions (because they are already arguments of methods);
+    # add supported method parameter names to the list of reserved keywords
     qp.add_reserved_keywords(executable_method)
     return create_executor
 
@@ -455,8 +527,7 @@ def convert_to_query(query_param_names, request_args):
 
     :param query_param_names: the names of all query parameters as a set; example set(['birth_date','logic'])
     :type query_param_names: set
-    :param request_args:the names and the values of the query parameters as an Immutable Multi Dict; example: ImmutableMultiDict([('birth_date', u'>1980'), ('birth_date', u'<1985'), ('logic', u'AND')])
-    :type request_args: ImmutableMultiDict
+    :param request_args: the names and the values of the query parameters; must support .getlist() and .get() methods
     :return: the query expression which than can be converted to repository specific queries (eg. Mongo or SQL query)
     :rtype: dict
     """
@@ -464,19 +535,16 @@ def convert_to_query(query_param_names, request_args):
     for arg in request_args:
         if arg != 'logic' and arg in query_param_names:
             # the keyword 'logic' is handled separately
-            query_dict[arg] = request_args.getlist(arg)
+            if hasattr(request_args, 'getlist'):
+                query_dict[arg] = request_args.getlist(arg)
+            else:
+                # fallback for plain dict
+                val = request_args.get(arg)
+                query_dict[arg] = val if isinstance(val, list) else [val]
 
     expression_list = []
     for query_item in [[key, val] for key, val in query_dict.items()]:
-        # where query_item[0] is the key of the future structure and query_item[1] is the value
         if isinstance(query_item[1], list) and len(query_item[1]) > 1:
-            # it is a key with a list of values;
-            # examples for query item:
-            #   ['name', ['Jane', 'John']]          output: [{'name': 'Jane'}, {'name': 'John'}]
-            #   ['locked', ['true', 'false']]       output: [{'locked': True}, {'locked': False}]
-            #   ['birth_date', ['<1980','>1970']]   output: [{'$gte':' 1970', '$lt': '1980'}]
-            #   ['name', ['~Jane', '~John']]        output: [{'name': {'$regex': '.*Jane.*', 'options': 'i'}}, {'$regex': '.*John.*', 'options': 'i'}]
-
             value_list = [_remap_expressions(expr) for expr in query_item[1]]
             if isinstance(value_list[0], tuple):
                 expression_list.append(
@@ -485,10 +553,6 @@ def convert_to_query(query_param_names, request_args):
                 for val in value_list:
                     expression_list.append({query_item[0]: val})
         else:
-            # it is a key with a list of only 1 item
-            # examples:
-            #   ['name', ['~Jane']]
-            #   ['name', ['John']]
             mapped_value = _remap_expressions(query_item[1][0])
             if isinstance(mapped_value, tuple):
                 expression_list.append({query_item[0]: dict([mapped_value])})
@@ -498,7 +562,6 @@ def convert_to_query(query_param_names, request_args):
     if len(expression_list) == 0:
         return {}
     elif len(expression_list) == 1:
-        # the dictionary has 0 or 1 elements
         return expression_list[0]
     else:
         logic = str(OPS.__getattr__(request_args.get('logic', 'and').upper()))
@@ -509,9 +572,6 @@ def _remap_expressions(expression):
     """
     Takes a query expression such as >1994-12-02 and turns into a {'$gte':'1994-12-02'}.
     Additionally converts the date string into datetime object;
-
-    :param expression:
-    :return:
     """
     if expression[0] in qp.supported_expressions:
         converted_value = _convert_expressions(expression[1:])
@@ -522,10 +582,8 @@ def _remap_expressions(expression):
 
 def _convert_expressions(expression):
     """
-    converts strings containing numbers to int, string containing a date to datetime, string containing a boolean expression to boolean
-
-    :param arguments:
-    :return:
+    converts strings containing numbers to int, string containing a date to datetime,
+    string containing a boolean expression to boolean
     """
     if isinstance(expression, str):
         if qp.number_pattern.match(expression):
@@ -551,7 +609,6 @@ def _autobox_parameters(provisioner_method, arguments):
             if issubclass(required_type, Enum):
                 arguments[arg_key] = required_type[arg_value]
             elif issubclass(required_type, list) and provided_type in [str, str, str]:
-                # if the required type should be a list
                 if qp.csv_pattern.match(arg_value):
                     arguments[arg_key] = [int(item) if item.isdigit() else item.strip('"').strip('\'') for item in
                                           arg_value.split(',')]
@@ -563,14 +620,11 @@ def _autobox_parameters(provisioner_method, arguments):
                         else:
                             arguments[arg_key] = [result]
                     except ValueError:
-                        # skip boxing
                         pass
             elif issubclass(required_type, dict) and provided_type in [str, str, str]:
-                # if the required type is dict, but provided string
                 try:
                     arguments[arg_key] = json.loads(arg_value)
                 except ValueError:
-                    # skip boxing
                     pass
             else:
                 arguments[arg_key] = required_type(arg_value)
@@ -579,11 +633,7 @@ def _autobox_parameters(provisioner_method, arguments):
 
 def _xvert(cls, result_item, generate_links=True):
     """
-    converts the response object into Json
-
-    :param generate_links: if True, it will add the HATEOAS links to the response
-    :param result_item: the actual item which will get converted
-    :return:
+    converts the response object into a dict for JSON serialization
     """
     if isinstance(result_item, Model):
         model = Model.to_dict(result_item, skip_omitted_fields=True)
@@ -600,7 +650,7 @@ def _xvert(cls, result_item, generate_links=True):
             '_items': [_xvert(cls, item, generate_links=False) for item in result_item]
         }
         if hasattr(cls, 'enable_hateoas') and cls.enable_hateoas:
-            result.update(_links={'self': {'href': url_for('{}_find_by_query_get'.format(xtract(cls).lower()))}})
+            result.update(_links={'self': {'href': url_for_endpoint('{}_find_by_query_get'.format(xtract(cls).lower()))}})
         return result
     elif is_primitive(result_item) or isinstance(result_item, (str, int)) or is_noncomplex(result_item):
         return {'_type': 'OperationResult', 'result': result_item}
@@ -619,7 +669,7 @@ def _calculate_links(cls, object_id):
             http_methods = decorator_args.get('method', 'POST' if len(args) > 0 else 'GET')
             endpoint_name = '{}_{}_{}'.format(clazz_name, rel, http_methods[0].lower() if isinstance(http_methods,
                                                                                                      list) else http_methods.lower())
-            href = '{}'.format(url_for(endpoint_name, object_id=object_id))
+            href = '{}'.format(url_for_endpoint(endpoint_name, object_id=object_id))
 
             links[rel] = {
                 'href': href,
@@ -629,11 +679,11 @@ def _calculate_links(cls, object_id):
                 links[rel].update(args=args)
 
         links['self'] = {
-            'href': url_for('{}_find_by_id_get'.format(clazz_name), object_id=object_id),
+            'href': url_for_endpoint('{}_find_by_id_get'.format(clazz_name), object_id=object_id),
             'methods': cls.methods
         }
         links['collection'] = {
-            'href': url_for('{}_find_by_query_get'.format(clazz_name)),
+            'href': url_for_endpoint('{}_find_by_query_get'.format(clazz_name)),
             'methods': 'GET'
         }
         return links

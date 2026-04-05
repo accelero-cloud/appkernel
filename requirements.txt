@@ -1,19 +1,15 @@
 pyyaml
-enum34
-pymongo==3.7.1
+pymongo>=4.0,<5.0
 simplejson
-Flask > 0.12.3
-werkzeug
-eventlet
+fastapi>=0.100
+uvicorn[standard]>=0.20
+python-multipart
+httpx
 wrapt
-passlib==1.7.1
+passlib>=1.7.4
 jsonschema
-flask-babel
 babel
-pyjwt
+pyjwt>=2.0
 cryptography
-sets
 aiohttp
-cchardet
-aiodns
 requests

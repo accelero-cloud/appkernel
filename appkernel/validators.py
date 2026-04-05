@@ -2,7 +2,11 @@ import datetime
 import re
 from enum import Enum
 
-from flask_babel import _
+def _(message, **kwargs):
+    """Minimal i18n passthrough replacing flask_babel."""
+    if kwargs:
+        return message % kwargs
+    return message
 
 from .model import AppKernelException
 

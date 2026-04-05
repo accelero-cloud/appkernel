@@ -193,7 +193,7 @@ class MongoQuery(Query):
         return self.connection.delete_many(self.filter_expr).deleted_count
 
     def count(self) -> int:
-        return self.connection.count(self.filter_expr)
+        return self.connection.count_documents(self.filter_expr)
 
     def __get_update_expression(self, **update_expression):
         update_dict = dict()
@@ -603,7 +603,7 @@ class MongoRepository(Repository):
 
     @classmethod
     def count(cls, query_filter={}):
-        return cls.get_collection().count(query_filter)
+        return cls.get_collection().count_documents(query_filter)
 
     @classmethod
     def aggregate(cls, pipe=[], allow_disk_use=True, batch_size=100):

@@ -37,7 +37,7 @@ class CfgEngine(object):
 
         with open(config_file, 'r') as ymlfile:
             try:
-                self.cfg = yaml.load(ymlfile)
+                self.cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
                 self.initialised = True
             except yaml.scanner.ScannerError as se:
                 raise AppInitialisationError(f'cannot read config file {config_file} due to: {str(se)}')
