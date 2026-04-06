@@ -903,3 +903,84 @@ async def test_save_existing_document_updates():
     loaded = await User.find_by_id(obj_id)
     assert loaded.description == 'modified'
     await User.delete_all()
+
+
+# ---------------------------------------------------------------------------
+# Optimistic locking / version tracking
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_version_set_to_one_on_first_insert():
+    """Version must be 1 immediately after the first save."""
+    u = User().update(name='v_test', password='pass')
+    await u.save()
+    loaded = await User.find_by_id(u.id)
+    assert loaded.version == 1
+
+
+@pytest.mark.anyio
+async def test_version_incremented_on_sequential_updates():
+    """Each save on the same document must increment version by 1."""
+    u = User().update(name='v_seq', password='pass')
+    await u.save()
+    loaded = await User.find_by_id(u.id)
+    loaded.description = 'first update'
+    await loaded.save()
+    loaded2 = await User.find_by_id(u.id)
+    assert loaded2.version == 2
+
+
+@pytest.mark.anyio
+async def test_version_works_for_auditable_repository():
+    """AuditableRepository (Project) must also track version via the shared mechanism."""
+    from .utils import Project, Task
+    p = Project(name='ver_project')
+    p.append_to(tasks=Task(name='t1', description='d'))
+    await p.save()
+    loaded = await Project.find_by_id(p.id)
+    assert loaded.version == 1
+    loaded.name = 'ver_project_updated'
+    await loaded.save()
+    loaded2 = await Project.find_by_id(p.id)
+    assert loaded2.version == 2
+
+
+@pytest.mark.anyio
+async def test_concurrent_update_raises_version_conflict():
+    """Saving a stale document (version mismatch) must raise VersionConflictError."""
+    from appkernel.repository import VersionConflictError
+    u = User().update(name='conflict_test', password='pass')
+    await u.save()
+
+    # Simulate two clients loading the same document
+    client_a = await User.find_by_id(u.id)
+    client_b = await User.find_by_id(u.id)
+
+    # Client A saves first — bumps version from 1 → 2
+    client_a.description = 'client A update'
+    await client_a.save()
+
+    # Client B's copy is now stale (still version 1) — must be rejected
+    client_b.description = 'client B update'
+    with pytest.raises(VersionConflictError):
+        await client_b.save()
+
+
+@pytest.mark.anyio
+async def test_conflict_on_auditable_repository():
+    """VersionConflictError must also fire for AuditableRepository models."""
+    from appkernel.repository import VersionConflictError
+    from .utils import Project, Task
+    p = Project(name='conflict_project')
+    p.append_to(tasks=Task(name='t1', description='d'))
+    await p.save()
+
+    a = await Project.find_by_id(p.id)
+    b = await Project.find_by_id(p.id)
+
+    a.name = 'updated by a'
+    await a.save()
+
+    b.name = 'updated by b'
+    with pytest.raises(VersionConflictError):
+        await b.save()

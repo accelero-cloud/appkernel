@@ -228,6 +228,22 @@ class RepositoryException(AppKernelException):
         super().__init__(message)
 
 
+class VersionConflictError(RepositoryException):
+    """Raised when an update is rejected because another writer already modified
+    the document since it was last loaded (optimistic locking violation).
+
+    HTTP callers receive 409 Conflict. The correct recovery is to re-fetch the
+    document and retry the update with the fresh version.
+    """
+    status_code: int = 409
+
+    def __init__(self, document_id: Any) -> None:
+        super().__init__(
+            f"Document '{document_id}' was modified by another process. "
+            "Re-fetch the document and retry."
+        )
+
+
 class Repository:
 
     @classmethod
@@ -423,21 +439,48 @@ class MongoRepository(Repository):
 
     @classmethod
     async def patch_object(cls, document: dict[str, Any] | Model, object_id: str | None = None) -> Any:
-        return await cls.__save_or_update_dict(document, object_id=object_id, insert_if_none_found=False)
+        return await cls._save_or_update_dict(document, object_id=object_id, insert_if_none_found=False)
 
     @classmethod
-    async def __save_or_update_dict(
+    async def _save_or_update_dict(
         cls,
         document: dict[str, Any] | Model,
         object_id: str | None = None,
         insert_if_none_found: bool = True,
     ) -> Any:
+        """Persist a document, tracking version and enforcing optimistic locking.
+
+        On insert (no id): stores the document with ``version=1``.
+
+        On update: removes ``version`` from the ``$set`` payload and increments
+        it atomically with ``$inc``. When the document carries a known version
+        (loaded from the database), the filter includes ``version == current``
+        so a concurrent writer that already incremented the version causes
+        ``matched_count == 0``, which raises :exc:`VersionConflictError` (HTTP 409).
+
+        When no version is present on the document (e.g. the model was constructed
+        in-memory without loading from the database), the update falls back to
+        ``_id``-only matching — safe for first-time saves.
+        """
         has_id, document_id, document = MongoRepository.prepare_document(document, object_id)
         if has_id:
-            update_result = await cls.get_collection().update_one(
-                {'_id': document_id}, {'$set': document}, upsert=insert_if_none_found)
-            db_id = update_result.upserted_id or (document_id if update_result.matched_count > 0 else None)
+            current_version = document.pop('version', None)
+            update_expr = {'$set': document, '$inc': {'version': 1}}
+            if current_version is not None:
+                update_result = await cls.get_collection().update_one(
+                    {'_id': document_id, 'version': current_version},
+                    update_expr, upsert=False)
+                if update_result.matched_count == 0:
+                    existing = await cls.get_collection().find_one({'_id': document_id}, {'_id': 1})
+                    if existing:
+                        raise VersionConflictError(document_id)
+                db_id = document_id if update_result.matched_count > 0 else None
+            else:
+                update_result = await cls.get_collection().update_one(
+                    {'_id': document_id}, update_expr, upsert=insert_if_none_found)
+                db_id = update_result.upserted_id or (document_id if update_result.matched_count > 0 else None)
         else:
+            document['version'] = 1
             insert_result = await cls.get_collection().insert_one(document)
             db_id = insert_result.inserted_id
         return db_id
@@ -447,7 +490,7 @@ class MongoRepository(Repository):
         assert model, 'the object must be handed over as a parameter'
         assert isinstance(model, Model), 'the object should be a Model'
         document = Model.to_dict(model, convert_id=True, converter_func=mongo_type_converter_to_dict)
-        model.id = await cls.__save_or_update_dict(document=document, object_id=object_id)
+        model.id = await cls._save_or_update_dict(document=document, object_id=object_id)
         return model.id
 
     @classmethod
@@ -583,25 +626,13 @@ class AuditableRepository(MongoRepository):
         document = Model.to_dict(model, convert_id=True, converter_func=mongo_type_converter_to_dict)
         has_id, doc_id, document = MongoRepository.prepare_document(document, object_id)
         now = datetime.now()
-        document.update(updated=now)
-
-        if has_id:
-            if 'version' in document:
-                del document['version']
-            if 'inserted' in document:
-                del document['inserted']
-            upsert_expression = {
-                '$set': document,
-                '$setOnInsert': {'inserted': now},
-                '$inc': {'version': 1}
-            }
-            update_result = await cls.get_collection().update_one({'_id': doc_id}, upsert_expression, upsert=True)
-            db_id = update_result.upserted_id or doc_id
+        document['updated'] = now
+        if not has_id:
+            document['inserted'] = now
         else:
-            document.update(inserted=now, version=1)
-            insert_result = await cls.get_collection().insert_one(document)
-            db_id = insert_result.inserted_id
-        model.id = db_id
+            document.pop('inserted', None)  # preserve the original insertion timestamp
+        model.id = await cls._save_or_update_dict(document, object_id=doc_id,
+                                                   insert_if_none_found=not has_id)
         return model.id
 
     async def save(self) -> Any:

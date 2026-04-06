@@ -10,6 +10,7 @@ A custom repository implementation for SQL or any other database is possible by 
 * :ref:`Basic CRUD (Created, Update, Delete) operations`
 * :ref:`Query expressions`
 * :ref:`Advanced Functionality`
+* :ref:`Optimistic Locking`
 * :ref:`Auditable Repository`
 * :ref:`Index management`
 * :ref:`Schema Installation`
@@ -436,13 +437,87 @@ The ``validation_action`` parameter accepts:
 - ``'error'``: rejects invalid documents;
 - ``'warning'``: logs a warning but allows the operation;
 
+Optimistic Locking
+------------------
+
+AppKernel uses optimistic locking to detect concurrent write conflicts. Every document managed
+by :class:`MongoRepository` (and its subclasses) carries a ``version`` counter maintained
+automatically by the repository — no schema change or field declaration is required.
+
+How it works
+............
+
+- On **first insert** the document receives ``version = 1``.
+- On each **subsequent save** the repository atomically increments ``version`` to the next
+  integer and conditions the update on the *current* version matching what the caller holds.
+  If another process has already incremented the version in the meantime, the update finds no
+  matching document and raises :class:`VersionConflictError`.
+
+:class:`AuditableRepository` inherits the same version logic and additionally maintains
+``inserted`` and ``updated`` timestamps.
+
+When served over HTTP the framework converts :class:`VersionConflictError` to an **HTTP 409
+Conflict** response automatically — no extra handling is needed in service code.
+
+Recovering from a conflict
+..........................
+
+The standard recovery pattern is *re-fetch, merge, retry*::
+
+    from appkernel import VersionConflictError
+
+    MAX_RETRIES = 3
+    for attempt in range(MAX_RETRIES):
+        project = Project.find_by_id(project_id)   # re-fetch to get the latest version
+        project.name = 'Updated name'
+        try:
+            project.save()
+            break
+        except VersionConflictError:
+            if attempt == MAX_RETRIES - 1:
+                raise   # give up after N retries
+
+Detecting a conflict in tests
+..............................
+
+The example below demonstrates the collision scenario::
+
+    from appkernel import VersionConflictError
+    import pytest
+
+    # Both callers read the same document at version 1
+    original = Project.find_by_id(project_id)
+    concurrent = Project.find_by_id(project_id)
+
+    # First writer succeeds — document is now version 2
+    original.name = 'First update'
+    original.save()
+
+    # Second writer holds version 1 — the update is rejected
+    concurrent.name = 'Lost update'
+    with pytest.raises(VersionConflictError):
+        concurrent.save()
+
+Repository types and version tracking
+......................................
+
++------------------------------+------------+-----------+---------+
+| Repository                   | ``version``| timestamps| CRUD    |
++==============================+============+===========+=========+
+| :class:`MongoRepository`     | yes        | no        | yes     |
++------------------------------+------------+-----------+---------+
+| :class:`AuditableRepository` | yes        | yes       | yes     |
++------------------------------+------------+-----------+---------+
+
 Supported Repository Types
 --------------------------
 
 All repositories extend the :class:`Repository` base class:
 
-- :class:`MongoRepository` — standard CRUD and query access to MongoDB;
-- :class:`AuditableRepository` — extends MongoRepository with automatic ``inserted``, ``updated``, and ``version`` fields;
+- :class:`MongoRepository` — standard CRUD and query access to MongoDB, including automatic
+  optimistic-locking ``version`` tracking;
+- :class:`AuditableRepository` — extends MongoRepository with automatic ``inserted``,
+  ``updated``, and ``version`` fields;
 
 Aggregation Pipeline
 ....................

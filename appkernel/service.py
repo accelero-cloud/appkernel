@@ -22,7 +22,7 @@ from .model import Model, PropertyRequiredException
 from .dsl import get_argument_spec, OPS, tag_class_items
 from .query import QueryProcessor
 from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
-from .repository import xtract, Repository
+from .repository import xtract, Repository, VersionConflictError
 from .util import create_custom_error
 from .validators import ValidationException
 
@@ -486,6 +486,9 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
         except PermissionError as pexc:
             app_engine.logger.warning(f'permission denied: {pexc}')
             return create_custom_error(403, str(pexc), cls.__name__)
+        except VersionConflictError as ce:
+            app_engine.logger.warning(f'version conflict: {ce}')
+            return create_custom_error(409, str(ce), cls.__name__)
         except RequestHandlingException as rexc:
             app_engine.logger.error(f'request forwarding error: {str(rexc)}')
             app_engine.logger.exception(rexc)
