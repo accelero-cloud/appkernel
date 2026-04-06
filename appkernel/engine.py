@@ -227,20 +227,32 @@ class AppKernelEngine:
         self.app.add_middleware(SecurityMiddleware)
 
     def __init_crypto(self) -> None:
-        key_path = Path(self.cfg_dir)
-        with open(key_path / 'keys' / 'appkernel.pem', 'rb') as key_file:
-            private_key = serialization.load_pem_private_key(
+        # Key path resolution order:
+        #   1. APPKERNEL_PRIVATE_KEY_PATH / APPKERNEL_PUBLIC_KEY_PATH env vars
+        #   2. appkernel.security.private_key_path / public_key_path in cfg.yml
+        #   3. Default: {cfg_dir}/keys/appkernel.pem and appkernel.pub
+        default_key_dir = Path(self.cfg_dir) / 'keys'
+        private_key_path = (
+            os.environ.get('APPKERNEL_PRIVATE_KEY_PATH')
+            or self.cfg_engine.get('appkernel.security.private_key_path')
+            or str(default_key_dir / 'appkernel.pem')
+        )
+        public_key_path = (
+            os.environ.get('APPKERNEL_PUBLIC_KEY_PATH')
+            or self.cfg_engine.get('appkernel.security.public_key_path')
+            or str(default_key_dir / 'appkernel.pub')
+        )
+        with open(private_key_path, 'rb') as key_file:
+            config.private_key = serialization.load_pem_private_key(
                 key_file.read(),
                 password=None,
                 backend=default_backend()
             )
-            config.private_key = private_key
-        with open(key_path / 'keys' / 'appkernel.pub', 'rb') as key_file:
-            public_key = serialization.load_pem_public_key(
+        with open(public_key_path, 'rb') as key_file:
+            config.public_key = serialization.load_pem_public_key(
                 key_file.read(),
                 backend=default_backend()
             )
-            config.public_key = public_key
 
     def __init_locale(self) -> None:
         supported_languages: list[str] = []
