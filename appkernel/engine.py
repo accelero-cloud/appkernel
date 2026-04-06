@@ -8,6 +8,7 @@ import re
 import sys
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
@@ -17,6 +18,7 @@ from cryptography.hazmat.primitives import serialization
 from fastapi import FastAPI, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 from .authorisation import authorize_request
 from .http_client import HttpClientConfig, configure_http_client, close_http_client
@@ -27,6 +29,41 @@ from .core import AppInitialisationError
 from .iam import RbacMixin
 from .model import Model
 from .util import create_custom_error
+
+
+@dataclass
+class CorsConfig:
+    """Configuration for Cross-Origin Resource Sharing (CORS).
+
+    Pass to :meth:`AppKernelEngine.enable_cors` to allow browser-based
+    clients on other origins to call the API.
+
+    ``allow_origins`` must be set explicitly — there is no permissive default.
+    Passing ``allow_origins=['*']`` with ``allow_credentials=True`` is invalid
+    and raises ``ValueError`` at startup (browsers reject this combination).
+
+    Call ``enable_cors()`` **last** in the middleware chain so that it wraps
+    all other middleware and handles preflight OPTIONS requests before security
+    or rate-limiting checks run.
+
+    Args:
+        allow_origins: Explicit list of permitted origins, e.g.
+            ``['https://app.example.com']``. Use ``['*']`` to permit any
+            origin (only valid when ``allow_credentials=False``).
+        allow_methods: HTTP methods to permit in CORS requests.
+        allow_headers: Request headers the browser is allowed to send.
+        allow_credentials: Set ``True`` to include
+            ``Access-Control-Allow-Credentials: true``. Requires an explicit
+            origin list — incompatible with ``allow_origins=['*']``.
+        expose_headers: Response headers the browser JS is allowed to read.
+        max_age: Preflight response cache lifetime in seconds (default 600).
+    """
+    allow_origins: list[str] = field(default_factory=list)
+    allow_methods: list[str] = field(default_factory=lambda: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
+    allow_headers: list[str] = field(default_factory=lambda: ['Authorization', 'Content-Type', 'Accept-Language'])
+    allow_credentials: bool = False
+    expose_headers: list[str] = field(default_factory=list)
+    max_age: int = 600
 
 if TYPE_CHECKING:
     from starlette.responses import Response
@@ -177,6 +214,52 @@ class AppKernelEngine:
         """
         limiter = RateLimiter(cfg or RateLimitConfig())
         self.app.add_middleware(RateLimitMiddleware, limiter=limiter)
+        return self
+
+    def enable_cors(self, cfg: CorsConfig | None = None) -> AppKernelEngine:
+        """Enable CORS support for browser-based cross-origin clients.
+
+        Installs Starlette's ``CORSMiddleware`` with the provided configuration.
+        Call this **last** in the middleware chain — middleware added last
+        executes first, so CORS headers are set and preflight OPTIONS requests
+        are resolved before security or rate-limiting checks run.
+
+        Args:
+            cfg: CORS configuration. Defaults to ``CorsConfig()`` (empty
+                ``allow_origins`` list — same-origin only).
+
+        Raises:
+            ValueError: If ``allow_origins=['*']`` and
+                ``allow_credentials=True`` are combined (rejected by browsers).
+
+        Example::
+
+            kernel = AppKernelEngine('my-app', cfg_dir='./config')
+            kernel.enable_security()
+            kernel.enable_rate_limiting()
+            kernel.enable_cors(CorsConfig(
+                allow_origins=['https://app.example.com'],
+                allow_credentials=False,
+            ))
+
+        Returns:
+            ``self`` for fluent chaining.
+        """
+        c = cfg or CorsConfig()
+        if c.allow_credentials and c.allow_origins == ['*']:
+            raise ValueError(
+                "allow_credentials=True is incompatible with allow_origins=['*']. "
+                "Browsers reject this combination. Specify explicit origins instead."
+            )
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=c.allow_origins,
+            allow_methods=c.allow_methods,
+            allow_headers=c.allow_headers,
+            allow_credentials=c.allow_credentials,
+            expose_headers=c.expose_headers,
+            max_age=c.max_age,
+        )
         return self
 
     def enable_security(self, authorisation_method: Callable | None = None) -> AppKernelEngine:

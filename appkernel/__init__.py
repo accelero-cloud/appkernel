@@ -37,7 +37,7 @@ from .service import ServiceException  # noqa: F401
 from .iam import IdentityMixin, Role, Anonymous, Denied, CurrentSubject, Authority, Permission, RbacMixin  # noqa: F401
 
 # Engine
-from .engine import AppKernelEngine, ResourceController  # noqa: F401
+from .engine import AppKernelEngine, ResourceController, CorsConfig  # noqa: F401
 from .http_client import HttpClientConfig, CircuitBreakerConfig, CircuitOpenError  # noqa: F401
 from .rate_limit import RateLimitConfig  # noqa: F401
 
