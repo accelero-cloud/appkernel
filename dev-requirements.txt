@@ -1,12 +1,20 @@
-setuptools
-autopep8
-pytest
-pytest-runner
-recommonmark
+# Development and testing dependencies
+# Install with: uv pip install -r requirements.txt -r dev-requirements.txt
+
+# Testing
+pytest>=8.0
+pytest-cov
+pytest-anyio          # async test support (provided by anyio[trio])
+respx                 # httpx request mocking for test_http_client
+
+# Test data / helpers
+py-moneyed
+passlib[bcrypt]>=1.7.4
+
+# Code quality
 pylint
 flake8
-requests_mock
+autopep8
+
+# Coverage reporting
 codecov
-pytest-cov
-#--- test lib requirements
-py-moneyed

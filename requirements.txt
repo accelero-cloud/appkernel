@@ -12,4 +12,4 @@ babel
 pyjwt>=2.0
 cryptography
 aiohttp
-anyio[trio]
+anyio
