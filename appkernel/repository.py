@@ -25,6 +25,50 @@ from .fields import (
     get_field_index,
 )
 
+# Stages permitted when aggregate() is called from HTTP (untrusted callers).
+# All cross-collection, write, and JS-execution stages are excluded.
+_HTTP_ALLOWED_STAGES: frozenset[str] = frozenset({
+    '$match', '$group', '$sort', '$limit', '$skip',
+    '$project', '$unwind', '$count', '$addFields', '$replaceRoot',
+    '$bucket', '$bucketAuto', '$sortByCount', '$facet',
+})
+
+# Stages that are always forbidden, even for trusted callers via HTTP
+# (write and arbitrary-code stages).
+_ALWAYS_BLOCKED_STAGES: frozenset[str] = frozenset({
+    '$out', '$merge', '$function', '$accumulator',
+})
+
+
+def validate_pipeline(pipe: list[dict[str, Any]], trusted: bool = False) -> None:
+    """Validate an aggregation pipeline before sending it to MongoDB.
+
+    Args:
+        pipe: List of aggregation stage dicts.
+        trusted: When True (internal/application code), only the always-blocked
+            stages are rejected. When False (HTTP / untrusted callers), only
+            stages in ``_HTTP_ALLOWED_STAGES`` are permitted.
+
+    Raises:
+        PermissionError: If a forbidden stage is present.
+        ValueError: If a stage is not a single-key dict.
+    """
+    for stage in pipe:
+        if not isinstance(stage, dict) or len(stage) != 1:
+            raise PermissionError(
+                f"Each pipeline stage must be a single-key dict, got: {stage!r}"
+            )
+        operator = next(iter(stage))
+        if operator in _ALWAYS_BLOCKED_STAGES:
+            raise PermissionError(
+                f"Pipeline stage '{operator}' is not permitted."
+            )
+        if not trusted and operator not in _HTTP_ALLOWED_STAGES:
+            raise PermissionError(
+                f"Pipeline stage '{operator}' is not permitted over HTTP. "
+                f"Use a trusted internal call for advanced aggregations."
+            )
+
 
 def xtract(clazz_or_instance: Any) -> str:
     """
@@ -497,10 +541,23 @@ class MongoRepository(Repository):
         allow_disk_use: bool = True,
         batch_size: int = 100,
         max_results: int | None = 10_000,
+        trusted: bool = False,
     ) -> list[dict[str, Any]]:
-        """Run an aggregation pipeline. max_results caps the result set by appending a
-        $limit stage; pass max_results=None to disable the cap for pipelines that are
-        known to produce bounded output (e.g. those already containing $limit or $count)."""
+        """Run an aggregation pipeline.
+
+        Args:
+            pipe: Aggregation stages. When called over HTTP (``trusted=False``),
+                only stages in ``_HTTP_ALLOWED_STAGES`` are permitted.
+                Cross-collection stages (``$lookup``, ``$graphLookup``,
+                ``$unionWith``) and write/JS stages are always blocked from HTTP.
+            trusted: Set to ``True`` for internal application code that constructs
+                the pipeline itself. Bypasses the HTTP stage allowlist while still
+                blocking ``$out``, ``$merge``, ``$function``, and ``$accumulator``.
+            max_results: Caps the result set by appending a ``$limit`` stage.
+                Pass ``None`` to disable for pipelines with a bounded result
+                (e.g. those already containing ``$limit`` or ``$count``).
+        """
+        validate_pipeline(pipe, trusted=trusted)
         pipeline = pipe + [{'$limit': max_results}] if max_results is not None else pipe
         cursor = cls.get_collection().aggregate(pipeline, allowDiskUse=allow_disk_use, batchSize=batch_size)
         return await cursor.to_list(length=max_results)

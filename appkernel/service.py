@@ -483,6 +483,9 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
         except ValidationException as vexc:
             app_engine.logger.warning(f'validation error: {vexc}')
             return create_custom_error(400, f'{vexc.__class__.__name__}/{vexc}', cls.__name__)
+        except PermissionError as pexc:
+            app_engine.logger.warning(f'permission denied: {pexc}')
+            return create_custom_error(403, str(pexc), cls.__name__)
         except RequestHandlingException as rexc:
             app_engine.logger.error(f'request forwarding error: {str(rexc)}')
             app_engine.logger.exception(rexc)

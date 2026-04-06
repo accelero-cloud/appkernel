@@ -419,6 +419,73 @@ def test_run_aggregation_pipeline(client):
     assert rsp.json().get('_items')[0].get('name') == 'Jane'
 
 
+def test_aggregate_allowed_stages_work_via_http(client):
+    """Allowed stages ($match, $group) must not be blocked by the pipeline validator."""
+    run_async(create_and_save_john_jane_and_max())
+    # Single-stage pipes avoid the CSV-splitter in _autobox_parameters
+    # (multi-stage JSON arrays with outer commas are parsed as CSV by that path).
+    pipe = json.dumps([{'$match': {'name': 'Jane'}}])
+    rsp = client.get(f'/users/aggregate/?pipe={pipe}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 200
+    assert rsp.json().get('_items')[0].get('name') == 'Jane'
+
+
+def test_aggregate_lookup_blocked_via_http(client):
+    """$lookup must be rejected over HTTP to prevent cross-collection data exfiltration."""
+    pipe = json.dumps([{'$lookup': {'from': 'other_collection', 'localField': 'id', 'foreignField': 'user_id', 'as': 'leaked'}}])
+    rsp = client.get(f'/users/aggregate/?pipe={pipe}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_aggregate_graph_lookup_blocked_via_http(client):
+    """$graphLookup must be rejected over HTTP."""
+    pipe = json.dumps([{'$graphLookup': {'from': 'users', 'startWith': '$id', 'connectFromField': 'id', 'connectToField': 'id', 'as': 'graph'}}])
+    rsp = client.get(f'/users/aggregate/?pipe={pipe}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_aggregate_union_with_blocked_via_http(client):
+    """$unionWith must be rejected over HTTP."""
+    pipe = json.dumps([{'$unionWith': {'coll': 'secrets'}}])
+    rsp = client.get(f'/users/aggregate/?pipe={pipe}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_aggregate_out_blocked_via_http(client):
+    """$out must be rejected — it overwrites a collection."""
+    pipe = json.dumps([{'$match': {}}, {'$out': 'users_backup'}])
+    rsp = client.get(f'/users/aggregate/?pipe={pipe}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_aggregate_function_blocked_via_http(client):
+    """$function (arbitrary JS) must be rejected."""
+    pipe = json.dumps([{'$addFields': {'x': {'$function': {'body': 'function(){return 1}', 'args': [], 'lang': 'js'}}}}])
+    rsp = client.get(f'/users/aggregate/?pipe={pipe}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_aggregate_malformed_stage_blocked_via_http(client):
+    """A pipeline stage that is not a single-key dict must be rejected."""
+    pipe = json.dumps([{'$match': {}, '$group': {'_id': None}}])
+    rsp = client.get(f'/users/aggregate/?pipe={pipe}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_aggregate_trusted_call_bypasses_validation():
+    """Internal code calling aggregate(pipe, trusted=True) can use $lookup freely."""
+    from appkernel.repository import validate_pipeline
+    # Should not raise for a $lookup when trusted=True
+    validate_pipeline([{'$lookup': {'from': 'other', 'localField': 'id', 'foreignField': 'id', 'as': 'x'}}], trusted=True)
+
+
 def test_post_user_as_json_payload(client, user_dict):
     user_json = json.dumps(user_dict)
     print(f'\nSending: {user_json}')
