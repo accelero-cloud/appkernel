@@ -269,18 +269,15 @@ def __get_http_methods(tagged_item):
     return http_methods
 
 
-resource_instances = {}
-
-
 def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_security: bool = False, class_items: dict | None = None) -> None:
+    # Construct the singleton instance eagerly at registration time so there is
+    # no read-check-write race when concurrent requests hit an unregistered controller.
+    instance = clazz_or_instance() if inspect.isclass(clazz_or_instance) else clazz_or_instance
+
     def create_resource_executor(function_name):
         async def resource_executor(request_data=None, **named_args):
-            clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
+            clazz = instance.__class__
             try:
-                instance = resource_instances.get(clazz.__name__)
-                if not instance:
-                    instance = clazz_or_instance() if inspect.isclass(clazz_or_instance) else clazz_or_instance
-                    resource_instances[clazz.__name__] = instance
                 executable_method = getattr(instance, function_name)
                 request_and_posted_arguments = _get_request_args(request_data)
                 request_and_posted_arguments.update(named_args)

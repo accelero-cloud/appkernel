@@ -19,6 +19,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .authorisation import authorize_request
+from .http_client import HttpClientConfig, configure_http_client, close_http_client
+from .rate_limit import RateLimitConfig, RateLimiter, RateLimitMiddleware
 from .infrastructure import CfgEngine
 from .configuration import config
 from .core import AppInitialisationError
@@ -86,6 +88,7 @@ class AppKernelEngine:
         cfg_dir: str | None = None,
         development: bool = False,
         enable_defaults: bool = True,
+        http_client_config: HttpClientConfig | None = None,
     ) -> None:
         assert app_id is not None, 'The app_id must be provided'
         assert re.match('[A-Za-z0-9-_]',
@@ -98,6 +101,7 @@ class AppKernelEngine:
             self.before_request_functions: list[Callable] = []
             self.after_request_functions: list[Callable] = []
             self.app_id = app_id
+            config.app_id = app_id
             self.root_url = root_url
             self.cmd_line_options = get_cmdline_options()
             self.cfg_dir = cfg_dir or self.cmd_line_options.get('cfg_dir')
@@ -115,12 +119,15 @@ class AppKernelEngine:
 
             # Wire the FastAPI app with lifespan for clean startup/shutdown
             engine_ref = self
+            _http_client_config = http_client_config
 
             @asynccontextmanager
             async def lifespan(fastapi_app: FastAPI):
                 engine_ref.logger.info(f'===== Starting {engine_ref.app_id} =====')
+                configure_http_client(_http_client_config)
                 yield
-                # Shutdown: close Motor connection gracefully
+                # Shutdown: close HTTP client, then Motor connection
+                await close_http_client()
                 if config and hasattr(config, 'mongo_database') and config.mongo_database is not None:
                     try:
                         engine_ref.mongo_client.close()
@@ -138,6 +145,39 @@ class AppKernelEngine:
         except (AppInitialisationError, AssertionError) as init_err:
             self.logger.error(str(init_err))
             sys.exit(-1)
+
+    def enable_rate_limiting(self, cfg: RateLimitConfig | None = None) -> AppKernelEngine:
+        """Enable in-process fixed-window rate limiting.
+
+        Call this **after** ``enable_security()`` so that the rate-limit
+        middleware is added last and therefore executes first — throttling
+        requests before JWT validation is attempted.
+
+        Args:
+            cfg: Pool and window settings. Defaults to ``RateLimitConfig()``
+                (medium-traffic profile: 100 req / 60 s per client IP).
+
+        Returns:
+            ``self`` for fluent chaining.
+
+        Example::
+
+            from appkernel import AppKernelEngine, RateLimitConfig
+
+            kernel = AppKernelEngine('my-app', cfg_dir='./config')
+            kernel.enable_security()
+            kernel.enable_rate_limiting(
+                RateLimitConfig(
+                    requests_per_window=100,
+                    window_seconds=60,
+                    endpoint_limits={'/auth': 10},
+                    exclude_paths=['/health'],
+                )
+            )
+        """
+        limiter = RateLimiter(cfg or RateLimitConfig())
+        self.app.add_middleware(RateLimitMiddleware, limiter=limiter)
+        return self
 
     def enable_security(self, authorisation_method: Callable | None = None) -> AppKernelEngine:
         self.enable_pki()

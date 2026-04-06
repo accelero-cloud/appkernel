@@ -175,3 +175,55 @@ def test_field_proxy_usable_as_dict_key():
     proxy = _AgeModel.age
     d = {proxy: 'value'}
     assert d[proxy] == 'value'
+
+
+# ---------------------------------------------------------------------------
+# ReDoS: regex special characters must be escaped in LIKE / ELEM_LIKE / ~
+# ---------------------------------------------------------------------------
+
+def test_like_escapes_regex_special_characters():
+    """User input containing regex metacharacters must be escaped so it is
+    treated as a literal string, not a regex pattern."""
+    expr = _AgeModel.name % '(a+)+'
+    fragment = expr.ops.lmbda(expr.rhs)
+    # The pattern must NOT contain an unescaped (a+)+
+    assert '(a+)+' not in fragment['$regex']
+    # It must contain the escaped form
+    import re
+    assert re.escape('(a+)+') in fragment['$regex']
+
+
+def test_like_escapes_dot_and_star():
+    expr = _AgeModel.name % 'file.name*'
+    fragment = expr.ops.lmbda(expr.rhs)
+    import re
+    assert re.escape('file.name*') in fragment['$regex']
+
+
+def test_like_plain_string_still_matches_substring():
+    """After escaping, a plain alphanumeric search string must still appear
+    verbatim in the pattern (re.escape leaves it unchanged)."""
+    expr = _AgeModel.name % 'John'
+    fragment = expr.ops.lmbda(expr.rhs)
+    assert 'John' in fragment['$regex']
+
+
+def test_query_processor_tilde_escapes_regex_special_characters():
+    """The ~ operator in the QueryProcessor expression_mapper must also escape."""
+    from appkernel.query import QueryProcessor
+    qp = QueryProcessor()
+    mapper = qp.expression_mapper['~']
+    fragment = mapper('(a+)+')
+    import re
+    assert '(a+)+' not in fragment['$regex']
+    assert re.escape('(a+)+') in fragment['$regex']
+
+
+def test_elem_like_escapes_regex_special_characters():
+    """ELEM_LIKE (array element contains) must escape the search term."""
+    from appkernel.dsl import OPS
+    fragment = OPS.ELEM_LIKE.lmbda(('field', '(a+)+'))
+    import re
+    inner_regex = fragment['$elemMatch']['field']['$regex']
+    assert '(a+)+' not in inner_regex
+    assert re.escape('(a+)+') in inner_regex

@@ -7,6 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from functools import reduce
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pymongo
@@ -133,7 +134,7 @@ class MongoQuery(Query):
             cursor = self.connection.find(self.filter_expr).sort(self.sorting_expr).skip(page * page_size).limit(page_size)
         else:
             cursor = self.connection.find(self.filter_expr).skip(page * page_size).limit(page_size)
-        docs = await cursor.to_list(length=page_size or None)
+        docs = await cursor.to_list(length=page_size if page_size > 0 else 100)
         return [Model.from_dict(item, self.user_class, convert_ids=True,
                                 converter_func=mongo_type_converter_from_dict) for item in docs]
 
@@ -236,6 +237,11 @@ class Repository:
     @classmethod
     async def create_cursor_by_query(cls, query: dict[str, Any]) -> list[Model]:
         raise NotImplementedError('abstract method')
+
+    @classmethod
+    async def stream_by_query(cls, query: dict[str, Any], batch_size: int = 500) -> AsyncGenerator[Model, None]:
+        raise NotImplementedError('abstract method')
+        yield  # marks this as an async generator so the signature is correct
 
     @classmethod
     async def update_many(cls, match_query_dict: dict[str, Any], update_expression_dict: dict[str, Any]) -> int:
@@ -446,11 +452,24 @@ class MongoRepository(Repository):
                 for result in docs]
 
     @classmethod
-    async def create_cursor_by_query(cls, query: dict[str, Any]) -> list[Model]:
-        cursor = cls.get_collection().find(query)
-        docs = await cursor.to_list(length=None)
+    async def create_cursor_by_query(
+        cls, query: dict[str, Any], page: int = 0, page_size: int = 500
+    ) -> list[Model]:
+        cursor = cls.get_collection().find(query).skip(page * page_size).limit(page_size)
+        docs = await cursor.to_list(length=page_size)
         return [Model.from_dict(result, cls, convert_ids=True, converter_func=mongo_type_converter_from_dict)
                 for result in docs]
+
+    @classmethod
+    async def stream_by_query(
+        cls, query: dict[str, Any], batch_size: int = 500
+    ) -> AsyncGenerator[Model, None]:
+        """Async generator that streams all matching documents in batches without loading
+        the full result set into memory. Use for bulk processing, exports, and migrations
+        where create_cursor_by_query's page limit is not appropriate."""
+        async for doc in cls.get_collection().find(query).batch_size(batch_size):
+            yield Model.from_dict(doc, cls, convert_ids=True,
+                                  converter_func=mongo_type_converter_from_dict)
 
     @classmethod
     async def update_many(cls, match_query_dict: dict[str, Any], update_expression_dict: dict[str, Any]) -> int:
@@ -477,9 +496,14 @@ class MongoRepository(Repository):
         pipe: list[dict[str, Any]] = [],  # noqa: B006 - used by _autobox_parameters() for runtime type detection
         allow_disk_use: bool = True,
         batch_size: int = 100,
+        max_results: int | None = 10_000,
     ) -> list[dict[str, Any]]:
-        cursor = cls.get_collection().aggregate(pipe, allowDiskUse=allow_disk_use, batchSize=batch_size)
-        return await cursor.to_list(length=None)
+        """Run an aggregation pipeline. max_results caps the result set by appending a
+        $limit stage; pass max_results=None to disable the cap for pipelines that are
+        known to produce bounded output (e.g. those already containing $limit or $count)."""
+        pipeline = pipe + [{'$limit': max_results}] if max_results is not None else pipe
+        cursor = cls.get_collection().aggregate(pipeline, allowDiskUse=allow_disk_use, batchSize=batch_size)
+        return await cursor.to_list(length=max_results)
 
     async def save(self) -> Any:
         self.id = await self.__class__.save_object(self)  # pylint: disable=C0103

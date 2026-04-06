@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json as _json
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -8,6 +9,85 @@ import httpx
 from appkernel import Model, AppKernelException
 from appkernel.core import MessageType
 from appkernel.model import _get_custom_class
+
+
+@dataclass
+class HttpClientConfig:
+    """Connection pool and timeout configuration for inter-service HTTP calls.
+
+    Pool sizing guidance:
+    - max_connections: total simultaneous connections (active + queued). Set to
+      your expected peak concurrency; requests queue once this is reached.
+    - max_keepalive_connections: idle connections held open for reuse. Set to
+      steady-state concurrency — excess idle connections waste file descriptors
+      on both client and upstream server.
+    - keepalive_expiry: seconds before an idle connection is proactively closed.
+      Keep below the upstream server's own keep-alive timeout (typically 30–75s)
+      to avoid reusing a connection the server has already closed.
+
+    Timeout guidance:
+    - connect_timeout: max seconds to establish a TCP+TLS connection.
+    - read_timeout: max seconds to wait for the first response byte after sending.
+    - write_timeout: max seconds to finish sending the request body.
+    - pool_timeout: max seconds to wait for a connection slot in the pool when
+      max_connections is exhausted. Acts as backpressure — raise it to queue
+      requests, lower it to fail fast.
+
+    Default profile: medium-traffic (20–100 req/s to each upstream service).
+    """
+    max_connections: int = 100
+    max_keepalive_connections: int = 20
+    keepalive_expiry: float = 30.0
+    connect_timeout: float = 2.0
+    read_timeout: float = 10.0
+    write_timeout: float = 5.0
+    pool_timeout: float = 5.0
+
+
+# ---------------------------------------------------------------------------
+# Module-level singleton — one AsyncClient shared for the process lifetime.
+# Initialised on first use with default config or explicitly by AppKernelEngine.
+# ---------------------------------------------------------------------------
+
+_http_client: httpx.AsyncClient | None = None
+
+
+def configure_http_client(cfg: HttpClientConfig | None = None) -> None:
+    """Initialise (or replace) the shared AsyncClient with the given config.
+    Called by AppKernelEngine at startup; falls back to HttpClientConfig defaults
+    on first use if never called explicitly.
+    """
+    global _http_client
+    c = cfg or HttpClientConfig()
+    _http_client = httpx.AsyncClient(
+        limits=httpx.Limits(
+            max_connections=c.max_connections,
+            max_keepalive_connections=c.max_keepalive_connections,
+            keepalive_expiry=c.keepalive_expiry,
+        ),
+        timeout=httpx.Timeout(
+            connect=c.connect_timeout,
+            read=c.read_timeout,
+            write=c.write_timeout,
+            pool=c.pool_timeout,
+        ),
+    )
+
+
+async def close_http_client() -> None:
+    """Gracefully close the shared AsyncClient. Called by AppKernelEngine on shutdown."""
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    """Return the shared AsyncClient, initialising with defaults on first use."""
+    global _http_client
+    if _http_client is None:
+        configure_http_client()
+    return _http_client
 
 
 class RequestHandlingException(AppKernelException):
@@ -19,11 +99,10 @@ class RequestHandlingException(AppKernelException):
 
 class RequestWrapper:
 
-    # todo: timeout, retry, request timing,
+    # todo: retry, request timing,
     # todo: post to unknown url brings to infinite time...
     def __init__(self, url: str) -> None:
         self.url = url
-        self.client = httpx.AsyncClient()
 
     @staticmethod
     def get_headers(auth_header: str | None = None, accept_language: str | None = 'en') -> dict[str, str]:
@@ -46,8 +125,7 @@ class RequestWrapper:
                 endpoint_url = f'{self.url.rstrip("/")}/{path_ext.lstrip("/")}'
             else:
                 endpoint_url = self.url
-            async with httpx.AsyncClient() as client:
-                response = await client.request(method, endpoint_url, **kwargs)
+            response = await _get_client().request(method, endpoint_url, **kwargs)
             if 200 <= response.status_code <= 299:
                 try:
                     response_object = response.json()

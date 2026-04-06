@@ -7,6 +7,7 @@ on other appkernel modules, breaking the circular dependency chain.
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable
 from enum import IntEnum
 from typing import Any
@@ -47,11 +48,11 @@ OPS = AttrDict(
     LTE=Opex('$lte', lambda exp: {'$lte': exp}),
     IS=Opex('$eq', lambda exp: {'$eq': exp}),
     IS_NOT=Opex('is_not', lambda exp: {'$ne': exp}),
-    LIKE=Opex('like', lambda exp: {'$regex': f'.*{exp}.*', '$options': 'i'}),
+    LIKE=Opex('like', lambda exp: {'$in': exp} if isinstance(exp, list) else {'$regex': f'.*{re.escape(exp)}.*', '$options': 'i'}),
     ELEM_MATCH=Opex('$elemMatch', lambda exp: {'$elemMatch': {exp[0]: exp[1]}}),
     ELEM_DOES_NOT_MATCH=Opex('$elemMatchNot', lambda exp: {'$not': {'$elemMatch': {exp[0]: exp[1]}}}),
     ELEM_LIKE=Opex('$elemMatch',
-                   lambda exp: {'$elemMatch': {exp[0]: {'$regex': f'.*{exp[1]}.*', '$options': 'i'}}}),
+                   lambda exp: {'$elemMatch': {exp[0]: {'$regex': f'.*{re.escape(exp[1])}.*', '$options': 'i'}}}),
     NE=Opex('$ne', lambda exp: {'$ne': exp}),
     MUL=Opex('$mul', lambda exp: exp),
     DIV=Opex('$mul', lambda exp: 1 / exp),

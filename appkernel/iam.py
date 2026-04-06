@@ -64,11 +64,11 @@ class IdentityMixin:
         payload = {
             'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=IdentityMixin.token_validity_in_seconds),
             'iat': datetime.datetime.now(datetime.UTC),
-            'sub': self.id
+            'sub': self.id,
         }
-        # iss: issuer
-        # aud: audience
-        # jti: jwt id
+        app_id = getattr(config, 'app_id', None)
+        if app_id:
+            payload['aud'] = app_id
         if self.roles and isinstance(self.roles, list) and len(self.roles) > 0:
             payload.update(roles=self.roles)
         return jwt.encode(
@@ -89,6 +89,7 @@ class RbacMixin:
     # }
 
     def __init__(self, cls: type) -> None:
+        self.cls = cls
         if not hasattr(cls, 'protected_methods'):
             cls.protected_methods = {}
 
@@ -140,7 +141,7 @@ class RbacMixin:
         return self
 
     def deny(self, permission: Permission, methods: list[str] | str, endpoint: str | None = None) -> RbacMixin:
-        RbacMixin.set_list(methods, permission, endpoint)
+        RbacMixin.set_list(self.cls, methods, permission, endpoint)
         return self
 
     def require(self, permission: Permission, methods: list[str] | str, endpoint: str | None = None) -> RbacMixin:

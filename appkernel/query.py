@@ -34,7 +34,7 @@ class QueryProcessor:
         self.expression_mapper: dict[str, Callable[[str], Any]] = {
             '<': lambda exp: ('$lte', exp),
             '>': lambda exp: ('$gte', exp),
-            '~': lambda exp: {'$regex': f'.*{exp}.*', '$options': 'i'},
+            '~': lambda exp: {'$regex': f'.*{re.escape(exp)}.*', '$options': 'i'},
             '!': lambda exp: ('$ne', exp),
             '#': lambda exp: ('$size', exp),
             '[': lambda exp: {'$in': exp.strip(']').split(',')}

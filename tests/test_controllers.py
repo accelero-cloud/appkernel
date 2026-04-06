@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 from starlette.testclient import TestClient
 from appkernel import AppKernelEngine
+from appkernel.service import _prepare_resources
 from tests.utils import PaymentService
 
 try:
@@ -114,3 +115,35 @@ def test_exception(client):
     print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 500
     assert rsp.json().get('_type') == "ErrorMessage"
+
+
+def test_resource_instance_created_at_registration_not_on_first_request():
+    """Prove that _prepare_resources constructs the instance eagerly at registration
+    time, so no lazy write-race is possible during request handling."""
+
+    class _InitTracker:
+        init_count = 0
+
+        @staticmethod
+        def reset():
+            _InitTracker.init_count = 0
+
+    class TrackedService:
+        def __init__(self):
+            _InitTracker.init_count += 1
+
+        def get_item(self):
+            return {'ok': True}
+
+    _InitTracker.reset()
+    assert _InitTracker.init_count == 0
+
+    # Simulate what kernel.register() does: call _prepare_resources with the class
+    current_file_path = os.path.dirname(os.path.realpath(__file__))
+    eng = AppKernelEngine('test_eager', cfg_dir=f'{current_file_path}/../', development=True)
+    from appkernel.dsl import tag_class_items
+    cls_items = tag_class_items(TrackedService.__name__, TrackedService.__dict__)
+    _prepare_resources(TrackedService, '/test/', class_items=cls_items)
+
+    # Instance must have been constructed during registration, before any request
+    assert _InitTracker.init_count == 1

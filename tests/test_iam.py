@@ -165,3 +165,49 @@ def test_rbac_deny_all_is_chainable():
     rc = _make_rbac()
     result = rc.deny_all()
     assert result is rc
+
+
+# ---------------------------------------------------------------------------
+# RbacMixin.__init__ stores self.cls
+# ---------------------------------------------------------------------------
+
+def test_rbac_init_stores_cls():
+    """RbacMixin.__init__ must store cls as self.cls so instance methods work
+    when RbacMixin is used directly (not via ResourceController)."""
+    svc = type('Svc', (), {})
+    rc = RbacMixin(svc)
+    assert rc.cls is svc
+
+
+# ---------------------------------------------------------------------------
+# RbacMixin.deny
+# ---------------------------------------------------------------------------
+
+def test_rbac_deny_sets_permission_on_single_method():
+    """deny() must register the given permission on a single HTTP method."""
+    rc = _make_rbac()
+    rc.deny(Denied(), 'DELETE')
+    assert 'DELETE' in rc.cls.protected_methods
+
+
+def test_rbac_deny_sets_permission_on_multiple_methods():
+    """deny() must register the given permission on each method in a list."""
+    rc = _make_rbac()
+    rc.deny(Denied(), ['GET', 'DELETE'])
+    assert 'GET' in rc.cls.protected_methods
+    assert 'DELETE' in rc.cls.protected_methods
+
+
+def test_rbac_deny_stores_correct_permission():
+    """deny() must store the exact permission passed, not a default."""
+    rc = _make_rbac()
+    rc.deny(Denied(), 'POST')
+    perms = rc.cls.protected_methods['POST']['*']
+    assert any(isinstance(p, Denied) for p in perms)
+
+
+def test_rbac_deny_is_chainable():
+    """deny() must return self to support fluent chaining."""
+    rc = _make_rbac()
+    result = rc.deny(Denied(), 'DELETE')
+    assert result is rc

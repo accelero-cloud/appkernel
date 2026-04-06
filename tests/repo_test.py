@@ -738,6 +738,113 @@ async def test_create_cursor_by_query():
     await User.delete_all()
 
 
+@pytest.mark.anyio
+async def test_create_cursor_by_query_respects_page_size():
+    await User.delete_all()
+    for i in range(10):
+        u = User()
+        u.update(name=f'paged_{i}', password='pass')
+        await u.save()
+    results = await User.create_cursor_by_query({}, page_size=3)
+    assert len(results) == 3
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_create_cursor_by_query_pages_through_results():
+    await User.delete_all()
+    for i in range(9):
+        u = User()
+        u.update(name=f'page_test_{i}', password='pass')
+        await u.save()
+    page0 = await User.create_cursor_by_query({}, page=0, page_size=3)
+    page1 = await User.create_cursor_by_query({}, page=1, page_size=3)
+    page2 = await User.create_cursor_by_query({}, page=2, page_size=3)
+    assert len(page0) == 3
+    assert len(page1) == 3
+    assert len(page2) == 3
+    names = [{u.name for u in page} for page in (page0, page1, page2)]
+    assert names[0].isdisjoint(names[1])
+    assert names[1].isdisjoint(names[2])
+    assert names[0] | names[1] | names[2] == {f'page_test_{i}' for i in range(9)}
+    await User.delete_all()
+
+
+# ---------------------------------------------------------------------------
+# stream_by_query
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_stream_by_query_returns_all_documents():
+    await User.delete_all()
+    for i in range(10):
+        u = User()
+        u.update(name=f'stream_{i}', password='pass')
+        await u.save()
+    results = []
+    async for user in User.stream_by_query({}):
+        results.append(user)
+    assert len(results) == 10
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_stream_by_query_yields_model_instances():
+    await User.delete_all()
+    u = User()
+    u.update(name='stream_type_check', password='pass')
+    await u.save()
+    async for item in User.stream_by_query({}):
+        assert isinstance(item, User)
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_stream_by_query_with_filter():
+    await User.delete_all()
+    for i in range(5):
+        u = User()
+        u.update(name=f'keep_{i}', password='pass')
+        await u.save()
+    for i in range(5):
+        u = User()
+        u.update(name=f'skip_{i}', password='pass')
+        await u.save()
+    results = []
+    async for user in User.stream_by_query({'name': {'$regex': '^keep_'}}):
+        results.append(user)
+    assert len(results) == 5
+    assert all(item.name.startswith('keep_') for item in results)
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_stream_by_query_empty_collection():
+    await User.delete_all()
+    results = []
+    async for user in User.stream_by_query({}):
+        results.append(user)
+    assert results == []
+
+
+@pytest.mark.anyio
+async def test_stream_by_query_returns_more_than_page_limit():
+    """stream_by_query must yield all documents even when the total exceeds
+    create_cursor_by_query's page_size, demonstrating the unbounded streaming contract."""
+    await User.delete_all()
+    for i in range(15):
+        u = User()
+        u.update(name=f'bulk_{i}', password='pass')
+        await u.save()
+    paged = await User.create_cursor_by_query({}, page_size=5)
+    assert len(paged) == 5
+    streamed = []
+    async for user in User.stream_by_query({}, batch_size=5):
+        streamed.append(user)
+    assert len(streamed) == 15
+    await User.delete_all()
+
+
 # ---------------------------------------------------------------------------
 # delete_many / update_many
 # ---------------------------------------------------------------------------

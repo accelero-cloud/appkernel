@@ -79,7 +79,57 @@ bson_type_map = {
 }
 
 
+# Modules that can achieve code execution, filesystem destruction, or data
+# exfiltration. This list is not exhaustive — a whitelist or registry approach
+# is more secure, but this blocks the most obvious attack vectors while
+# preserving the ability to deserialize arbitrary third-party types.
+_BLACKLISTED_MODULES: frozenset[str] = frozenset({
+    'os',           # os.system, os.popen, os.execv, os.unlink ...
+    'subprocess',   # subprocess.Popen, subprocess.call ...
+    'sys',          # sys.exit, sys.modules manipulation
+    'builtins',     # eval, exec, compile, __import__
+    'importlib',    # importlib.import_module — dynamic import
+    'ctypes',       # ctypes.CDLL — arbitrary C library calls
+    'multiprocessing',  # process spawning
+    'threading',    # thread spawning
+    'socket',       # raw network access / exfiltration
+    'shutil',       # shutil.rmtree — filesystem destruction
+    'pathlib',      # Path.write_text, Path.unlink ...
+    'tempfile',     # temp file creation / side effects
+    'pty',          # pseudo-terminal / shell spawning
+    'signal',       # signal.raise_signal
+    'pickle',       # deserialisation of arbitrary objects
+    'marshal',      # low-level serialisation
+    'shelve',       # pickle-backed persistence
+    'gc',           # garbage collector manipulation
+    'inspect',      # code introspection / source extraction
+    'code',         # interactive interpreter
+    'codeop',       # compile/execute code strings
+    'ast',          # ast.literal_eval on untrusted input
+    'compileall',   # compile Python source files
+    'py_compile',   # compile Python source files
+    'zipimport',    # import from zip archives
+    'zipfile',      # zip creation / extraction
+    'tarfile',      # tar extraction (path traversal risk)
+    'ftplib',       # FTP client
+    'http',         # HTTP client
+    'urllib',       # URL fetch
+    'xmlrpc',       # RPC execution
+    'smtplib',      # email sending / exfiltration
+    'imaplib',      # email reading / exfiltration
+    'telnetlib',    # telnet client
+    'webbrowser',   # opens URLs in browser process
+})
+
+
 def _get_custom_class(fqdn: str) -> type | None:
+    # Reject any FQDN whose top-level module is in the blacklist.
+    # We check all dot-prefixes so that e.g. 'os.path.join' is caught by 'os'.
+    top_module = fqdn.split('.')[0]
+    if top_module in _BLACKLISTED_MODULES:
+        raise AppKernelException(
+            f"Refused to deserialize type '{fqdn}': module '{top_module}' is not allowed."
+        )
     try:
         parts = fqdn.split('.')
         module_str = ".".join(parts[:-1])

@@ -17,7 +17,11 @@ def _(message: str, **kwargs: Any) -> str:
 
 
 def check_token(jwt_token: str) -> dict[str, Any]:
-    return jwt.decode(jwt_token, config.public_key, algorithms=['RS256'])
+    app_id = getattr(config, 'app_id', None)
+    kwargs: dict[str, Any] = {'algorithms': ['RS256']}
+    if app_id:
+        kwargs['audience'] = app_id
+    return jwt.decode(jwt_token, config.public_key, **kwargs)
 
 
 def __has_current_subject_authority(token: dict[str, Any], authority: Any, view_args: dict[str, str] | None = None) -> bool:
@@ -107,8 +111,11 @@ def authorize_request(
     authorisation_header = headers.get('Authorization') if hasattr(headers, 'get') else headers.get('authorization')
     if not authorisation_header:
         return create_custom_error(401, _('The authorisation header is missing.'))
+    parts = authorisation_header.split(' ', 1)
+    if len(parts) != 2 or parts[0].lower() != 'bearer' or not parts[1].strip():
+        return create_custom_error(401, _('The authorisation header is malformed.'))
     try:
-        token = check_token(authorisation_header.split(' ')[1])
+        token = check_token(parts[1])
         required_roles, required_authorities = __split_to_roles_and_authorities(required_permissions)
 
         missing_required_role = len(required_roles.intersection(set(token.get('roles', [])))) == 0

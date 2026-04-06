@@ -10,6 +10,7 @@
    clients
    translations
    authentication
+   rate_limiting
    motivation_vision
    api
    contributors
