@@ -82,9 +82,9 @@ def test_past_validation():
         tasks=Task().update(name='some task', description='some description'))
     project.tasks[0].complete()
     project.finalise_and_validate()
-    print(('{}'.format(project)))
+    print(f'{project}')
     project.tasks[0].update(closed_date=(datetime.datetime.now() - timedelta(days=1)))
-    print(('\n\n> one day in the past \n{}'.format(project)))
+    print(f'\n\n> one day in the past \n{project}')
     project.finalise_and_validate()
 
     with pytest.raises(ValidationException):
@@ -104,7 +104,7 @@ def test_future_validation():
     test_model.finalise_and_validate()
     with pytest.raises(ValidationException):
         test_model.future_field = (datetime.datetime.now() - timedelta(days=1))
-        print(('\n\n> one day in the in the future \n{}'.format(test_model)))
+        print(f'\n\n> one day in the in the future \n{test_model}')
         test_model.finalise_and_validate()
 
     with pytest.raises(ValidationException):

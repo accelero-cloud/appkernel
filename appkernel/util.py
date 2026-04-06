@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import datetime
 import itertools
-import os
 import tarfile
 from pathlib import Path
 from typing import Any

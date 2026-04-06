@@ -158,7 +158,7 @@ class Reservation(Model, MongoRepository):
     state = Property(ReservationState, required=True, default_value=ReservationState.RESERVED)
 
 
-class PaymentService(object):
+class PaymentService:
 
     @resource(method='POST', require=[Role('user')])
     def authorise(self, payload):
@@ -284,7 +284,7 @@ def create_five_tasks(seed='A'):
     tasks = []
     for i in range(0, 5):
         tasks.append(
-            Task(name='sequential tasks {}-{}'.format(seed, i), description='some tasks description {}'.format(i),
+            Task(name=f'sequential tasks {seed}-{i}', description=f'some tasks description {i}',
                  priority=Priority.MEDIUM))
     return tasks
 
@@ -298,7 +298,7 @@ async def create_and_save_a_project(project_name='Default project name', tasks=N
 async def create_and_save_some_projects():
     projects = []
     for i in range(0, 50):
-        p = await create_and_save_a_project('Project {}'.format(i), tasks=create_five_tasks(seed='{}'.format(i)))
+        p = await create_and_save_a_project(f'Project {i}', tasks=create_five_tasks(seed=f'{i}'))
         await p.save()
         projects.append(p)
     return projects
@@ -319,7 +319,7 @@ async def create_and_save_a_user_with_no_roles(name, password, description=None)
 
 async def create_and_save_some_users(urange=51):
     for i in range(1, urange):
-        u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
+        u = User().update(name=f'multi_user_{i}').update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i)
         await u.save()
     assert await User.count() == urange - 1
@@ -328,7 +328,7 @@ async def create_and_save_some_users(urange=51):
 def create_user_batch(urange=51):
     users = []
     for i in range(1, urange):
-        users.append(User().update(name='multi_user_{}'.format(i)).update(password='some default password').
+        users.append(User().update(name=f'multi_user_{i}').update(password='some default password').
                      append_to(roles=['Admin', 'User', 'Operator']).
                      update(description='some description').
                      update(sequence=i))

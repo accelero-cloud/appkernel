@@ -39,7 +39,7 @@ def test_append_to_non_existing_non_defined_element():
     assert 'users' in project.__dict__
     assert len(project.users) == 1
     assert isinstance(project.users[0], Task)
-    print(('{}'.format(project)))
+    print(f'{project}')
 
 
 def test_append_to_non_existing_element():
@@ -49,7 +49,7 @@ def test_append_to_non_existing_element():
     assert 'tasks' in project.__dict__
     assert len(project.tasks) == 1
     assert isinstance(project.tasks[0], Task)
-    print(('{}'.format(project)))
+    print(f'{project}')
 
 
 def test_remove_non_existing_element():
@@ -77,10 +77,10 @@ def test_remove_existing_defined_element():
     project.append_to(tasks=task3)
     project.finalise_and_validate()
     assert len(project.tasks) == 3
-    print(('{}'.format(project)))
+    print(f'{project}')
     project.remove_from(tasks=task1)
     assert len(project.tasks) == 2
-    print(('{}'.format(project)))
+    print(f'{project}')
 
 
 def test_generator():
@@ -88,13 +88,13 @@ def test_generator():
     task.name = 'some task name'
     task.description = 'some task description'
     task.finalise_and_validate()
-    print(('\nTask:\n {}'.format(task)))
+    print(f'\nTask:\n {task}')
     assert task.id is not None and task.id.startswith('U')
 
 
 def test_converter():
     user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
-    print(('\n{}'.format(user.dumps(pretty_print=True))))
+    print(f'\n{user.dumps(pretty_print=True)}')
     assert user.password.startswith('$2b$')
     hash1 = user.password
     run_async(user.save())
@@ -104,7 +104,7 @@ def test_converter():
 
 def test_nested_object_serialisation():
     portfolio = create_a_portfolion_with_owner()
-    print((portfolio.dumps(pretty_print=True)))
+    print(portfolio.dumps(pretty_print=True))
     check_portfolio(portfolio)
 
 
@@ -151,7 +151,7 @@ def test_describe_rich_model():
 
 def test_json_schema():
     json_schema = Project.get_json_schema()
-    print('\n{}'.format(json.dumps(json_schema, indent=2)))
+    print(f'\n{json.dumps(json_schema, indent=2)}')
     print('===========')
     project = create_rich_project()
     print(project.dumps(pretty_print=True))
@@ -223,7 +223,7 @@ def test_json_schema_complex():
 
 def test_json_schema_in_mongo_compat_mode():
     json_schema = Project.get_json_schema(mongo_compatibility=True)
-    print('\n\n{}'.format(json.dumps(json_schema, indent=2)))
+    print(f'\n\n{json.dumps(json_schema, indent=2)}')
     print('===========')
     task_spec = json_schema.get('properties').get('tasks')
     assert len(task_spec.get('items').get('required')) == 5
@@ -269,7 +269,7 @@ def test_custom_object_marshalling():
     assert isinstance(amount, Decimal)
     assert amount == 10.5
     product_json = product.dumps(pretty_print=True)
-    print('JSON: \n{}'.format(product_json))
+    print(f'JSON: \n{product_json}')
     reloaded_product = Product.loads(product_json)
     assert reloaded_product is not None and isinstance(reloaded_product, Product)
     assert reloaded_product.name == product.name
@@ -287,7 +287,7 @@ def test_custom_converter_function():
     amount = product_dict.get('price').get('amount')
     assert isinstance(amount, float)
     product_json = product.dumps(pretty_print=True)
-    print('JSON: \n{}'.format(product_json))
+    print(f'JSON: \n{product_json}')
     reloaded_product = Model.from_dict(product_dict, Product, converter_func=mongo_type_converter_from_dict)
     assert isinstance(reloaded_product.price, Money)
     assert isinstance(reloaded_product.price.amount, Decimal)

@@ -22,13 +22,13 @@ def test_generator():
     task.name = 'some task name'
     task.description = 'some task description'
     task.finalise_and_validate()
-    print(('\nTask:\n {}'.format(task)))
+    print(f'\nTask:\n {task}')
     assert task.id is not None and task.id.startswith('U')
 
 
 def test_converter():
     user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
-    print('\n{}'.format(user.dumps(pretty_print=True)))
+    print(f'\n{user.dumps(pretty_print=True)}')
     assert user.password.startswith('$2b$')
     hash1 = user.password
     run_async(user.save())
@@ -45,7 +45,7 @@ def test_unix_time_marshaller():
     print(user_json)
     assert isinstance(User.to_dict(user).get('last_login'), float)
     reloaded_user = User.loads(user_json)
-    print((str(reloaded_user)))
+    print(str(reloaded_user))
     assert isinstance(reloaded_user.last_login, datetime)
 
 # todo: test encryption of a value object or other aggregate

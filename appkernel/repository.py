@@ -3,12 +3,11 @@ from __future__ import annotations
 import inspect
 import operator
 import re
-from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from functools import reduce
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import pymongo
 from bson import ObjectId

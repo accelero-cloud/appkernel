@@ -1,11 +1,11 @@
 from __future__ import annotations
-
 from typing import Any, TYPE_CHECKING
-
+from appkernel import iam  # noqa: E402
+from .util import create_custom_error  # noqa: E402
+from appkernel.configuration import config  # noqa: E402
 import jwt
 
 if TYPE_CHECKING:
-    from starlette.datastructures import Headers
     from starlette.responses import JSONResponse
 
 
@@ -14,11 +14,6 @@ def _(message: str, **kwargs: Any) -> str:
     if kwargs:
         return message % kwargs
     return message
-
-
-from appkernel import iam
-from .util import create_custom_error
-from appkernel.configuration import config
 
 
 def check_token(jwt_token: str) -> dict[str, Any]:

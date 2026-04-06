@@ -1,13 +1,25 @@
 from __future__ import annotations
-
-from collections.abc import Callable
-import collections.abc
 import inspect
+from collections.abc import Callable
 from datetime import datetime, date
 from enum import Enum, IntEnum
-from typing import Any, TYPE_CHECKING
-
+from typing import Any
 from bson import ObjectId
+from .core import AppKernelException  # noqa: E402
+from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email  # noqa: E402
+from .util import default_json_serializer, OBJ_PREFIX  # noqa: E402
+
+try:
+    from babel.support import LazyProxy
+    lazy_gettext = lambda s: LazyProxy(lambda: _translate(s))
+except ImportError:
+    lazy_gettext = lambda s: s
+
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 
 def _translate(s: str) -> str:
@@ -19,21 +31,6 @@ def _translate(s: str) -> str:
         return result if result != s else s
     return s
 
-
-try:
-    from babel.support import LazyProxy
-    lazy_gettext = lambda s: LazyProxy(lambda: _translate(s))
-except ImportError:
-    lazy_gettext = lambda s: s
-
-from .core import AppKernelException
-from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
-
-try:
-    import simplejson as json
-except ImportError:
-    import json
-from .util import default_json_serializer, OBJ_PREFIX
 
 type_map = {
     'str': 'string',
@@ -49,6 +46,7 @@ type_map = {
     'date': 'string',
     'datetime': 'string'
 }
+
 
 format_map = {
     'datetime': 'date-time',
@@ -132,7 +130,7 @@ def _instantiate_custom_class(clazz: type, param_dict: dict[str, Any], converter
 
 def _xtract_custom_object_to_dict(custom_object: Any, converter_func: Callable | None = None) -> Any:
     if hasattr(custom_object, '__dict__'):
-        instance_items = set([(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')])
+        instance_items = {(pn, pv) for pn, pv in custom_object.__dict__.items() if not pn.startswith('_')}
     else:
         if converter_func and isinstance(converter_func, Callable):
             return converter_func(custom_object)

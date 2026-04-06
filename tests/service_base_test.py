@@ -63,8 +63,8 @@ def user_dict():
 def setup_module(module):
     global kernel
     current_file_path = os.path.dirname(os.path.realpath(__file__))
-    print('\nModule: >> {} at {}'.format(module, current_file_path))
-    kernel = AppKernelEngine('test_app', cfg_dir='{}/../'.format(current_file_path), development=True)
+    print(f'\nModule: >> {module} at {current_file_path}')
+    kernel = AppKernelEngine('test_app', cfg_dir=f'{current_file_path}/../', development=True)
     kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
     kernel.register(Project, methods=['GET', 'PUT'])
 
@@ -79,8 +79,8 @@ def setup_function(function):
 def test_get_basic(client):
     u = User().update(name='some_user', password='some_pass')
     user_id = run_async(u.save())
-    rsp = client.get('/users/{}'.format(user_id))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    rsp = client.get(f'/users/{user_id}')
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json()
     assert result.get('id') == user_id
@@ -90,14 +90,14 @@ def test_get_basic(client):
 
 def test_get_not_found(client):
     rsp = client.get('/users/1234')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 404, 'the status code is expected to be 404'
     assert rsp.json().get('_type') == 'ErrorMessage'
 
 
 def test_get_invalid_url(client):
     rsp = client.get('/uzerz/1234')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 404, 'the status code is expected to be 404'
     assert rsp.json().get('_type') == 'ErrorMessage'
 
@@ -105,8 +105,8 @@ def test_get_invalid_url(client):
 def test_delete_basic(client):
     u = User().update(name='some_user', password='some_pass')
     user_id = run_async(u.save())
-    rsp = client.delete('/users/{}'.format(user_id))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    rsp = client.delete(f'/users/{user_id}')
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     assert rsp.json().get('result') == 1
 
@@ -118,14 +118,14 @@ def test_find_by_object_id(client):
     p.undefined_parameter = 'something else'
     p.tasks = [Task(name='some_task', description='some description')]
     proj_id = run_async(p.save())
-    rsp = client.get('/projects/{}{}'.format(OBJ_PREFIX, proj_id))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    rsp = client.get(f'/projects/{OBJ_PREFIX}{proj_id}')
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 200
 
 
 def test_delete_invalid_url(client):
     rsp = client.delete('/uzerz/1234')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 404, 'the status code is expected to be 404'
     assert rsp.json().get('_type') == 'ErrorMessage'
 
@@ -136,9 +136,9 @@ def test_get_query_between_dates(client):
     u.description = 'some description'
     u.roles = ['User', 'Admin', 'Operator']
     user_id = run_async(u.save())
-    print(('\nSaved user -> {}'.format(run_async(User.find_by_id(user_id)))))
+    print(f'\nSaved user -> {run_async(User.find_by_id(user_id))}')
     rsp = client.get('/users/?birth_date=>1980-06-30&birth_date=<1985-08-01&logic=AND')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.text))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.text}')
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json()
     assert result.get('_items')[0].get('id') == user_id
@@ -148,20 +148,20 @@ def test_get_query_between_dates(client):
 
 def test_get_query_between_not_found(client):
     rsp = client.get('/users/?birth_date=>1980&birth_date=<1985&logic=AND')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 204, 'the status code is expected to be 204'
 
 
 def test_find_date_range(client):
     base_birth_date = datetime.strptime('1980-01-01', '%Y-%m-%d')
     for m in range(1, 13):
-        u = User().update(name='multi_user_{}'.format(m)).update(password='some default password'). \
+        u = User().update(name=f'multi_user_{m}').update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(
             birth_date=base_birth_date.replace(month=m))
         run_async(u.save())
     assert run_async(User.count()) == 12
     rsp = client.get('/users/?birth_date=>1980-03-01&birth_date=<1980-05-30&logic=AND')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.text))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.text}')
     response_list = rsp.json()
     assert len(response_list) == 3
 
@@ -169,7 +169,7 @@ def test_find_date_range(client):
 def test_find_range_in_user_sequence(client):
     run_async(create_and_save_some_users())
     rsp = client.get('/users/?sequence=>20&sequence=<25&logic=OR')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.text))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.text}')
     response_object = rsp.json()
     assert len(response_object.get('_items')) == 6
 
@@ -177,7 +177,7 @@ def test_find_range_in_user_sequence(client):
 def test_find_less_than(client):
     run_async(create_and_save_some_users())
     rsp = client.get('/users/?sequence=<5')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     response_object = rsp.json()
     assert len(response_object.get('_items')) == 5
 
@@ -185,7 +185,7 @@ def test_find_less_than(client):
 def test_find_greater_than(client):
     run_async(create_and_save_some_users())
     rsp = client.get('/users/?sequence=>45')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     response_object = rsp.json()
     assert len(response_object.get('_items')) == 6
 
@@ -193,7 +193,7 @@ def test_find_greater_than(client):
 def test_sort_by(client):
     run_async(create_and_save_some_users())
     rsp = client.get('/users/?sequence=>45&sort_by=sequence')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     prev_user_seq = None
     for uzer in rsp.json().get('_items'):
         if prev_user_seq:
@@ -205,7 +205,7 @@ def test_sort_by(client):
 def test_sort_by_and_sort_order_desc(client):
     run_async(create_and_save_some_users())
     rsp = client.get('/users/?sequence=>45&sort_by=sequence&sort_order=DESC')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     prev_user_seq = None
     for uzer in rsp.json().get('_items'):
@@ -218,9 +218,9 @@ def test_sort_by_and_sort_order_desc(client):
 def test_pagination(client):
     run_async(create_and_save_some_users())
     for page in range(1, 6):
-        print(('\n== Page: ({}) ===='.format(page)))
-        rsp = client.get('/users/?page={}&page_size=5'.format(page))
-        print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+        print(f'\n== Page: ({page}) ====')
+        rsp = client.get(f'/users/?page={page}&page_size=5')
+        print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
         assert rsp.status_code == 200
         result_set = rsp.json()
         assert len(result_set.get('_items')) == 5
@@ -232,9 +232,9 @@ def test_pagination(client):
 def test_pagination_with_sort(client):
     run_async(create_and_save_some_users())
     for page in range(1, 6):
-        print(('\n== Page: ({}) ===='.format(page)))
-        rsp = client.get('/users/?page={}&page_size=5&sort_by=sequence&sort_order=DESC'.format(page))
-        print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+        print(f'\n== Page: ({page}) ====')
+        rsp = client.get(f'/users/?page={page}&page_size=5&sort_by=sequence&sort_order=DESC')
+        print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
         assert rsp.status_code == 200
         result_set = rsp.json()
         assert len(result_set.get('_items')) == 5
@@ -244,7 +244,7 @@ def test_pagination_with_sort(client):
 def test_default_pagination(client):
     run_async(create_and_save_some_users(urange=101))
     rsp = client.get('/users/')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert len(rsp.json().get('_items')) == 50
 
@@ -253,19 +253,19 @@ def test_find_contains(client):
     run_async(create_and_save_a_user('John Doe', 'a password', 'John is a random guy'))
     run_async(create_and_save_a_user('Jane Doe', 'a password', 'Jane is a random girl'))
     rsp = client.get('/users/?name=~Jane')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     rsp_object = rsp.json()
     assert len(rsp_object.get('_items')) == 1
     assert rsp_object.get('_items')[0].get('name') == 'Jane Doe'
 
     rsp = client.get('/users/?name=~John')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     rsp_object = rsp.json()
     assert len(rsp_object.get('_items')) == 1
     assert rsp_object.get('_items')[0].get('name') == 'John Doe'
 
     rsp = client.get('/users/?name=~Doe')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     rsp_object = rsp.json()
     assert len(rsp_object.get('_items')) == 2
 
@@ -273,17 +273,17 @@ def test_find_contains(client):
 def test_find_in_array(client):
     run_async(create_and_save_a_user('John Doe', 'a password', 'John is a random guy'))
     rsp = client.get('/users/?roles=~xxxx')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 204
     rsp = client.get('/users/?roles=~Admin')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
 
 
 def test_find_in_array_with_fixed_options(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?name=[Jane,John]')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert len(rsp.json().get('_items')) == 2
 
@@ -291,7 +291,7 @@ def test_find_in_array_with_fixed_options(client):
 def test_find_exact_or(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?name=Jane&name=John&logic=OR')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert len(rsp.json().get('_items')) == 2
 
@@ -304,7 +304,7 @@ def test_find_contains_and(client):
     run_async(jane1.save())
     run_async(jane2.save())
     rsp = client.get('/users/?name=~Jane&&enabled=false')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert len(rsp.json().get('_items')) == 1
 
@@ -312,14 +312,14 @@ def test_find_contains_and(client):
 def test_more_params_than_supported(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?name=~Jane&jibberish=5')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 204
 
 
 def test_find_contains_or(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?name=~Jane&name=~John&logic=OR')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert len(rsp.json().get('_items')) == 2
 
@@ -327,14 +327,14 @@ def test_find_contains_or(client):
 def test_search_for_nonexistent_field(client):
     run_async(create_and_save_a_user('John Doe', 'a password', 'John is a random guy'))
     rsp = client.get('/users/?xxxx=Jane')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 204, 'the status code is expected to be 204'
 
 
 def test_find_by_exact_match(client):
     run_async(create_and_save_a_user('John', 'a_password', 'John is a random guy'))
     rsp = client.get('/users/?name=John')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert rsp.json().get('_items')[0].get('name') == 'John'
 
@@ -342,11 +342,11 @@ def test_find_by_exact_match(client):
 def test_find_by_exact_match_with_space(client):
     run_async(create_and_save_a_user('John Doe', 'hihihih', 'John Doe is an unknown person'))
     rsp = client.get('/users/?name=John Doe')
-    print(('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content)))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert len(rsp.json().get('_items')) == 1
     rsp = client.get('/users/?name=John Pullmannn')
-    print(('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content)))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 204
 
 
@@ -362,22 +362,22 @@ def test_find_boolean(client):
     run_async(create_and_save_a_user('Max Mustermann', 'a password', 'Max is yet another random guy'))
 
     rsp = client.get('/users/?locked=false')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.json().get('_items')[0].get('name') == 'Jane Doe'
 
     rsp = client.get('/users/?locked=true')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.json().get('_items')[0].get('name') == 'John Doe'
 
     rsp = client.get('/users/?locked=true&locked=false&logic=OR')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert len(rsp.json().get('_items')) == 2
 
 
 def test_find_not_equal(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?name=!Max')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     result_set = rsp.json()
     assert len(result_set.get('_items')) == 2
@@ -390,7 +390,7 @@ def test_find_not_equal(client):
 def test_find_by_query_expression(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?query={"$or":[{"name":"John"}, {"name":"Jane"}]}')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     result_set = rsp.json()
     assert len(result_set.get('_items')) == 2
@@ -399,14 +399,14 @@ def test_find_by_query_expression(client):
 def test_find_by_query_expression_not_found(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?query={"$or":[{"name":"Brigitte"}, {"name":"Jona"}]}')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 204
 
 
 def test_find_by_query_expression_wrong_query_format(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/?query={"$or":[{"name":", {"name":"Jona"}]}')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 500
     assert rsp.json().get('_type') == "ErrorMessage"
 
@@ -414,20 +414,20 @@ def test_find_by_query_expression_wrong_query_format(client):
 def test_run_aggregation_pipeline(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200
     assert rsp.json().get('_items')[0].get('name') == 'Jane'
 
 
 def test_post_user_as_json_payload(client, user_dict):
     user_json = json.dumps(user_dict)
-    print('\nSending: {}'.format(user_json))
+    print(f'\nSending: {user_json}')
     rsp = client.post('/users/', content=user_json)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 201, 'the status code is expected to be 200'
     document_id = rsp.json().get('result')
     user = run_async(User.find_by_id(document_id))
-    print('\nLoaded user: {}'.format(user))
+    print(f'\nLoaded user: {user}')
     assert user is not None
     assert len(user.roles) == 3
 
@@ -435,9 +435,9 @@ def test_post_user_as_json_payload(client, user_dict):
 def test_post_incomplete_user(client, user_dict):
     del user_dict['name']
     user_json = json.dumps(user_dict)
-    print('\nSending request: {}'.format(user_json))
+    print(f'\nSending request: {user_json}')
     rsp = client.post('/users/', content=user_json)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 400, 'the status code is expected to be 400'
     assert rsp.json().get('_type') == 'ErrorMessage'
 
@@ -450,7 +450,7 @@ def test_post_user_as_form(client):
         birth_date="1980-06-30T00:00:00",
         roles=["User", "Admin", "Operator"]
     ), follow_redirects=True)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, json.dumps(rsp.json(), indent=4, sort_keys=True)))
+    print(f'\nResponse: {rsp.status_code} -> {json.dumps(rsp.json(), indent=4, sort_keys=True)}')
     assert rsp.status_code == 201
     user = run_async(User.find_by_id(rsp.json().get('result')))
     assert user is not None
@@ -466,7 +466,7 @@ def test_post_user_as_form_with_single_list_item(client):
         birth_date="1980-06-30T00:00:00",
         roles=["User"]
     ), follow_redirects=True)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 201
     user = run_async(User.find_by_id(rsp.json().get('result')))
     assert user is not None
@@ -476,33 +476,33 @@ def test_post_user_as_form_with_single_list_item(client):
 
 def test_post_update_with_id(client, user_dict):
     user_json = json.dumps(user_dict)
-    print('\nSending: {}'.format(user_json))
+    print(f'\nSending: {user_json}')
     rsp = client.post('/users/', content=user_json)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 201, 'the status code is expected to be 200'
     document_id = rsp.json().get('result')
     user_dict['id'] = document_id
     user_dict['name'] = 'changed name'
     user_json = json.dumps(user_dict)
-    print('\nSending: {}'.format(user_json))
+    print(f'\nSending: {user_json}')
     rsp = client.post('/users/', content=user_json)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     user = run_async(User.find_by_id(rsp.json().get('result')))
     assert user.name == 'changed name'
 
 
 def test_patch_user(client, user_dict):
     user_json = json.dumps(user_dict)
-    print('\nSending: {}'.format(user_json))
+    print(f'\nSending: {user_json}')
     rsp = client.post('/users/', content=user_json)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 201, 'the status code is expected to be 200'
     document_id = rsp.json().get('result')
-    user_url = '/users/{}'.format(document_id)
+    user_url = f'/users/{document_id}'
     rsp = client.patch(user_url, content=json.dumps({'description': 'patched description'}))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     rsp = client.get(user_url)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result_user = rsp.json()
     assert result_user.get('description') == 'patched description'
@@ -510,9 +510,9 @@ def test_patch_user(client, user_dict):
 
 def test_patch_user_with_form_data(client):
     maxx = run_async(create_and_save_a_user('Maxx', 'some pass', 'user description'))
-    user_url = '/users/{}'.format(maxx.id)
+    user_url = f'/users/{maxx.id}'
     rsp = client.patch(user_url, data=dict({'description': 'patched description'}))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.json()))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.json()}')
     assert rsp.status_code == 200
     assert rsp.json().get('result') == maxx.id
     patched_user = run_async(User.find_by_id(maxx.id))
@@ -521,27 +521,27 @@ def test_patch_user_with_form_data(client):
 
 def test_patch_nonexistent_field(client):
     john = run_async(create_and_save_a_user('John Doe', 'some pass', 'a silly description'))
-    user_url = '/users/{}'.format(john.id)
+    user_url = f'/users/{john.id}'
     rsp = client.patch(user_url, content=json.dumps({'locked': True}))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.json()))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.json()}')
     rsp = client.get(user_url)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.json()))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.json()}')
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     assert rsp.json().get('locked')
 
 
 def test_patch_non_existent_document(client):
     rsp = client.patch('/users/12234567890', content=json.dumps({'locked': True}))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 404
     assert rsp.json().get('code') == 404
 
 
 def test_put_user(client, user_dict):
     user_json = json.dumps(user_dict)
-    print('\nSending: {}'.format(user_json))
+    print(f'\nSending: {user_json}')
     rsp = client.post('/users/', content=user_json)
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 201, 'the status code is expected to be 200'
     document_id = rsp.json().get('result')
 
@@ -553,12 +553,12 @@ def test_put_user(client, user_dict):
     replacement_user.update(locked=True)
     replacement_user.update(roles=[])
     replacement_user_json = json.dumps(replacement_user)
-    print('\nSending: {}'.format(replacement_user_json))
+    print(f'\nSending: {replacement_user_json}')
     rsp = client.put('/users/', content=replacement_user_json)
     assert 200 <= rsp.status_code < 300
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     rsp = client.get('/users/')
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     returned_user = rsp.json()
     assert returned_user.get('_items')[0].get('locked') is True
     assert returned_user.get('_items')[0].get('name') == 'changed user'
@@ -572,8 +572,8 @@ def test_put_with_object_id(client):
     p.undefined_parameter = 'something else'
     p.tasks = [Task(name='some_task', description='some description')]
     proj_id = run_async(p.save())
-    rsp = client.get('/projects/{}{}'.format(OBJ_PREFIX, proj_id))
-    print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content), end='\n')
+    rsp = client.get(f'/projects/{OBJ_PREFIX}{proj_id}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}', end='\n')
     assert rsp.status_code == 200
 
     p2 = Project()
@@ -581,9 +581,9 @@ def test_put_with_object_id(client):
     p2.tasks = []
     p2.id = proj_id
     new_project = p2.dumps(pretty_print=True)
-    print('sending new content: {}'.format(new_project))
+    print(f'sending new content: {new_project}')
     rsp = client.put('/projects/', content=new_project)
-    print(('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content)))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 201
     assert run_async(Project.count()) == 1
     replaced_project = run_async(Project.find_by_query({'_id': proj_id}))[0]
@@ -598,9 +598,9 @@ def test_put_not_found_object(client):
     p2.tasks = []
     p2.id = 'OBJ_123456789012123456789012'
     new_project = p2.dumps(pretty_print=True)
-    print(('sending new content: {}'.format(new_project)))
+    print(f'sending new content: {new_project}')
     rsp = client.put('/projects/', content=new_project)
-    print(('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content)))
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
     assert rsp.status_code == 404
     assert run_async(Project.count()) == 0
     assert rsp.json().get('_type') == 'ErrorMessage'
@@ -610,7 +610,7 @@ def test_metadata(client):
     rsp = client.get('/users/meta')
     assert 200 <= rsp.status_code < 300
     result = rsp.json()
-    print('\n{}'.format(json.dumps(result, indent=2)))
+    print(f'\n{json.dumps(result, indent=2)}')
     assert 'description' in result
     assert 'roles' in result
     assert 'created' in result
@@ -636,14 +636,14 @@ def test_schema(client):
     rsp = client.get('/users/schema')
     assert 200 <= rsp.status_code < 300
     result = rsp.json()
-    print('\n{}'.format(json.dumps(result, indent=2)))
+    print(f'\n{json.dumps(result, indent=2)}')
     assert '$schema' in result
 
 
 def test_not_found_url(client):
     rsp = client.get('/users/bad_url')
     result = rsp.json()
-    print('\n{}'.format(json.dumps(result, indent=2)))
+    print(f'\n{json.dumps(result, indent=2)}')
     assert rsp.status_code == 404
     assert result.get('_type') == 'ErrorMessage'
 
@@ -651,7 +651,7 @@ def test_not_found_url(client):
 def test_bad_parameters(client):
     rsp = client.get('/users/users?as')
     result = rsp.json()
-    print('\n{}'.format(json.dumps(result, indent=2)))
+    print(f'\n{json.dumps(result, indent=2)}')
     assert rsp.status_code == 500
     assert result.get('_type') == 'ErrorMessage'
 

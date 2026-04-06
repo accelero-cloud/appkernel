@@ -3,9 +3,8 @@ from __future__ import annotations
 import inspect
 import re
 import types
-from typing import Any, TYPE_CHECKING
+from typing import Any
 from collections.abc import Callable
-
 import appkernel.service
 from .model import get_argument_spec
 

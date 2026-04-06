@@ -52,7 +52,7 @@ class CfgEngine:
             else:
                 return
 
-        with open(config_file, 'r') as ymlfile:
+        with open(config_file) as ymlfile:
             try:
                 self.cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
                 self.initialised = True

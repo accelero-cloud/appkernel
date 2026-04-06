@@ -13,7 +13,7 @@ def _(message, **kwargs):
     return message
 
 
-from .model import AppKernelException
+from .model import AppKernelException  # noqa: E402
 
 
 class ValidatorType(Enum):

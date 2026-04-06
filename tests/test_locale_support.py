@@ -21,8 +21,8 @@ def client():
 def setup_module(module):
     global kernel
     current_file_path = os.path.dirname(os.path.realpath(__file__))
-    print('\nModule: >> {} at {}'.format(module, current_file_path))
-    kernel = AppKernelEngine('test_app', cfg_dir='{}/../'.format(current_file_path), development=True)
+    print(f'\nModule: >> {module} at {current_file_path}')
+    kernel = AppKernelEngine('test_app', cfg_dir=f'{current_file_path}/../', development=True)
     kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
 
 
@@ -35,8 +35,8 @@ def setup_function(function):
 
 def test_custom_message_xtractor():
     current_file_path = os.path.dirname(os.path.realpath(__file__))
-    print('reading test_util py from {}'.format(current_file_path))
-    with open('{}/utils.py'.format(current_file_path), 'rb') as file:
+    print(f'reading test_util py from {current_file_path}')
+    with open(f'{current_file_path}/utils.py', 'rb') as file:
         print('------------------------------ \n')
         for tple in extract_model_messages(file, ['_l'], [], {}):
             print(tple)
@@ -64,10 +64,10 @@ def test_basic_translation(client):
     """
     header_types = ['de, de-de;q=0.8, en;q=0.7', 'de-de, de;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5', 'de', 'de-de']
     for header in header_types:
-        print(('\n==== current header [{}] ===='.format(header)))
+        print(f'\n==== current header [{header}] ====')
         rsp = client.get('/users/meta', headers={'Accept-Language': header})
         result = rsp.json()
-        print('\n{}'.format(json.dumps(result, indent=2)))
+        print(f'\n{json.dumps(result, indent=2)}')
         assert 200 <= rsp.status_code < 300
         validate_result(result)
 

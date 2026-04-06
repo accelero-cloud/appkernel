@@ -55,23 +55,23 @@ async def test_basic_model():
     p.tasks = [Task(name='some_task', description='some description')]
     print('\n\n==== saving user ====')
     obj_id = await p.save()
-    print('Upserted ID: {}'.format(obj_id))
+    print(f'Upserted ID: {obj_id}')
 
     print('\n\n==== reloading ====')
     p2 = await Project.find_by_id(obj_id)
-    print(('> dict of p2: {}'.format(Model.to_dict(p2, convert_id=False))))
-    print(('\n{}'.format(p2.get_parameter_spec())))
-    print(('> str reloaded object :: {}'.format(p2)))
+    print(f'> dict of p2: {Model.to_dict(p2, convert_id=False)}')
+    print(f'\n{p2.get_parameter_spec()}')
+    print(f'> str reloaded object :: {p2}')
     assert p2.undefined_parameter == 'something else'
     assert p2.id is not None
     assert p2.name == 'somename'
-    assert isinstance(p2.tasks, list), '> p2.tasks is supposed to be a list instead of {}'.format(type(p2.tasks))
+    assert isinstance(p2.tasks, list), f'> p2.tasks is supposed to be a list instead of {type(p2.tasks)}'
     converted_id_model = Model.to_dict(p2, convert_id=True)
-    print(('> converted id model: {}'.format(converted_id_model)))
+    print(f'> converted id model: {converted_id_model}')
     assert '_id' in converted_id_model
     assert 'id' not in converted_id_model
     non_converted_id_model = Model.to_dict(p2, convert_id=False)
-    print(('> NON converted id model: {}'.format(non_converted_id_model)))
+    print(f'> NON converted id model: {non_converted_id_model}')
     assert 'id' in non_converted_id_model
     assert '_id' not in non_converted_id_model
 
@@ -82,8 +82,8 @@ async def test_complex_model():
         append_to(groups='some group name').append_to(groups='some other group name')
     obj_id = await p.save()
     u2 = await Project.find_by_id(obj_id)
-    print('\n{}'.format(u2.get_parameter_spec()))
-    print('reloaded user -> {}'.format(u2))
+    print(f'\n{u2.get_parameter_spec()}')
+    print(f'reloaded user -> {u2}')
     print('\n\n')
     assert len(u2.groups) == 2
 
@@ -95,12 +95,12 @@ async def test_update():
         append_to(tasks=[Task(name='task1', description='task one'), Task(name='task2', description='task two')])
     obj_id = await u.save()
     p2 = await Project.find_by_id(obj_id)
-    print(('after first load: {}'.format(Model.to_dict(p2))))
+    print(f'after first load: {Model.to_dict(p2)}')
     p2.name = 'some_other_name'
     p2.append_to(tasks=Task(name='task3', description='task three'))
     obj_id = await p2.save()
     assertable_project = await Project.find_by_id(obj_id)
-    print(('after first load: {}'.format(Model.to_dict(p2))))
+    print(f'after first load: {Model.to_dict(p2)}')
     assert assertable_project is not None
     assert assertable_project.name == 'some_other_name'
     assert len(assertable_project.tasks) == 3
@@ -132,7 +132,7 @@ async def test_find_all_by_query():
     assert await Project.count() == 50
     counter = 0
     for _, u in zip(list(range(10)), await Project.find_by_query()):
-        print('Project name: {}'.format(u.name))
+        print(f'Project name: {u.name}')
         counter += 1
     assert counter == 10
 
@@ -148,9 +148,9 @@ async def test_find_some_by_query():
     assert count == 50, '>> should be 50, but was %s' % count
     counter = 0
     for p in await Project.find_by_query({'counter': {'$gte': 0, '$lt': 10}}):
-        print('Project name: {} and counter: {}'.format(p.name, p.counter))
+        print(f'Project name: {p.name} and counter: {p.counter}')
         counter += 1
-    assert counter == 10, "counter should be 10, was: {}".format(counter)
+    assert counter == 10, f"counter should be 10, was: {counter}"
 
 
 @pytest.mark.anyio
@@ -159,7 +159,7 @@ async def test_unique_index_creation():
     await User.init_indexes()
     user = await create_and_save_a_user('some user', 'some pass', 'some description')
     idx_info = await User.get_collection().index_information()
-    print(('\n{}'.format(idx_info)))
+    print(f'\n{idx_info}')
     assert 'name_idx' in idx_info
     assert 'sequence_idx' in idx_info
     assert 'description_idx' in idx_info
@@ -168,11 +168,11 @@ async def test_unique_index_creation():
 
 @pytest.mark.anyio
 async def test_schema_validation_success():
-    print(('\n{}\n'.format(json.dumps(Project.get_json_schema(mongo_compatibility=True)), indent=2, sort_keys=True)))
+    print(f'\n{json.dumps(Project.get_json_schema(mongo_compatibility=True))}\n')
     await Project.add_schema_validation(validation_action='error')
     project = create_rich_project()
     project.append_to(tasks=[Task(name='some_task', description='some description', closed_date=None)])
-    print((Model.dumps(project, pretty_print=True)))
+    print(Model.dumps(project, pretty_print=True))
     await project.save()
 
 
@@ -189,9 +189,9 @@ async def test_schema_validation_rejected():
 async def test_basic_query():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find(User.name == 'John')
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
     assert len(results) == 1
     assert isinstance(results[0], User)
     assert results[0].name == 'John'
@@ -202,7 +202,7 @@ async def test_find_with_custom_property():
     projects = await create_and_save_some_projects()
     project = await Project.find_one(Project.custom_property('version') == 2)
     assert project is not None
-    print(('Found Project {}'.format(project.dumps(pretty_print=True))))
+    print(f'Found Project {project.dumps(pretty_print=True)}')
     none_project = await Project.find_one(CustomProperty(Project, 'version') == 0)
     assert none_project is None
 
@@ -220,9 +220,9 @@ async def test_basic_negative_query():
 async def test_multiple_or_requests():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find((User.name == 'John') | (User.name == 'Jane'))
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
     assert len(results) == 2
     assert isinstance(results[0], User)
     for result in results:
@@ -233,9 +233,9 @@ async def test_multiple_or_requests():
 async def test_multiple_and_requests():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find((User.name == 'John') & (User.description == 'John is a random guy'))
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
     assert len(results) == 1
     assert isinstance(results[0], User)
     assert results[0].name == 'John'
@@ -245,7 +245,7 @@ async def test_multiple_and_requests():
 async def test_negative_multiple_and_requests():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find((User.name == 'John') & (User.description == 'Jane is a random girl'))
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 0
 
 
@@ -253,9 +253,9 @@ async def test_negative_multiple_and_requests():
 async def test_contains():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find(User.description % 'John')
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
     assert len(results) == 1
     assert isinstance(results[0], User)
     assert results[0].name == 'John'
@@ -266,9 +266,9 @@ async def test_contains_array():
     john, jane, max = await create_and_save_john_jane_and_max()
     no_role_user = await create_and_save_a_user_with_no_roles('no role', 'some pass')
     results = await User.find(User.roles % ['Admin', 'Operator'])
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
         assert user.name in ['John', 'Jane', 'Max']
 
 
@@ -277,7 +277,7 @@ async def test_empty_array():
     john, jane, max = await create_and_save_john_jane_and_max()
     no_role_user = await create_and_save_a_user_with_no_roles('no role', 'some pass')
     results = await User.find(User.roles == None)
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 1
 
 
@@ -285,10 +285,10 @@ async def test_empty_array():
 async def test_not_equal():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find(User.name != 'Max')
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 2
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
         assert user.name in ['John', 'Jane']
 
 
@@ -297,11 +297,11 @@ async def test_is_none():
     john, jane, max = await create_and_save_john_jane_and_max()
     no_desc_user = await create_and_save_a_user('Erika', 'a password')
     results = await User.find(User.description == None)
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 1
     assert results[0].name == 'Erika'
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
 
 
 @pytest.mark.anyio
@@ -309,7 +309,7 @@ async def test_is_not_none():
     john, jane, max = await create_and_save_john_jane_and_max()
     no_desc_user = await create_and_save_a_user('Erika', 'a password')
     results = await User.find(User.description != None)
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 3
 
 
@@ -318,7 +318,7 @@ async def test_smaller_than_date():
     john, jane, max = await create_and_save_john_jane_and_max()
     time.sleep(1)
     results = await User.find(User.created < datetime.now())
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 3
 
 
@@ -326,7 +326,7 @@ async def test_smaller_than_date():
 async def test_smaller_than_date_negative():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find(User.created < (datetime.now() - timedelta(days=1)))
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 0
 
 
@@ -334,7 +334,7 @@ async def test_smaller_than_date_negative():
 async def test_bigger_than_date():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find(User.created > (datetime.now() - timedelta(days=1)))
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 3
 
 
@@ -342,7 +342,7 @@ async def test_bigger_than_date():
 async def test_bigger_than_date_negative():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find(User.created > datetime.now())
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 0
 
 
@@ -352,7 +352,7 @@ async def test_between_date():
     yesterday = (datetime.now() - timedelta(days=1))
     tomorrow = (datetime.now() + timedelta(days=1))
     results = await User.find((User.created > yesterday) & (User.created < tomorrow))
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 3
 
 
@@ -361,7 +361,7 @@ async def test_between_date_negative():
     john, jane, max = await create_and_save_john_jane_and_max()
     results = await User.find(
         (User.created > (datetime.now() - timedelta(days=2))) & (User.created < (datetime.now() - timedelta(days=1))))
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 0
 
 
@@ -369,7 +369,7 @@ async def test_between_date_negative():
 async def test_smaller_than_int():
     await create_and_save_some_users()
     results = await User.find(User.sequence < 25)
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 24
 
 
@@ -377,7 +377,7 @@ async def test_smaller_than_int():
 async def test_smaller_or_equal_than_int():
     await create_and_save_some_users()
     results = await User.find(User.sequence <= 25)
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 25
 
 
@@ -385,7 +385,7 @@ async def test_smaller_or_equal_than_int():
 async def test_smaller_than_int_negative():
     await create_and_save_some_users()
     results = await User.find(User.sequence < 1)
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 0
 
 
@@ -393,7 +393,7 @@ async def test_smaller_than_int_negative():
 async def test_bigger_than_int():
     await create_and_save_some_users()
     results = await User.find(User.sequence > 25)
-    print(('\n>fetched: {}'.format(len(results))))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 25
 
 
@@ -401,7 +401,7 @@ async def test_bigger_than_int():
 async def test_bigger_or_equal_than_int():
     await create_and_save_some_users()
     results = await User.find(User.sequence >= 25)
-    print('\n>fetched: {}'.format(len(results)))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 26
 
 
@@ -409,7 +409,7 @@ async def test_bigger_or_equal_than_int():
 async def test_bigger_than_int_negative():
     await create_and_save_some_users()
     results = await User.find(User.sequence > 50)
-    print('\n>fetched: {}'.format(len(results)))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 0
 
 
@@ -417,7 +417,7 @@ async def test_bigger_than_int_negative():
 async def test_between_int():
     await create_and_save_some_users()
     results = await User.find((User.sequence > 25) & (User.sequence < 27))
-    print('\n>fetched: {}'.format(len(results)))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 1
 
 
@@ -425,7 +425,7 @@ async def test_between_int():
 async def test_between_int_negative():
     await create_and_save_some_users()
     results = await User.find((User.sequence > 25) & (User.sequence < 26))
-    print('\n>fetched: {}'.format(len(results)))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 0
 
 
@@ -433,11 +433,11 @@ async def test_between_int_negative():
 async def test_sort_by():
     await create_and_save_some_users()
     results = await User.where((User.sequence > 0) & (User.sequence <= 5)).sort_by(User.sequence.desc()).find()
-    print('\n>fetched: {}'.format(len(results)))
+    print(f'\n>fetched: {len(results)}')
     assert len(results) == 5
     this_seq = 6
     for user in results:
-        print((user.dumps(pretty_print=True)))
+        print(user.dumps(pretty_print=True))
         assert user.sequence < this_seq
         this_seq = user.sequence
 
@@ -448,10 +448,10 @@ async def test_pagination():
     this_seq = 1
     for page in range(0, 5):
         results = await User.where(User.sequence < 51).sort_by(User.sequence.asc()).find(page, 10)
-        print('\n>fetched: {}'.format(len(results)))
+        print(f'\n>fetched: {len(results)}')
         assert len(results) == 10
         for user in results:
-            print((user.dumps(pretty_print=True)))
+            print(user.dumps(pretty_print=True))
             assert user.sequence == this_seq
             this_seq += 1
 
@@ -467,7 +467,7 @@ async def test_delete_many():
     await create_and_save_some_users()
     assert await User.count() == 50
     deleted = await User.where((User.sequence > 0) & (User.sequence <= 5)).delete()
-    print(('\n\n deleted count: {}'.format(deleted)))
+    print(f'\n\n deleted count: {deleted}')
     assert await User.count() == 45
 
 
@@ -499,7 +499,7 @@ async def test_nested_queries():
     assert isinstance(portfolio.stocks[0], Stock)
     assert isinstance(portfolio.owner, User)
     assert portfolio.name == 'Portfolio with owner'
-    print((portfolio.dumps(pretty_print=True)))
+    print(portfolio.dumps(pretty_print=True))
     check_portfolio(portfolio)
 
 
@@ -514,7 +514,7 @@ async def test_nested_query_negative():
 async def test_query_in_array_simple():
     await create_and_save_some_projects()
     project = await Project.where(Project.tasks.name == 'sequential tasks 6-1').find_one()
-    print((project.dumps(pretty_print=True)))
+    print(project.dumps(pretty_print=True))
     assert project.name == 'Project 6'
     assert len(project.tasks) == 5
 
@@ -538,8 +538,8 @@ async def test_query_in_array_does_not_contain():
     results = await Project.where(Project.tasks.name != 'sequential tasks 6-1').find()
     proj_counter = 0
     for project in results:
-        print(('======={}======='.format(project.name)))
-        print((project.dumps(pretty_print=True)))
+        print(f'======={project.name}=======')
+        print(project.dumps(pretty_print=True))
         assert project.name != 'Project 6'
         proj_counter += 1
     assert proj_counter == 49
@@ -549,7 +549,7 @@ async def test_query_in_array_does_not_contain():
 async def test_query_in_array():
     await create_and_save_some_projects()
     project = await Project.where(Project.tasks[Task.name == 'sequential tasks 6-1']).find_one()
-    print((project.dumps(pretty_print=True)))
+    print(project.dumps(pretty_print=True))
     assert project.name == 'Project 6'
     assert len(project.tasks) == 5
 
@@ -560,8 +560,8 @@ async def test_negative_query_in_an_array():
     results = await Project.where(Project.tasks[Task.name != 'sequential tasks 6-1']).find()
     proj_counter = 0
     for project in results:
-        print(('======={}======='.format(project.name)))
-        print((project.dumps(pretty_print=True)))
+        print(f'======={project.name}=======')
+        print(project.dumps(pretty_print=True))
         assert project.name != 'Project 6'
         proj_counter += 1
     assert proj_counter == 49
@@ -589,7 +589,7 @@ async def test_query_simple_array_in_simple_way_negative():
 async def test_query_simple_array_contains():
     await create_and_save_some_projects()
     project = await Project.where(Project.tasks.name % 'sequential tasks 6-1').find_one()
-    print((project.dumps(pretty_print=True)))
+    print(project.dumps(pretty_print=True))
     assert project.name == 'Project 6'
     assert len(project.tasks) == 5
 
@@ -621,7 +621,7 @@ async def test_multiple_queries():
 
     for _ in range(10):
         result_count = await StockInventory.where(
-            (StockInventory.product.code == 'TRS')).count()
+            StockInventory.product.code == 'TRS').count()
         assert result_count == 4
 
 

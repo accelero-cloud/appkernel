@@ -126,7 +126,7 @@ def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable,
                     target = defaultdict(list)
                     for key, value in form_data_raw.multi_items():
                         target[key].append(value)
-                    form_data = dict((key, value[0] if len(value) == 1 else value) for key, value in target.items())
+                    form_data = {key: value[0] if len(value) == 1 else value for key, value in target.items()}
                 except Exception:
                     form_data = {}
 
@@ -388,7 +388,7 @@ def _xtract_form(form_data):
         target = defaultdict(list)
         for key, value in form_data.multi_items():
             target[key].append(value)
-        return dict((key, value[0] if len(value) == 1 else value) for key, value in target.items())
+        return {key: value[0] if len(value) == 1 else value for key, value in target.items()}
     elif isinstance(form_data, dict):
         return form_data
     else:

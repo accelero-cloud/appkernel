@@ -24,15 +24,10 @@ from .configuration import config
 from .core import AppInitialisationError
 from .iam import RbacMixin
 from .model import Model
-from .util import default_json_serializer, create_custom_error
+from .util import create_custom_error
 
 if TYPE_CHECKING:
     from starlette.responses import Response
-
-try:
-    import simplejson as json
-except ImportError:
-    import json
 
 
 def get_option_value(option_dict: tuple[str, ...], opts: list[tuple[str, str]]) -> str | bool | None:

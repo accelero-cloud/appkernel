@@ -11,7 +11,7 @@ Copied from Json Pickle: https://github.com/jsonpickle/jsonpickle/blob/master/js
 
 SEQUENCES = (list, set, tuple)
 SEQUENCES_SET = set(SEQUENCES)
-PRIMITIVES = set((str, bool, float, int, int))
+PRIMITIVES = {str, bool, float, int, int}
 
 
 def is_type(obj):
@@ -285,7 +285,7 @@ def importable_name(cls):
     """
     name = cls.__name__
     module = translate_module_name(cls.__module__)
-    return '%s.%s' % (module, name)
+    return '{}.{}'.format(module, name)
 
 
 def itemgetter(obj, getter=operator.itemgetter(0)):
