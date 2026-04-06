@@ -62,8 +62,8 @@ uv venv
 source .venv/bin/activate   # macOS/Linux
 # .venv\Scripts\activate    # Windows
 
-# 3. Install runtime + development dependencies
-uv pip install -r requirements.txt -r dev-requirements.txt -e .
+# 3. Install the package with all development dependencies
+uv pip install -e ".[dev]"
 ```
 
 The `-e .` flag installs the package in editable mode so local changes to `appkernel/` take effect immediately without reinstalling.
@@ -82,17 +82,13 @@ Your shell prompt will show `(.venv)` when active.
 
 ### Adding a new dependency
 
-```bash
-# Runtime dependency (add to requirements.txt manually, then):
-uv pip install <package>
+Edit `pyproject.toml`:
+- Runtime dependency → add to `[project] dependencies`
+- Dev-only dependency → add to `[project.optional-dependencies] dev`
 
-# Dev-only dependency (add to dev-requirements.txt manually, then):
-uv pip install <package>
-```
-
-After editing either file, sync the environment:
+Then sync the environment:
 ```bash
-uv pip install -r requirements.txt -r dev-requirements.txt
+uv pip install -e ".[dev]"
 ```
 
 ---

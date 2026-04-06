@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "appkernel"
+version = "2.0.0"
+description = "An easy to use API framework."
+readme = "README.md"
+license = { text = "Apache 2.0" }
+authors = [{ name = "thingsplode", email = "thingsplode@://github.com" }]
+requires-python = ">=3.12"
+keywords = [
+    "microservice", "fastapi", "motor", "serverless", "rest",
+    "serialisation", "orm", "mongo", "api", "rest api",
+]
+classifiers = [
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "anyio",
+    "aiohttp",
+    "babel",
+    "bcrypt>=4.0",
+    "cryptography",
+    "fastapi>=0.100",
+    "httpx",
+    "jsonschema",
+    "motor>=3.3,<4.0",
+    "pyjwt>=2.0",
+    "python-multipart",
+    "pyyaml",
+    "simplejson",
+    "uvicorn[standard]>=0.20",
+    "wrapt",
+]
+
+[project.optional-dependencies]
+dev = [
+    "autopep8",
+    "codecov",
+    "flake8",
+    "passlib[bcrypt]>=1.7.4",
+    "py-moneyed",
+    "pylint",
+    "pytest>=8.0",
+    "pytest-anyio",
+    "pytest-cov",
+    "pyupgrade",
+    "respx",
+]
+
+[project.urls]
+Homepage = "https://github.com/accelero-cloud/"
+
+[project.entry-points."babel.extractors"]
+model_messages = "appkernel.util:extract_model_messages"
+
+[tool.setuptools.packages.find]
+exclude = ["contrib", "docs", "tests*"]
+
+[tool.setuptools.package-data]
+"*" = ["cfg.yml", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
