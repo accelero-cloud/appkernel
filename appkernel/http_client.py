@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json as _json
-from dataclasses import dataclass, field
-from typing import Any
+import threading
+import time
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Coroutine
 
 import httpx
 
@@ -11,9 +14,131 @@ from appkernel.core import MessageType
 from appkernel.model import _get_custom_class
 
 
+# ---------------------------------------------------------------------------
+# Circuit breaker
+# ---------------------------------------------------------------------------
+
+@dataclass
+class CircuitBreakerConfig:
+    """Configuration for the per-upstream circuit breaker.
+
+    The circuit breaker protects against cascading failures when a downstream
+    service becomes slow or unavailable. It tracks consecutive 5xx / network
+    errors per upstream and short-circuits calls once the failure threshold is
+    reached, returning HTTP 503 immediately rather than exhausting the
+    connection pool.
+
+    States:
+    - CLOSED (normal): requests flow through; failures are counted.
+    - OPEN (tripped): requests fail immediately with CircuitOpenError (503);
+      no network call is made.
+    - HALF_OPEN (probing): after ``recovery_timeout`` seconds, one probe
+      request is let through. On success the circuit closes; on failure it
+      re-opens.
+
+    Only 5xx and network errors count as failures. 4xx client errors do not
+    trip the circuit — they are the caller's fault, not the upstream's.
+
+    Default profile: trip after 5 consecutive failures, probe after 30 s.
+    """
+    failure_threshold: int = 5
+    recovery_timeout: float = 30.0
+    half_open_max_calls: int = 1
+
+
+class CircuitState(Enum):
+    CLOSED = 'closed'
+    OPEN = 'open'
+    HALF_OPEN = 'half_open'
+
+
+class CircuitOpenError(AppKernelException):
+    """Raised when a call is rejected because the circuit breaker is OPEN."""
+
+    def __init__(self, upstream: str) -> None:
+        super().__init__(
+            f"Circuit breaker OPEN for '{upstream}' — upstream is unavailable. "
+            "Retry after the recovery timeout."
+        )
+        self.status_code: int = 503
+        self.upstream_service: str = upstream
+
+
+class CircuitBreaker:
+    """Thread-safe three-state circuit breaker for a single upstream service.
+
+    Uses a ``threading.Lock`` so it is safe both in asyncio tasks (GIL) and
+    in threaded environments without event-loop binding issues.
+    """
+
+    def __init__(self, cfg: CircuitBreakerConfig, name: str = 'upstream') -> None:
+        self._cfg = cfg
+        self._name = name
+        self._state = CircuitState.CLOSED
+        self._failure_count: int = 0
+        self._opened_at: float | None = None
+        self._half_open_calls: int = 0
+        self._lock = threading.Lock()
+
+    @property
+    def state(self) -> CircuitState:
+        return self._state
+
+    def _should_allow(self) -> bool:
+        """Return True if the next request should proceed; False for fast-fail."""
+        with self._lock:
+            if self._state == CircuitState.CLOSED:
+                return True
+            if self._state == CircuitState.OPEN:
+                if time.monotonic() - self._opened_at >= self._cfg.recovery_timeout:
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_calls = 0
+                    return True  # first probe
+                return False
+            # HALF_OPEN: allow only up to half_open_max_calls concurrent probes
+            if self._half_open_calls < self._cfg.half_open_max_calls:
+                self._half_open_calls += 1
+                return True
+            return False
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._failure_count = 0
+            if self._state == CircuitState.HALF_OPEN:
+                self._state = CircuitState.CLOSED
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._failure_count += 1
+            if (self._state == CircuitState.HALF_OPEN
+                    or self._failure_count >= self._cfg.failure_threshold):
+                self._state = CircuitState.OPEN
+                self._opened_at = time.monotonic()
+                self._failure_count = 0
+
+    async def call(self, coro: Coroutine) -> Any:
+        """Execute *coro*, recording success/failure and enforcing the open state."""
+        if not self._should_allow():
+            raise CircuitOpenError(self._name)
+        try:
+            result = await coro
+            self.record_success()
+            return result
+        except RequestHandlingException as exc:
+            # Only count server-side / network failures, not client errors.
+            if exc.status_code >= 500:
+                self.record_failure()
+            raise
+
+
+# ---------------------------------------------------------------------------
+# Connection pool and timeout configuration
+# ---------------------------------------------------------------------------
+
 @dataclass
 class HttpClientConfig:
-    """Connection pool and timeout configuration for inter-service HTTP calls.
+    """Connection pool, timeout, and circuit-breaker configuration for
+    inter-service HTTP calls.
 
     Pool sizing guidance:
     - max_connections: total simultaneous connections (active + queued). Set to
@@ -33,6 +158,11 @@ class HttpClientConfig:
       max_connections is exhausted. Acts as backpressure — raise it to queue
       requests, lower it to fail fast.
 
+    Circuit breaker:
+    - circuit_breaker: set a CircuitBreakerConfig to enable a circuit breaker
+      for all proxies created via HttpClientFactory. Individual proxies may
+      override this. Defaults to None (disabled).
+
     Default profile: medium-traffic (20–100 req/s to each upstream service).
     """
     max_connections: int = 100
@@ -42,6 +172,7 @@ class HttpClientConfig:
     read_timeout: float = 10.0
     write_timeout: float = 5.0
     pool_timeout: float = 5.0
+    circuit_breaker: CircuitBreakerConfig | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +181,10 @@ class HttpClientConfig:
 # ---------------------------------------------------------------------------
 
 _http_client: httpx.AsyncClient | None = None
+_default_circuit_config: CircuitBreakerConfig | None = None
+
+# Sentinel: distinguishes "not provided" from explicit None (disabled).
+_SENTINEL = object()
 
 
 def configure_http_client(cfg: HttpClientConfig | None = None) -> None:
@@ -57,8 +192,9 @@ def configure_http_client(cfg: HttpClientConfig | None = None) -> None:
     Called by AppKernelEngine at startup; falls back to HttpClientConfig defaults
     on first use if never called explicitly.
     """
-    global _http_client
+    global _http_client, _default_circuit_config
     c = cfg or HttpClientConfig()
+    _default_circuit_config = c.circuit_breaker
     _http_client = httpx.AsyncClient(
         limits=httpx.Limits(
             max_connections=c.max_connections,
@@ -72,6 +208,12 @@ def configure_http_client(cfg: HttpClientConfig | None = None) -> None:
             pool=c.pool_timeout,
         ),
     )
+
+
+def _reset_default_circuit_config() -> None:
+    """Reset the global circuit-breaker default. Used in tests."""
+    global _default_circuit_config
+    _default_circuit_config = None
 
 
 async def close_http_client() -> None:
@@ -101,8 +243,9 @@ class RequestWrapper:
 
     # todo: retry, request timing,
     # todo: post to unknown url brings to infinite time...
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, circuit: CircuitBreaker | None = None) -> None:
         self.url = url
+        self._circuit = circuit
 
     @staticmethod
     def get_headers(auth_header: str | None = None, accept_language: str | None = 'en') -> dict[str, str]:
@@ -118,7 +261,7 @@ class RequestWrapper:
         headers['Accept-Language'] = accept_language or 'en'
         return headers
 
-    async def __execute(self, method: str, **kwargs: Any) -> tuple[int, Any]:
+    async def __do_request(self, method: str, **kwargs: Any) -> tuple[int, Any]:
         try:
             path_ext = kwargs.pop('path_extension')
             if path_ext:
@@ -149,6 +292,12 @@ class RequestWrapper:
                 raise exc
             else:
                 raise RequestHandlingException(response.status_code, 'Error while calling service.')
+
+    async def __execute(self, method: str, **kwargs: Any) -> tuple[int, Any]:
+        coro = self.__do_request(method, **kwargs)
+        if self._circuit:
+            return await self._circuit.call(coro)
+        return await coro
 
     @staticmethod
     def _serialize(payload: Any) -> str | None:
@@ -203,19 +352,29 @@ class RequestWrapper:
 
 class HttpClientServiceProxy:
 
-    def __init__(self, root_url: str) -> None:
+    def __init__(self, root_url: str, circuit_breaker: CircuitBreakerConfig | None | object = _SENTINEL) -> None:
         self.root_url = root_url.rstrip('/')
+        if circuit_breaker is _SENTINEL:
+            cb_cfg = _default_circuit_config   # inherit global default (may be None)
+        else:
+            cb_cfg = circuit_breaker           # explicit value, including None (disabled)
+        self._circuit: CircuitBreaker | None = (
+            CircuitBreaker(cb_cfg, name=self.root_url) if cb_cfg else None
+        )
 
     def wrap(self, resource_path: str) -> RequestWrapper:
-        return RequestWrapper(f'{self.root_url}/{resource_path.lstrip("/")}')
+        return RequestWrapper(f'{self.root_url}/{resource_path.lstrip("/")}', circuit=self._circuit)
 
     def __getattr__(self, item: str) -> RequestWrapper:
         if isinstance(item, str):
-            return RequestWrapper(f'{self.root_url}/{item}/')
+            return RequestWrapper(f'{self.root_url}/{item}/', circuit=self._circuit)
 
 
 class HttpClientFactory:
 
     @staticmethod
-    def get(root_url: str) -> HttpClientServiceProxy:
-        return HttpClientServiceProxy(root_url=root_url)
+    def get(
+        root_url: str,
+        circuit_breaker: CircuitBreakerConfig | None | object = _SENTINEL,
+    ) -> HttpClientServiceProxy:
+        return HttpClientServiceProxy(root_url=root_url, circuit_breaker=circuit_breaker)

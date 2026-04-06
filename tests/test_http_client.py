@@ -6,7 +6,12 @@ import respx
 from moneyed import Money
 
 from appkernel import Model
-from appkernel.http_client import HttpClientServiceProxy, RequestHandlingException
+from appkernel.http_client import (
+    CircuitBreakerConfig,
+    CircuitOpenError,
+    HttpClientServiceProxy,
+    RequestHandlingException,
+)
 from tests.utils import Order, Product, ProductSize, Address, Payment, PaymentMethod
 
 try:
@@ -140,3 +145,69 @@ async def test_delete_not_found():
     respx.delete(f'{BASE_URL}/orders/12345').mock(return_value=httpx.Response(404, json=create_not_found_result()))
     with pytest.raises(RequestHandlingException):
         await client.orders.delete(path_extension='12345')
+
+
+# ---------------------------------------------------------------------------
+# Circuit breaker integration tests
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_circuit_opens_after_repeated_500_responses():
+    """After failure_threshold consecutive 5xx responses the circuit opens and
+    subsequent calls raise CircuitOpenError immediately (no network hit)."""
+    cb_proxy = HttpClientServiceProxy(BASE_URL, circuit_breaker=CircuitBreakerConfig(failure_threshold=3))
+    error_body = {'_type': 'ErrorMessage', 'code': 500, 'message': 'boom'}
+    respx.get(f'{BASE_URL}/items/').mock(return_value=httpx.Response(500, json=error_body))
+
+    for _ in range(3):
+        with pytest.raises(RequestHandlingException):
+            await cb_proxy.items.get()
+
+    # Circuit is now OPEN — next call must raise CircuitOpenError without hitting the network
+    with pytest.raises(CircuitOpenError) as exc_info:
+        await cb_proxy.items.get()
+    assert exc_info.value.status_code == 503
+
+
+@respx.mock
+async def test_circuit_does_not_open_on_4xx_errors():
+    """4xx responses are client errors, not upstream failures — they must not trip the circuit."""
+    from appkernel.http_client import CircuitState
+    cb_proxy = HttpClientServiceProxy(BASE_URL, circuit_breaker=CircuitBreakerConfig(failure_threshold=2))
+    not_found = {'_type': 'ErrorMessage', 'code': 404, 'message': 'not found'}
+    respx.get(f'{BASE_URL}/items/').mock(return_value=httpx.Response(404, json=not_found))
+
+    for _ in range(3):
+        with pytest.raises(RequestHandlingException):
+            await cb_proxy.items.get()
+
+    # Circuit must still be closed after repeated 404s
+    assert cb_proxy._circuit.state == CircuitState.CLOSED
+
+
+@respx.mock
+async def test_circuit_recovers_after_recovery_timeout():
+    """After recovery_timeout the circuit moves to HALF_OPEN and a successful
+    probe closes it again."""
+    import time as _time
+    from appkernel.http_client import CircuitState
+    cb_proxy = HttpClientServiceProxy(
+        BASE_URL,
+        circuit_breaker=CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.05),
+    )
+    error_body = {'_type': 'ErrorMessage', 'code': 500, 'message': 'boom'}
+    success_body = {'result': 'ok'}
+
+    # Trip the circuit
+    respx.get(f'{BASE_URL}/items/').mock(return_value=httpx.Response(500, json=error_body))
+    for _ in range(2):
+        with pytest.raises(RequestHandlingException):
+            await cb_proxy.items.get()
+    assert cb_proxy._circuit.state == CircuitState.OPEN
+
+    # Wait for recovery timeout then re-mock to return 200
+    _time.sleep(0.06)
+    respx.get(f'{BASE_URL}/items/').mock(return_value=httpx.Response(200, json=success_body))
+    code, _ = await cb_proxy.items.get()
+    assert code == 200
+    assert cb_proxy._circuit.state == CircuitState.CLOSED
