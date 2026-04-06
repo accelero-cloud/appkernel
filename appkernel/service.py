@@ -18,7 +18,8 @@ from .configuration import config
 from .core import AppKernelException
 from .engine import AppKernelEngine
 from .iam import RbacMixin, Denied
-from .model import Model, PropertyRequiredException, get_argument_spec, OPS, tag_class_items
+from .model import Model, PropertyRequiredException
+from .dsl import get_argument_spec, OPS, tag_class_items
 from .query import QueryProcessor
 from .reflection import is_noncomplex, is_primitive, is_dictionary, is_dictionary_subclass
 from .repository import xtract, Repository

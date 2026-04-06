@@ -46,7 +46,8 @@ class CurrentSubject(Authority):
 
 
 class IdentityMixin:
-    token_validity_in_seconds: int = 3600
+    from typing import ClassVar
+    token_validity_in_seconds: ClassVar[int] = 3600
 
     def __init__(self, id: str | None = None, roles: list | None = None) -> None:
         self.id = id  # pylint: disable=C0103

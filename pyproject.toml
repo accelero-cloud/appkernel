@@ -70,3 +70,13 @@ exclude = ["contrib", "docs", "tests*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=appkernel --cov-report=term-missing --cov-report=html --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["appkernel"]
+branch = true
+omit = ["tests/*", "spec/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

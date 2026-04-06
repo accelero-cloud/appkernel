@@ -36,7 +36,7 @@ def test_append_to_non_existing_non_defined_element():
     project = Project().update(name='strange project')
     project.append_to(users=Task().update(name='some_task', description='some description'))
     project.finalise_and_validate()
-    assert 'users' in project.__dict__
+    assert hasattr(project, 'users')
     assert len(project.users) == 1
     assert isinstance(project.users[0], Task)
     print(f'{project}')

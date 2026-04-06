@@ -7,7 +7,7 @@ import bcrypt
 from typing import Any
 from collections.abc import Callable
 
-from appkernel.model import Marshaller
+from appkernel.dsl import Marshaller
 
 
 class TimestampMarshaller(Marshaller):

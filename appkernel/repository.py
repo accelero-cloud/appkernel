@@ -17,8 +17,12 @@ from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
 from appkernel.util import OBJ_PREFIX
-from .model import Model, Expression, AppKernelException, SortOrder, Property, Index, TextIndex, UniqueIndex, \
-    CustomProperty
+from .model import Model, Expression, AppKernelException
+from .dsl import SortOrder, CustomProperty, DslBase
+from .fields import (
+    FieldProxy, MongoIndex, MongoTextIndex, MongoUniqueIndex,
+    get_field_index,
+)
 
 
 def xtract(clazz_or_instance: Any) -> str:
@@ -50,7 +54,7 @@ class Query:
             return
         where = reduce(operator.and_, expressions)
         if isinstance(where, Expression):
-            if isinstance(where.lhs, (Property, CustomProperty)):
+            if isinstance(where.lhs, (FieldProxy, CustomProperty, DslBase)) and not isinstance(where.lhs, Expression):
                 if where.lhs.backreference.within_an_array:
                     self.filter_expr[str(where.lhs.backreference.array_parameter_name)] = where.ops.lmbda(
                         (where.lhs.backreference.parameter_name, Query.__extract_rhs(where.rhs)))
@@ -68,19 +72,19 @@ class Query:
             ret_val.extend(self.__xtract_expression(expression.lhs))
         if isinstance(expression.rhs, Expression):
             ret_val.extend(self.__xtract_expression(expression.rhs))
-        if isinstance(expression.lhs, Property):
+        if isinstance(expression.lhs, (FieldProxy, CustomProperty, DslBase)) and not isinstance(expression.lhs, Expression):
             ret_val.append({
                 expression.lhs.backreference.parameter_name:
                     expression.ops.lmbda(Query.__extract_rhs(expression.rhs))
             })
-        if isinstance(expression.rhs, Property):
+        if isinstance(expression.rhs, (FieldProxy, CustomProperty, DslBase)) and not isinstance(expression.rhs, Expression):
             ret_val.append({expression.lhs.backreference.parameter_name:
                                 expression.ops.lmbda(Query.__extract_rhs(expression.rhs))})
         return ret_val
 
     @staticmethod
     def __extract_rhs(right_hand_side: Any) -> Any:
-        if isinstance(right_hand_side, Property):
+        if hasattr(right_hand_side, 'backreference') and not isinstance(right_hand_side, Expression):
             return right_hand_side.backreference.parameter_name
         elif isinstance(right_hand_side, Enum):
             return right_hand_side.name
@@ -260,18 +264,23 @@ class MongoRepository(Repository):
 
     @classmethod
     async def init_indexes(cls) -> None:
-        if issubclass(cls, Model):
+        if issubclass(cls, Model) and hasattr(cls, 'model_fields'):
             index_factories = {
-                Index: MongoRepository.create_index,
-                TextIndex: MongoRepository.create_text_index,
-                UniqueIndex: MongoRepository.create_unique_index
+                MongoTextIndex: MongoRepository.create_text_index,
+                MongoUniqueIndex: MongoRepository.create_unique_index,
+                MongoIndex: MongoRepository.create_index,
             }
-            for key, value in cls.__dict__.items():
-                if isinstance(value, Property):
-                    if value.index:
-                        fct = index_factories.get(value.index, MongoRepository.not_supported)
-                        await fct(cls.get_collection(), key,
-                                  value.index.sort_order if hasattr(value.index, 'sort_order') else SortOrder.ASC)
+            for field_name, field_info in cls.model_fields.items():
+                idx = get_field_index(field_info)
+                if idx:
+                    # Match most specific type first
+                    fct = MongoRepository.not_supported
+                    for idx_type, factory in index_factories.items():
+                        if isinstance(idx, idx_type):
+                            fct = factory
+                            break
+                    await fct(cls.get_collection(), field_name,
+                              idx.sort_order if hasattr(idx, 'sort_order') else SortOrder.ASC)
 
     @staticmethod
     async def version_check(required_version_tuple: tuple[int, ...]) -> None:

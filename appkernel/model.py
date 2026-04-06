@@ -1,13 +1,32 @@
 from __future__ import annotations
+
 import inspect
 from collections.abc import Callable
 from datetime import datetime, date
-from enum import Enum, IntEnum
+from enum import Enum
 from typing import Any
+
 from bson import ObjectId
-from .core import AppKernelException  # noqa: E402
-from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email  # noqa: E402
-from .util import default_json_serializer, OBJ_PREFIX  # noqa: E402
+from pydantic import BaseModel, ConfigDict
+
+from .core import AppKernelException
+from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
+from .util import default_json_serializer, OBJ_PREFIX
+
+# Re-export DSL primitives from dsl.py for backward compatibility
+from .dsl import (  # noqa: F401
+    AttrDict, Opex, OPS, DslBase, BackReference, Expression, CustomProperty,
+    Marshaller, SortOrder, Index, TextIndex, UniqueIndex,
+    get_argument_spec, create_tagging_decorator, action, resource, tag_class_items,
+)
+
+# Import field metadata types and metaclass
+from .fields import (
+    AppKernelMeta, FieldProxy,
+    get_field_validators_meta, get_field_marshaller,
+    is_field_required, is_field_omitted, get_field_generator, get_field_converter,
+    get_field_default, extract_base_type,
+)
 
 try:
     from babel.support import LazyProxy
@@ -47,17 +66,14 @@ type_map = {
     'datetime': 'string'
 }
 
-
 format_map = {
     'datetime': 'date-time',
     'time': 'time'
 }
 
-# mongo bson types: https://docs.mongodb.com/manual/reference/bson-types/
+# MongoDB BSON types: https://docs.mongodb.com/manual/reference/bson-types/
 bson_type_map = {
     'date': 'date',
-    # 'datetime': 'timestamp',
-    # 'time': 'timestamp',
     'datetime': 'date',
     'time': 'date',
     'int': 'int',
@@ -66,29 +82,6 @@ bson_type_map = {
     'bool': 'bool',
     'list': 'array'
 }
-
-
-def create_tagging_decorator(tag_name: str) -> Callable:
-    """
-    Creates a new decorator which adds arbitrary tags to the decorated functions and methods, enabling these to be listed in a registry
-    :param tag_name:
-    :return:
-    """
-
-    def tagging_decorator(*args: Any, **kwargs: Any) -> Callable:
-        # here we can receive the parameters handed over on the decorator (@decorator(a=b))
-        def wrapper(method: Callable) -> Callable:
-            method.member_tag = (tag_name, {'args': args, 'kwargs': kwargs})
-            return method
-
-        return wrapper
-
-    return tagging_decorator
-
-
-# tagging decorator which will tag the decorated function
-action = create_tagging_decorator('actions')
-resource = create_tagging_decorator('resources')
 
 
 def _get_custom_class(fqdn: str) -> type | None:
@@ -158,331 +151,6 @@ class PropertyRequiredException(AppKernelException):
         super().__init__(f'The property {value} is required.')
 
 
-class AttrDict(dict):
-    def __getattr__(self, attr: str) -> Any:
-        try:
-            return self[attr]
-        except KeyError:
-            raise AttributeError(attr)
-
-
-class Opex:
-    def __init__(self, name: str | None = None, lmbda: Callable | None = None) -> None:
-        self.name = name
-        self.lmbda = lmbda
-
-    def __str__(self) -> str:
-        return self.name
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-
-OPS = AttrDict(  # pylint: disable=C0103
-    AND=Opex('$and', lambda exp: {'$and': exp}),
-    EQ=Opex('$eq', lambda exp: {'$eq': exp}),
-    OR=Opex('$or', lambda exp: {'$or': exp}),
-    GT=Opex('$gt', lambda exp: {'$gt': exp}),
-    GTE=Opex('$gte', lambda exp: {'$gte': exp}),
-    LT=Opex('$lt', lambda exp: {'$lt': exp}),
-    LTE=Opex('$lte', lambda exp: {'$lte': exp}),
-    IS=Opex('$eq', lambda exp: {'$eq': exp}),
-    IS_NOT=Opex('is_not', lambda exp: {'$ne': exp}),
-    LIKE=Opex('like', lambda exp: {'$regex': f'.*{exp}.*', '$options': 'i'}),
-    ELEM_MATCH=Opex('$elemMatch', lambda exp: {'$elemMatch': {exp[0]: exp[1]}}),
-    ELEM_DOES_NOT_MATCH=Opex('$elemMatchNot', lambda exp: {'$not': {'$elemMatch': {exp[0]: exp[1]}}}),
-    ELEM_LIKE=Opex('$elemMatch',
-                   lambda exp: {'$elemMatch': {exp[0]: {'$regex': f'.*{exp[1]}.*', '$options': 'i'}}}),
-    NE=Opex('$ne', lambda exp: {'$ne': exp}),
-    # ARRAY_GTW=('array_gte', lambda  exp: { '$exists: true', "this.{}.length > {}".format(exp) }),
-    MUL=Opex('$mul', lambda exp: exp),
-    DIV=Opex('$mul', lambda exp: 1 / exp),
-    ADD=Opex('$inc', lambda exp: exp),
-    SUB=Opex('$inc', lambda exp: -exp),
-)
-
-
-class DslBase:
-    # https://rszalski.github.io/magicmethods/#comparisons
-    def __eq__(self, right_hand_side: Any) -> Expression:
-        if self.backreference.within_an_array:
-            return Expression(self, OPS.ELEM_MATCH, right_hand_side)
-        if right_hand_side is None:
-            return Expression(self, OPS.IS, None)
-        return Expression(self, OPS.EQ, right_hand_side)
-
-    def __ne__(self, right_hand_side: Any) -> Expression:
-        if self.backreference.within_an_array:
-            return Expression(self, OPS.ELEM_DOES_NOT_MATCH, right_hand_side)
-        if right_hand_side is None:
-            return Expression(self, OPS.IS_NOT, None)
-        return Expression(self, OPS.NE, right_hand_side)
-
-    def __mod__(self, right_hand_side: Any) -> Expression:
-        if self.backreference.within_an_array:
-            return Expression(self, OPS.ELEM_LIKE, right_hand_side)
-        return Expression(self, OPS.LIKE, right_hand_side)
-
-    def __create_expression(ops: Any, inv: bool = False) -> Callable:
-        """
-        Returns a method that builds an Expression
-        consisting of the left-hand and right-hand operands, using `OPS`.
-        """
-
-        def inner(self: Any, rhs: Any) -> Expression:
-            if inv:
-                return Expression(rhs, ops, self)
-            return Expression(self, ops, rhs)
-
-        return inner
-
-    __and__ = __create_expression(OPS.AND)
-    __or__ = __create_expression(OPS.OR)
-    __lt__ = __create_expression(OPS.LT)
-    __le__ = __create_expression(OPS.LTE)
-    __gt__ = __create_expression(OPS.GT)
-    __ge__ = __create_expression(OPS.GTE)
-    __mul__ = __create_expression(OPS.MUL)
-    __div__ = __truediv__ = __create_expression(OPS.DIV)
-    __add__ = __create_expression(OPS.ADD)
-    __sub__ = __create_expression(OPS.SUB)
-
-    # __rshift__ = create_expression(Expression.OPS.IS)
-
-    # __xor__ = create_expression(Expression.OPS.XOR) # ^
-    # __radd__ = create_expression(Expression.OPS.ADD, inv=True)
-    # __rsub__ = create_expression(Expression.OPS.SUB, inv=True)
-    # __rmul__ = create_expression(Expression.OPS.MUL, inv=True)
-    # __rdiv__ = __rtruediv__ = create_expression(Expression.OPS.DIV, inv=True)
-    # __rand__ = create_expression(Expression.OPS.AND, inv=True)
-    # __ror__ = create_expression(Expression.OPS.OR, inv=True)
-    # __rxor__ = create_expression(Expression.OPS.XOR, inv=True)
-    # __lshift__ = create_expression(Expression.OPS.IN)
-    # __mod__ = create_expression(Expression.OPS.LIKE)
-    # __pow__ = create_expression(Expression.OPS.ILIKE)
-    # bin_and = create_expression(Expression.OPS.BIN_AND)
-    # bin_or = create_expression(Expression.OPS.BIN_OR)
-
-    def contains(self, rhs: Any) -> Expression:
-        return Expression(self, Expression.OPS.ILIKE, '%%%s%%' % rhs)
-
-
-class CustomProperty(DslBase):
-
-    def __init__(self, cls: type, property_name: str) -> None:
-        self.backreference = BackReference(class_name=cls.__name__, parameter_name=property_name)
-
-
-class Expression(DslBase):
-    """
-    a binary expression, eg. foo < bar, foo == bar, foo.contains(bar)
-    """
-
-    def __init__(self, lhs: Any, ops: Any, rhs: Any) -> None:
-        self.lhs = lhs
-        self.ops = ops
-        self.rhs = rhs
-
-    def get_lhs_param_name(self) -> str:
-        def get_property(plhs: Any) -> Property:
-            return plhs if isinstance(plhs, Property) else get_property(plhs.lhs)
-
-        return get_property(self.lhs).backreference.parameter_name
-
-
-def get_argument_spec(provisioner_method: Callable) -> dict[str, Any]:
-    """
-    Provides the argument list and types of methods which have a default value;
-    :param provisioner_method: the method of an instance
-    :return: the method arguments and default values as a dictionary, with method parameters as key and default values as dictionary value
-    """
-    assert inspect.ismethod(provisioner_method) or inspect.isfunction(
-        provisioner_method), f'The provisioner {str(provisioner_method)} method must be a method or function'
-    args = [name for name in getattr(inspect.getfullargspec(provisioner_method), 'args') if name not in ['cls', 'self']]
-    defaults = getattr(inspect.getfullargspec(provisioner_method), 'defaults')
-    return dict(list(zip(args, defaults or [None for arg in args])))
-
-
-class BackReference:
-    def __init__(self, class_name: str, parameter_name: str) -> None:
-        self.class_name = class_name
-        self.parameter_name = parameter_name
-        self.within_an_array = False
-        self.array_parameter_name: str | None = None
-
-
-class Marshaller:
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> Marshaller:
-        if cls is Marshaller:
-            raise TypeError("the base Marsaller class may not be instantiated")
-        return object.__new__(cls, *args, **kwargs)
-
-    def to_wireformat(self, instance_value: Any) -> Any:
-        pass
-
-    def from_wire_format(self, wire_value: Any) -> Any:
-        pass
-
-
-# class _Initialiser(type):
-#     """
-#     It calls a special purpose static __init method on all classes;
-#     """
-#     def __init__(cls, name, bases, dct):
-#         init_method = dct.get('_{}__init'.format(name), None)
-#         if isinstance(init_method, staticmethod):
-#             init_method.__func__(cls)
-
-def tag_class_items(class_name: str, class_dictionary: dict[str, Any]) -> dict[str, Any]:
-    tags: dict[str, Any] = {}
-    for member_name, member in class_dictionary.items():
-        if hasattr(member, 'member_tag') and (inspect.isfunction(member) or inspect.ismethod(member)):
-            # if it is a tagged member
-            if member.member_tag[0] not in tags:
-                tags[member.member_tag[0]] = []
-            tags[member.member_tag[0]].append({'function_name': member.__name__,
-                                               'argspec': get_argument_spec(member),
-                                               'decorator_args': list(member.member_tag[1].get('args')),
-                                               'decorator_kwargs': member.member_tag[1].get('kwargs'),
-                                               })
-            # One example of a tag:
-            # {
-            #   'function_name': 'change_password',
-            #   'argspec': {'password': 'default pass'},
-            #   'decorator_args': [],
-            #   'decorator_kwargs': {'method': ['POST']},
-            # }
-        if isinstance(member, Property):
-            # adding the name of the implementing class and the parameter name
-            member.backreference = BackReference(class_name=class_name, parameter_name=member_name)
-    return tags
-
-
-class _TaggingMetaClass(type):
-    def __new__(mcs, class_name: str, bases: tuple[type, ...], dct: dict[str, Any]) -> type:
-        dct.update(tag_class_items(class_name, dct))
-        return type.__new__(mcs, class_name, bases, dct)
-
-
-class SortOrder(IntEnum):
-    ASC = 1
-    DESC = -1
-
-
-class Index:
-    def __init__(self, sort_order: SortOrder = SortOrder.ASC) -> None:
-        self.sort_order = sort_order
-
-
-class TextIndex(Index):
-    def __init__(self) -> None:
-        super().__init__(SortOrder.ASC)
-
-
-class UniqueIndex(Index):
-    def __init__(self) -> None:
-        super().__init__(SortOrder.ASC)
-
-
-class Property(DslBase):
-    """
-    Metadata holder used by the Model classes.
-    """
-
-    def __init__(
-        self,
-        python_type: type,
-        required: bool = False,
-        sub_type: type | None = None,
-        validators: Callable | list[Callable] | None = None,
-        converter: Callable | None = None,
-        default_value: Any = None,
-        generator: Callable | None = None,
-        index: Index | None = None,
-        marshaller: Any | None = None,
-        omit: bool = False,
-    ) -> None:
-        """
-        Args:
-            python_type(type): the primary python type of the attribute (eg. str, datetime or anything else);
-            required(bool): if True, the field must be specified before validation;
-            sub_type(type): in case the python type is a dict or a list (or any other collection type), one needs to specify the element types
-            validators(Validator): a list of validator elements which are used to validate field content
-            converter: converts the value of the property in the finalisation phase (before generating a json or saving in the database). Useful to hash passwords or encrypt custom content;
-            default_value(object): this value is set on the field in case there's no other value there yet
-            generator(function): content generator, perfect for date.now() generation or for field values calculated from other fields (eg. signatures)
-            index(Index): the type of index (if any) which needs to be added to the database;
-            marshaller(Marshaller):
-            omit(bool): if True, the field won't be included in the json or other wire-format messages
-        """
-        self.omit = omit
-        self.index = index
-        self.python_type = python_type
-        self.required = required
-        self.sub_type = sub_type
-        self.validators = validators
-        self.converter = converter
-        self.default_value = default_value
-        self.marshaller = marshaller
-        self.generator = generator
-
-    def __getattr__(self, attribute: str) -> Any:
-        if self.python_type == list and (
-                hasattr(self, 'sub_type') and self.sub_type and issubclass(self.sub_type, Model)):
-            if hasattr(self.sub_type, attribute):
-                nested_parameter = getattr(self.sub_type, attribute)
-                nested_parameter.backreference.array_parameter_name = self.backreference.parameter_name
-                nested_parameter.backreference.within_an_array = True
-                return nested_parameter
-        elif inspect.isclass(self.python_type) and issubclass(self.python_type, Model):
-            if hasattr(self.python_type, attribute):
-                nested_parameter = getattr(self.python_type, attribute)
-                nested_parameter.backreference.parameter_name = f'{self.backreference.parameter_name}.{attribute}'
-                return nested_parameter
-        raise AttributeError(f'Class {self.__class__.__name__} has no attribute {attribute}')
-
-    def __getitem__(self, item_expression: Expression) -> Expression:
-        # used when an item is accessed, using the notation self[key]
-        if self.python_type == list and issubclass(self.sub_type,
-                                                   Model) and self.sub_type.__name__ == item_expression.lhs.backreference.class_name:
-            item_expression.lhs.backreference.within_an_array = True
-            item_expression.lhs.backreference.array_parameter_name = self.backreference.parameter_name
-            if item_expression.ops == OPS.EQ:
-                item_expression.ops = OPS.ELEM_MATCH
-            elif item_expression.ops == OPS.NE:
-                item_expression.ops = OPS.ELEM_DOES_NOT_MATCH
-        else:
-            raise TypeError(
-                f'The subtype {self.sub_type} of the parameter is not {item_expression.lhs.backreference.class_name}')  # if the type of the key is wrong
-            # raise KeyError()  # if there is no corresponding value for the key
-        return item_expression
-
-    def length(self) -> None:
-        if self.python_type in (list):
-            raise NotImplementedError('Not yet implemented.')
-        else:
-            raise TypeError('Only list type have length')
-
-    def asc(self) -> tuple[str, int]:
-        """
-        Adds ASCENDING sorting order to the query.
-
-        Returns:
-            Model: reference to self
-        """
-        return self.backreference.parameter_name, 1
-
-    def desc(self) -> tuple[str, int]:
-        """
-        Adds DESCENDING sorting order to the query.
-
-        Returns:
-            Model: reference to self
-        """
-        return self.backreference.parameter_name, -1
-
-
 def convert_date_time(string: str) -> datetime:
     return datetime.strptime(string, '%Y-%m-%dT%H:%M:%S.%f')
 
@@ -497,65 +165,65 @@ string_to_type_converters: dict[type, Callable] = {
 }
 
 
-class Model(metaclass=_TaggingMetaClass):
+# ---------------------------------------------------------------------------
+# Model — Pydantic BaseModel with AppKernel extensions
+# ---------------------------------------------------------------------------
+
+class Model(BaseModel, metaclass=AppKernelMeta):
     """
-    The base class of all Model objects which are intended to be persisted in the database or served via REST;
+    The base class of all Model objects which are intended to be persisted
+    in the database or served via REST. Built on Pydantic BaseModel.
     """
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra='allow',
+        populate_by_name=True,
+    )
 
     def __init__(self, **kwargs: Any) -> None:
-        self.update(**kwargs)
+        # Initialize all declared fields to None if not provided,
+        # to preserve AppKernel's deferred validation pattern.
+        defaults = {}
+        for field_name in self.__class__.model_fields:
+            if field_name not in kwargs:
+                defaults[field_name] = None
+        defaults.update(kwargs)
+        super().__init__(**defaults)
 
     def update(self, **kwargs: Any) -> Model:
-        """
-        Updates an existing attribute. The only difference compared to standard attribute value assignment is that it accepts multiple assignments in one line
-        and returns the object instance, enabling further method calls;
+        """Set one or more attributes and return ``self`` for method chaining.
 
         Args:
-            kwargs (object): key value pairs which will be set on the instance
+            **kwargs: attribute names and values to set on this instance.
 
         Returns:
-            Model: the Model instance
+            This Model instance, enabling fluent calls like
+            ``user.update(name='John').update(password='secret')``.
         """
-        for name in kwargs:
-            setattr(self, name, kwargs[name])
+        for name, value in kwargs.items():
+            setattr(self, name, value)
         return self
 
     def append_to(self, **kwargs: Any) -> Model:
-        """
-        Appends one or more objects to a list (eg. User(name='user name').append(roles=['Admin']).
-
-        Args:
-            kwargs(objects): named arguments, representing a list object
-        Returns:
-            Model: the current object itself.
-        """
         for name in kwargs:
-            if name not in self.__dict__:
+            current = getattr(self, name, None)
+            if current is None:
                 setattr(self, name, [])
-            attr = self.__dict__.get(name)
-            if isinstance(attr, list):
+                current = getattr(self, name)
+            if isinstance(current, list):
                 if isinstance(kwargs[name], list):
-                    attr.extend(kwargs[name])
+                    current.extend(kwargs[name])
                 else:
-                    attr.append(kwargs[name])
+                    current.append(kwargs[name])
         return self
 
     def remove_from(self, **kwargs: Any) -> Model:
-        """
-        Deletes one or more elements from a parameter of list type (eg. roles='Admin').
-
-        Args:
-            kwargs (object): the name of the list parameter and the value;
-        Raises:
-             AttributeError: when the named attribute cannot be found on the object.
-        Returns:
-            Model: the self object for chaining further method calls
-        """
         for name in kwargs:
-            if name in self.__dict__:
-                attr = self.__dict__.get(name)
-                if isinstance(attr, list):
-                    attr.remove(kwargs[name])
+            current = getattr(self, name, None)
+            if current is not None:
+                if isinstance(current, list):
+                    current.remove(kwargs[name])
                 else:
                     raise AttributeError(
                         f'The attribute {name} is not a list on {self.__class__.__name__}.')
@@ -569,13 +237,6 @@ class Model(metaclass=_TaggingMetaClass):
 
     @classmethod
     def custom_property(cls, custom_field_name: str) -> CustomProperty:
-        """
-        It is used to be search for property names which are not defined explicitly on the class.
-        Sample: project = Project.find_one(Project.custom_property('version') == 2)
-
-        Args:
-             custom_field_name(str): the name of the property
-        """
         return CustomProperty(cls, custom_field_name)
 
     @staticmethod
@@ -585,20 +246,15 @@ class Model(metaclass=_TaggingMetaClass):
         else:
             raise TypeError('The Model initialisation works only with instances which inherit from Model.')
 
+    # -------------------------------------------------------------------
+    # JSON Schema generation
+    # -------------------------------------------------------------------
+
     @classmethod
     def get_json_schema(cls, additional_properties: bool = True, mongo_compatibility: bool = False) -> dict[str, Any]:
-        """
-        Generates a JSON Schema document from the Model.
-
-        Args:
-            additional_properties(bool): if True the schema will have an additional parameter called 'additionalProperties':true (this will allow to have extra elements in the json schema)
-            mongo_compatibility(bool): if true, the generated json schema will be compatible with mongo
-        Returns:
-             dict: the schema of the current object as a dictionary object
-        """
         specs = cls.get_parameter_spec(convert_types_to_string=False)
-        properties, required_props, definitions = Model.__prepare_json_schema_properties(specs,
-                                                                                         mongo_compatibility=mongo_compatibility)
+        properties, required_props, definitions = Model.__prepare_json_schema_properties(
+            specs, mongo_compatibility=mongo_compatibility)
 
         type_label = 'type' if not mongo_compatibility else 'bsonType'
 
@@ -640,7 +296,6 @@ class Model(metaclass=_TaggingMetaClass):
             else:
                 if not mongo_compatibility:
                     properties[name] = {type_label: [type_map.get(type_string, 'string')]}
-                    # -- define formats --
                     xtra_type = format_map.get(type_string)
                     if xtra_type:
                         properties[name].update(format=xtra_type)
@@ -652,39 +307,34 @@ class Model(metaclass=_TaggingMetaClass):
             if 'validators' in spec:
                 for validator in spec.get('validators'):
                     if spec.get('type') == list and validator.get('type') == NotEmpty:
-                        # checking validators for a list
                         properties[name].update(minItems=1)
                     elif spec.get('type') == list and validator.get('type') == Unique:
                         properties[name].update(uniqueItems=True)
                     elif validator.get('type') == Min:
-                        if spec.get('type') in [int, float, int]:
+                        if spec.get('type') in [int, float]:
                             properties[name].update(minimum=validator.get('value'))
-                        elif spec.get('type') in [str, str, str]:
+                        elif spec.get('type') in [str]:
                             properties[name].update(minLength=validator.get('value'))
                     elif validator.get('type') == Max:
-                        if spec.get('type') in [int, float, int]:
+                        if spec.get('type') in [int, float]:
                             properties[name].update(maximum=validator.get('value'))
-                        elif spec.get('type') in [str, str, str]:
+                        elif spec.get('type') in [str]:
                             properties[name].update(maxLength=validator.get('value'))
                     elif validator.get('type') == Regexp:
                         properties[name].update(pattern=validator.get('value'))
                     elif validator.get('type') == Email and not mongo_compatibility:
                         properties[name].update(format='email')
-                        # todo: add formats for: hostname, ipv4, ipv6, uri
-                        #   todo: build dependencies
 
-            # -- handle subtypes --
+            # Handle subtypes
             if spec.get('type') == list and spec.get('sub_type'):
                 subtype = spec.get('sub_type')
                 subtype_string = subtype.__name__ if hasattr(subtype, '__name__') else str(subtype)
                 if not isinstance(subtype, dict):
-                    # subtype is a primitive
                     if not mongo_compatibility:
                         properties[name].update(items={type_label: type_map.get(subtype_string, 'string')})
                     else:
                         properties[name].update(items={type_label: bson_type_map.get(subtype_string, 'string')})
                 elif isinstance(spec.get('sub_type'), dict):
-                    # subtype is a Model
                     props, req_props, defs = Model.__prepare_json_schema_properties(
                         spec.get('sub_type').get('props'),
                         mongo_compatibility=mongo_compatibility)
@@ -697,103 +347,93 @@ class Model(metaclass=_TaggingMetaClass):
                         properties[name].update(type=['array'])
                         properties[name].update(items={'oneOf': [{"$ref": f"#/definitions/{def_name}"}]})
                     else:
-                        # the schema needs to be generated in mongo compatible way
                         properties[name].update(items={type_label: 'object'})
                         properties[name]['items'].update(required=req_props)
                         properties[name]['items'].update(properties=props)
-            elif spec.get('type') == list and not spec.sub_type:
+            elif spec.get('type') == list and not spec.get('sub_type'):
                 properties[name].update(items={type_label: 'string'})
 
-            # -- build required elements --
+            # Build required elements
             if spec.get('required', False):
                 required_props.append(name)
-            elif isinstance(properties[name][type_label], list):
+            elif isinstance(properties[name].get(type_label), list):
                 properties[name][type_label].append('null')
 
-                # -- process the validators --
-                # validators = spec.get('validators')
-                # if validators:
-                #     for validator in validators:
         return properties, required_props, definitions
+
+    # -------------------------------------------------------------------
+    # Parameter specification (UI metadata)
+    # -------------------------------------------------------------------
 
     @classmethod
     def get_parameter_spec(cls, convert_types_to_string: bool = True) -> dict[str, Any]:
-        """
-        Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
-
-        Args:
-            convert_types_to_string(bool): when true (default behaviour) the definition will contain the string representation of the python types;
-        Returns:
-            dict: a dict object, defining all parameters found on the Model instance;
-        """
-        props = cls.__dict__  # or: set(dir(cls))
-        # print "params: %s" % [f for f in props if cls.__is_param_field(f, cls)]
         result_dct: dict[str, Any] = {}
-        for field_name in props:
-            attribute = getattr(cls, field_name)
-            if isinstance(attribute, Property):
-                result_dct[field_name] = Model.__describe_attribute(cls, field_name, attribute,
-                                                                    convert_types_to_string=convert_types_to_string)
+        for field_name, field_info in cls.model_fields.items():
+            ann = cls.__annotations__.get(field_name)
+            if ann is None:
+                continue
+            python_type, sub_type = extract_base_type(ann)
+            if python_type is type(None):
+                continue
+            result_dct[field_name] = Model.__describe_field(
+                cls, field_name, field_info, python_type, sub_type,
+                convert_types_to_string=convert_types_to_string)
         return result_dct
 
     @classmethod
     def get_paramater_spec_as_json(cls) -> str:
-        """
-        Describes the parameters found on the Model implementation, including details, such as type, validators, etc.
-
-        Returns:
-            str: json parameter specification description
-        """
         return json.dumps(cls.get_parameter_spec(), default=default_json_serializer, indent=4, sort_keys=True)
 
     @staticmethod
-    def __describe_attribute(
-        clazz: type, field_name: str, attribute: Property, convert_types_to_string: bool = True
+    def __describe_field(
+        clazz: type, field_name: str, field_info: Any,
+        python_type: type, sub_type: type | None,
+        convert_types_to_string: bool = True
     ) -> dict[str, Any]:
         attr_desc: dict[str, Any] = {
-            'type': attribute.python_type.__name__ if convert_types_to_string else attribute.python_type,
-            'required': attribute.required,
+            'type': python_type.__name__ if convert_types_to_string else python_type,
+            'required': is_field_required(field_info),
         }
         label = lazy_gettext(f'{clazz.__name__}.{field_name}')
         if label:
             attr_desc.update(label=str(label))
-        if issubclass(attribute.python_type, Model):
+        if python_type and inspect.isclass(python_type) and issubclass(python_type, Model):
             attr_desc.update(
-                props=attribute.python_type.get_parameter_spec(convert_types_to_string=convert_types_to_string))
-        if attribute.default_value:
-            attr_desc.update(default_value=attribute.default_value)
-        if attribute.sub_type:
-            if issubclass(attribute.sub_type, Model):
+                props=python_type.get_parameter_spec(convert_types_to_string=convert_types_to_string))
+        default_meta = get_field_default(field_info)
+        if default_meta is not None:
+            attr_desc.update(default_value=default_meta)
+        if sub_type:
+            if inspect.isclass(sub_type) and issubclass(sub_type, Model):
                 attr_desc.update(
                     sub_type={
-                        'type': attribute.sub_type.__name__ if convert_types_to_string else attribute.sub_type,
-                        'props': attribute.sub_type.get_parameter_spec(convert_types_to_string=convert_types_to_string)
+                        'type': sub_type.__name__ if convert_types_to_string else sub_type,
+                        'props': sub_type.get_parameter_spec(convert_types_to_string=convert_types_to_string)
                     })
             else:
                 attr_desc.update(
-                    sub_type=attribute.sub_type.__name__ if convert_types_to_string else attribute.sub_type)
-        if attribute.validators:
-            if not isinstance(attribute.validators, list) and ((inspect.isclass(attribute.validators) and issubclass(
-                    attribute.validators, Validator)) or (isinstance(attribute.validators, Validator))):
-                attribute.validators = [attribute.validators]
+                    sub_type=sub_type.__name__ if convert_types_to_string and hasattr(sub_type, '__name__') else sub_type)
+        validators = get_field_validators_meta(field_info)
+        if validators:
             attr_desc.update(
-                validators=[clazz.__describe_validator(val, convert_types_to_string=convert_types_to_string) for val in
-                            attribute.validators])
+                validators=[Model.__describe_validator(val, convert_types_to_string=convert_types_to_string)
+                            for val in validators])
         return attr_desc
 
     @staticmethod
     def __describe_validator(validator: Any, convert_types_to_string: bool = True) -> dict[str, Any]:
         def get_value(val: Any) -> Any:
             return val.__name__ if convert_types_to_string else val
-
         val_desc: dict[str, Any] = {
             'type': get_value(validator) if hasattr(validator, '__name__') else get_value(validator.__class__)
         }
-
         if hasattr(validator, 'value'):
             val_desc.update(value=validator.value)
-
         return val_desc
+
+    # -------------------------------------------------------------------
+    # Serialization: to_dict / from_dict / dumps / loads
+    # -------------------------------------------------------------------
 
     @staticmethod
     def to_dict(
@@ -804,57 +444,67 @@ class Model(metaclass=_TaggingMetaClass):
         marshal_values: bool = True,
         converter_func: Callable | None = None,
     ) -> dict[str, Any]:
-        """
-        Turns the python instance object into a dictionary after finalising and validating it.
-
-        Args:
-            skip_omitted_fields(bool): if True, the fields marked with ommitted=True will be excluded from the result;
-            validate(bool): if False (default: True), the validation of the object will be skipped
-            convert_id(bool): it will convert id fields to _id representation for fitting Mongodb's requirements
-            instance(Model): the python instance object
-            skip_omitted_fields(bool): False by default. Used to avoid sending over specific values through the wire;
-            marshal_values(bool): use the Marshallers to convert some values specific to the wireformat;
-            converter_func(Callable): a function which will take one instance variable as input and return a possibly converted one;
-        Returns:
-            dict: a dictionary representing the python Model object
-        """
         if validate and isinstance(instance, Model):
             instance.finalise_and_validate()
         if not hasattr(instance, '__dict__') and not isinstance(instance, dict):
             return instance
+
         result: dict[str, Any] = {}
-        instance_items = list(instance.__dict__.items()) if not isinstance(instance, dict) else list(instance.items())
-        cls_items = {k: v for k, v in instance.__class__.__dict__.items() if isinstance(v, Property)}
-        for param, obj in instance_items:
-            if skip_omitted_fields:
-                # skip the omitted fields
-                parameter_def = cls_items.get(param)
-                if parameter_def and parameter_def.omit:
+
+        # Get field metadata for this class
+        cls_fields = instance.__class__.model_fields if hasattr(instance.__class__, 'model_fields') else {}
+
+        # Collect instance data: Pydantic stores fields in __dict__ (or __pydantic_fields_set__)
+        # We need both declared fields AND extra attributes
+        instance_data = {}
+        if isinstance(instance, BaseModel):
+            # Get all set fields (declared + extra)
+            for k, v in instance.__dict__.items():
+                if not k.startswith('__') and not k.startswith('_'):
+                    instance_data[k] = v
+            # Also include extra fields from __pydantic_extra__
+            extra = getattr(instance, '__pydantic_extra__', None)
+            if extra:
+                instance_data.update(extra)
+        elif isinstance(instance, dict):
+            instance_data = instance
+        else:
+            instance_data = {k: v for k, v in instance.__dict__.items()}
+
+        for param, obj in instance_data.items():
+            if skip_omitted_fields and param in cls_fields:
+                field_info = cls_fields[param]
+                if is_field_omitted(field_info):
                     continue
+
+            if obj is None:
+                continue
+
             if isinstance(obj, Model):
                 result[param] = Model.to_dict(obj, convert_id, converter_func=converter_func)
             elif isinstance(obj, Enum):
                 result[param] = obj.name
             elif isinstance(obj, list):
-                result[param] = [Model.to_dict(list_item, convert_id, converter_func=converter_func) for list_item in
-                                 obj]
+                result[param] = [Model.to_dict(item, convert_id, converter_func=converter_func)
+                                 if isinstance(item, Model) else
+                                 (item.name if isinstance(item, Enum) else item)
+                                 for item in obj]
             else:
-                class_property = cls_items.get(param)
-                if class_property and isinstance(class_property, Property) and class_property.marshaller:
-                    if isinstance(class_property.marshaller, type) and issubclass(class_property.marshaller,
-                                                                                  Marshaller):
-                        class_property.marshaller = class_property.marshaller()
-                    if isinstance(class_property.marshaller, Marshaller) and marshal_values:
-                        result_value = class_property.marshaller.to_wireformat(obj)
+                # Apply marshaller if present
+                marshaller = None
+                if param in cls_fields:
+                    marshaller = get_field_marshaller(cls_fields[param])
+                if marshaller and marshal_values:
+                    result_value = marshaller.to_wireformat(obj)
                 else:
                     result_value = obj
 
-                # setting the final key-value pair on the dict object
                 if convert_id and param == 'id':
                     result['_id'] = result_value
                 else:
                     result_value = _xtract_custom_object_to_dict(result_value, converter_func=converter_func)
                     result[param] = result_value
+
         if hasattr(instance, '__module__'):
             result.update(_type=f'{instance.__module__}.{instance.__class__.__qualname__}')
         else:
@@ -869,61 +519,51 @@ class Model(metaclass=_TaggingMetaClass):
         set_unmanaged_parameters: bool = True,
         converter_func: Callable | None = None,
     ) -> Model:
-        """
-        Reads a dictionary representation of the model and turns it into a python object model.
-
-        Args:
-            set_unmanaged_parameters(bool): if False, key-value pairs from the dict object which are not class variables on the Model (there is no Parameter object for them) will not be set
-            convert_ids(bool): strip the underscore prefix from object id parameter is exists ( _id -> id )
-            dict_obj(dict): the dictionary to be converted to object
-            cls(type): the type of the object needs to be returned
-            converter_func: used to convert some of the object types (such as mongo converter)
-        Returns:
-            Model: an instantiated object from the dict
-        """
         instance = cls()
-        class_variables = [f for f in set(dir(instance)) if Model.__is_param_field(f, cls)]
-        unmanaged_parameters: set[str] = set()
+        cls_fields = cls.model_fields if hasattr(cls, 'model_fields') else {}
         processed_properties: set[str] = set()
-        # todo: initialise with none the properties which have no value in the dict
+
         if dict_obj and isinstance(dict_obj, dict):
             for key, val in list(dict_obj.items()):
                 if convert_ids and key == '_id':
                     key = 'id'
                 processed_properties.add(key)
-                if key in class_variables:
-                    parameter = getattr(cls, key)
-                    if isinstance(parameter, Property):
-                        if parameter.marshaller:
-                            if isinstance(parameter.marshaller, type) and issubclass(parameter.marshaller,
-                                                                                     Marshaller):
-                                parameter.marshaller = parameter.marshaller()
-                            if isinstance(parameter.marshaller, Marshaller):
-                                val = parameter.marshaller.from_wire_format(val)
-                        if issubclass(parameter.python_type, Model):
-                            setattr(instance, key, Model.from_dict(val, parameter.python_type, convert_ids=convert_ids,
-                                                                   converter_func=converter_func))
-                        elif issubclass(parameter.python_type, list):
-                            setattr(instance, key, Model.from_list(val, parameter.sub_type, convert_ids=convert_ids,
-                                                                   converter_func=converter_func))
-                        elif issubclass(parameter.python_type, Enum):
-                            setattr(instance, key, parameter.python_type[val])
-                        elif isinstance(val, str):
-                            # convert json string elements into target types based on the Parameter class
-                            setattr(instance, key,
-                                    string_to_type_converters.get(parameter.python_type, default_convert)(val))
-                        else:
-                            # set object elements on the target instance
-                            setattr(instance, key,
-                                    Model.load_and_or_convert_object(val, converter_func=converter_func))
-                elif (key == '_id' or key == 'id') and isinstance(val, (str, bytes)) and val.startswith(OBJ_PREFIX):
-                    # check if the object id is a mongo object id
+
+                if key in cls_fields:
+                    field_info = cls_fields[key]
+                    ann = cls.__annotations__.get(key)
+                    python_type, sub_type = extract_base_type(ann) if ann else (None, None)
+
+                    # Apply marshaller
+                    marshaller = get_field_marshaller(field_info)
+                    if marshaller:
+                        val = marshaller.from_wire_format(val)
+
+                    if python_type and inspect.isclass(python_type) and issubclass(python_type, Model):
+                        setattr(instance, key, Model.from_dict(val, python_type, convert_ids=convert_ids,
+                                                               converter_func=converter_func))
+                    elif python_type == list:
+                        setattr(instance, key, Model.from_list(val, sub_type, convert_ids=convert_ids,
+                                                               converter_func=converter_func))
+                    elif python_type and inspect.isclass(python_type) and issubclass(python_type, Enum):
+                        setattr(instance, key, python_type[val])
+                    elif isinstance(val, str) and python_type:
+                        setattr(instance, key,
+                                string_to_type_converters.get(python_type, default_convert)(val))
+                    else:
+                        setattr(instance, key,
+                                Model.load_and_or_convert_object(val, converter_func=converter_func))
+
+                elif (key == '_id' or key == 'id') and isinstance(val, (str, bytes)) and isinstance(val, str) and val.startswith(OBJ_PREFIX):
                     setattr(instance, key, ObjectId(val.split(OBJ_PREFIX)[1]))
                 elif set_unmanaged_parameters:
-                    unmanaged_parameters.add(key)
                     setattr(instance, key, val)
-            for nullable in (set(class_variables).union(unmanaged_parameters) - processed_properties):
-                setattr(instance, nullable, None)
+
+            # Set unprocessed declared fields to None
+            for field_name in cls_fields:
+                if field_name not in processed_properties and getattr(instance, field_name, None) is None:
+                    pass  # Already None from __init__
+
         return instance
 
     @staticmethod
@@ -943,22 +583,12 @@ class Model(metaclass=_TaggingMetaClass):
         convert_ids: bool = False,
         converter_func: Callable | None = None,
     ) -> list[Any]:
-        """
-        Converts a list of dict structures to a list of Model instances. It is mainly used from the Model.from_dict method.
-
-        Args:
-            list_obj(list): a list of dict objects representing a model;
-            item_cls(type): the class of the Model to which the dict is loaded
-            convert_ids(bool): if true, it will convert ids with underscore prefix (from '_id' to 'id')
-        Returns:
-            list: the list of Model objects
-        """
         return_list: list[Any] = []
         if list_obj and not isinstance(list_obj, list):
             return_list.append(list_obj)
         elif list_obj:
             for item in list_obj:
-                if item_cls and issubclass(item_cls, Model):
+                if item_cls and inspect.isclass(item_cls) and issubclass(item_cls, Model):
                     return_list.append(
                         Model.from_dict(item, item_cls, convert_ids=convert_ids, converter_func=converter_func))
                 else:
@@ -966,16 +596,6 @@ class Model(metaclass=_TaggingMetaClass):
         return return_list
 
     def dumps(self, validate: bool = True, pretty_print: bool = False, json_serialiser_func: Callable | None = None) -> str:
-        """
-        Returns the json representation of the object.
-
-        Args:
-            validate(bool): if True (default), will validate the object before converting it to Json;
-            pretty_print(bool):  if True (False by default) it will format the json object upon conversion;
-            json_serialiser_func(Callable): a custom function which can be used to serialise variables
-        Returns:
-            str: the json object as a string
-        """
         model_as_dict = Model.to_dict(self, validate=validate, skip_omitted_fields=True)
         default_serialiser_func = json_serialiser_func if json_serialiser_func and isinstance(json_serialiser_func,
                                                                                               Callable) else default_json_serializer
@@ -984,86 +604,92 @@ class Model(metaclass=_TaggingMetaClass):
 
     @classmethod
     def loads(cls, json_string: str) -> Model:
-        """
-        Takes a json string and creates a python object from it.
-
-        Args:
-            json_string(str): the Json string to be converted into an object
-        Returns:
-            Model: the generated object (it won't run validation on it)
-        """
         return Model.from_dict(json.loads(json_string), cls)
+
+    # -------------------------------------------------------------------
+    # Validation pipeline
+    # -------------------------------------------------------------------
 
     def finalise_and_validate(self) -> None:
         """
-        Calls the generator, default value calculator and converter methods first,
-        than it validates the object;
-
-        Raises:
-            ParameterRequiredException: in case some value property is mandatory
-            ValidationException: in case one of the parameter validators do not validate
+        Runs generators, defaults, converters, and validators.
+        Called before persistence (save/to_dict).
         """
-        obj_items = self.__dict__
-        class_items = self.__class__.__dict__
-        val_method = getattr(self, 'validate', None)
-        if val_method and callable(val_method):
-            val_method()
-        cls_items = {k: v for k, v in class_items.items() if isinstance(v, Property)}
-        for param_name, param_object in list(cls_items.items()):
-            # initialise default values and generators for parameters which were not defined by the user
-            if param_name not in obj_items or getattr(self, param_name, None) is None:
-                if param_object.default_value is not None:
-                    setattr(self, param_name, param_object.default_value)
-                elif param_object.generator:
-                    setattr(self, param_name, param_object.generator())
-            # validate fields
-            if param_object.required and (param_name not in obj_items or obj_items.get(param_name) is None):
+        cls_fields = self.__class__.model_fields
+
+        # Run custom validate() method if defined on the user's class (not BaseModel/Model)
+        for klass in type(self).__mro__:
+            if klass is Model or klass is BaseModel:
+                break
+            if 'validate' in klass.__dict__:
+                klass.__dict__['validate'](self)
+                break
+
+        for field_name, field_info in cls_fields.items():
+            current_value = getattr(self, field_name, None)
+
+            # Apply defaults and generators for unset fields
+            if current_value is None:
+                default_val = get_field_default(field_info)
+                if default_val is not None:
+                    setattr(self, field_name, default_val)
+                    current_value = default_val
+                else:
+                    generator = get_field_generator(field_info)
+                    if generator:
+                        generated = generator()
+                        setattr(self, field_name, generated)
+                        current_value = generated
+
+            # Check required
+            if is_field_required(field_info) and getattr(self, field_name, None) is None:
                 raise PropertyRequiredException(
-                    f'[{param_name}] on class [{self.__class__.__name__}]')
-            if param_object.converter and param_name in self.__dict__:
-                setattr(self, param_name, param_object.converter(getattr(self, param_name)))
-            if param_object.validators and isinstance(param_object.validators, (list, set)):
-                for val in param_object.validators:
-                    Model.__check_validity(val, param_name, obj_items)
-            elif param_object.validators:
-                Model.__check_validity(param_object.validators, param_name, obj_items)
-            if issubclass(param_object.python_type, Model) and param_name in obj_items:
-                obj = obj_items.get(param_name)
-                if obj:
-                    obj.finalise_and_validate()
-            if issubclass(param_object.python_type, (list, set)) and param_name in obj_items:
-                list_of_objects = obj_items.get(param_name)
-                if list_of_objects:
-                    for item in list_of_objects:
+                    f'[{field_name}] on class [{self.__class__.__name__}]')
+
+            # Apply converter
+            converter = get_field_converter(field_info)
+            if converter and getattr(self, field_name, None) is not None:
+                setattr(self, field_name, converter(getattr(self, field_name)))
+
+            # Run validators
+            validators = get_field_validators_meta(field_info)
+            for val in validators:
+                self.__check_validity(val, field_name)
+
+            # Recursively validate nested Models
+            ann = self.__class__.__annotations__.get(field_name)
+            if ann:
+                python_type, sub_type = extract_base_type(ann)
+                current_value = getattr(self, field_name, None)
+                if python_type and inspect.isclass(python_type) and issubclass(python_type, Model) and current_value:
+                    current_value.finalise_and_validate()
+                elif python_type == list and current_value:
+                    for item in current_value:
                         if isinstance(item, Model):
                             item.finalise_and_validate()
 
-    @staticmethod
-    def __check_validity(validator: Validator, param_name: str, obj_items: dict[str, Any]) -> None:
-        if isinstance(validator, Validator) and param_name in obj_items:
+    def __check_validity(self, validator: Any, param_name: str) -> None:
+        # Skip validation for fields that are None (not explicitly set)
+        value = getattr(self, param_name, None)
+        if value is None:
+            return
+
+        obj_items = self.__dict__
+        extra = getattr(self, '__pydantic_extra__', None)
+        if extra:
+            obj_items = {**obj_items, **extra}
+
+        if isinstance(validator, Validator):
             validator.validate_objects(param_name, obj_items)
-        elif isinstance(validator, type) and issubclass(validator, Validator) and param_name in obj_items:
+        elif isinstance(validator, type) and issubclass(validator, Validator):
             validator().validate_objects(param_name, obj_items)
 
     def dump_spec(self) -> None:
-        """
-        Prints the parameter specification of the model
-        """
-        props = set(dir(self))
-        # print '(P): %s' % dir(self)
-        # obj_dict = {k: v for k, v in self.__dict__.items()}
-        print(f"params: {[f for f in props if self.__is_param_field(f, self.__class__)]}")
-        # print "vars :: %s" % vars(list).keys()
-
-    def __include_instance(self, field: str) -> bool:
-        return not field.startswith('__') and not isinstance(getattr(self, field),
-                                                             Callable) and not isinstance(
-            getattr(self, field), Property)
-
-    @staticmethod
-    def __is_param_field(field: str, cls: type) -> bool:
-        return field in cls.__dict__ and isinstance(getattr(cls, field), Property)
+        print(f"params: {list(self.__class__.model_fields.keys())}")
 
 
-# Parameter is an alias for Property
-Parameter = Property
+# Backward compatibility: Property and Parameter as no-op sentinel
+# Code that imported Property for isinstance checks needs updating
+# to use model_fields instead. This alias exists only to prevent ImportError.
+Property = FieldProxy
+Parameter = FieldProxy

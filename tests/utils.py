@@ -1,31 +1,35 @@
 from datetime import datetime, date
 from enum import Enum
+from typing import Annotated
 
 from moneyed import Money
 import bcrypt
+from pydantic import Field
 
 from appkernel import AuditableRepository, MongoRepository, AppKernelException, ValidationException, Email, Unique
 from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
 from appkernel import Max, Min
-from appkernel import Model, Property, UniqueIndex
+from appkernel import Model, UniqueIndex
 from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
 from appkernel import ServiceException
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
-from appkernel.model import action, resource
+from appkernel.dsl import action, resource
+from appkernel.fields import Required, Generator, Converter, Default, Validators, Marshal, MongoIndex, MongoUniqueIndex, MongoTextIndex
 
 _ = lambda x: x
 
 
 class User(Model, MongoRepository, IdentityMixin):
-    id = Property(str, required=True, generator=create_uuid_generator('U'))
-    name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
-    password = Property(str, required=True, validators=[NotEmpty],
-                        converter=content_hasher(rounds=10), omit=True)
-    description = Property(str, index=TextIndex)
-    roles = Property(list, sub_type=str)
-    created = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
-    last_login = Property(datetime, marshaller=TimestampMarshaller)
-    sequence = Property(int, index=Index)
+    id: Annotated[str | None, Required(), Generator(create_uuid_generator('U'))] = None
+    name: Annotated[str | None, Required(), Validators(NotEmpty, Regexp('[A-Za-z0-9-_]')),
+                    MongoUniqueIndex()] = None
+    password: Annotated[str | None, Required(), Validators(NotEmpty),
+                        Converter(content_hasher(rounds=10)), Field(exclude=True)] = None
+    description: Annotated[str | None, MongoTextIndex()] = None
+    roles: list[str] | None = None
+    created: Annotated[datetime | None, Required(), Validators(Past), Generator(date_now_generator)] = None
+    last_login: Annotated[datetime | None, Marshal(TimestampMarshaller)] = None
+    sequence: Annotated[int | None, MongoIndex()] = None
 
     @action(rel='change_password', method='POST', require=[CurrentSubject(), Role('admin')])
     async def change_p(self, current_password, new_password):
@@ -42,29 +46,32 @@ class User(Model, MongoRepository, IdentityMixin):
 
 
 class Group(Model, MongoRepository):
-    id = Property(str, required=True, generator=create_uuid_generator('U'))
-    name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
-    users = Property(list, sub_type=User)
+    id: Annotated[str | None, Required(), Generator(create_uuid_generator('U'))] = None
+    name: Annotated[str | None, Required(), Validators(NotEmpty, Regexp('[A-Za-z0-9-_]')),
+                    MongoUniqueIndex()] = None
+    users: list[User] | None = None
 
 
 class Stock(Model):
-    code = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]'), Max(4)], index=UniqueIndex)
-    open = Property(float, required=True, validators=[Min(0)])
-    updated = Property(datetime, required=True, validators=[Past], generator=date_now_generator)
-    history = Property(list, sub_type=int)
-    sequence = Property(int, validators=[Min(1), Max(100)])
+    code: Annotated[str | None, Required(), Validators(NotEmpty, Regexp('[A-Za-z0-9-_]'), Max(4)),
+                    MongoUniqueIndex()] = None
+    open: Annotated[float | None, Required(), Validators(Min(0))] = None
+    updated: Annotated[datetime | None, Required(), Validators(Past), Generator(date_now_generator)] = None
+    history: list[float] | None = None
+    sequence: Annotated[int | None, Validators(Min(1), Max(100))] = None
 
 
 class Portfolio(Model, MongoRepository):
-    id = Property(str, required=True, generator=create_uuid_generator('P'))
-    name = Property(str, required=True, validators=[NotEmpty, Regexp('[A-Za-z0-9-_]')], index=UniqueIndex)
-    stocks = Property(list, sub_type=Stock, validators=NotEmpty)
-    owner = Property(User, required=False)
+    id: Annotated[str | None, Required(), Generator(create_uuid_generator('P'))] = None
+    name: Annotated[str | None, Required(), Validators(NotEmpty, Regexp('[A-Za-z0-9-_]')),
+                    MongoUniqueIndex()] = None
+    stocks: Annotated[list[Stock] | None, Validators(NotEmpty)] = None
+    owner: User | None = None
 
 
 class Application(Model, MongoRepository):
-    id = Property(str, required=True, generator=create_uuid_generator())
-    application_date = Property(date, required=True, marshaller=MongoDateTimeMarshaller)
+    id: Annotated[str | None, Generator(create_uuid_generator())] = None
+    application_date: Annotated[date | None, Required(), Marshal(MongoDateTimeMarshaller)] = None
 
 
 class ProductSize(Enum):
@@ -81,34 +88,19 @@ class ReservationState(Enum):
     CANCELLED = 4
 
 
-class Product(Model, MongoRepository):
-    code = Property(str, required=True, validators=[NotEmpty])
-    name = Property(str, required=True)
-    description = Property(str)
-    size = Property(ProductSize, required=True)
-    price = Property(Money, required=True)
+class Product(Model):
+    code: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    name: Annotated[str | None, Required()] = None
+    description: str | None = None
+    size: Annotated[ProductSize | None, Required()] = None
+    price: Annotated[Money | None, Required()] = None
 
 
 class StockInventory(Model, MongoRepository):
-    id = Property(str, generator=create_uuid_generator('S'))
-    product = Property(Product, required=True)
-    available = Property(int, required=True, default_value=0)
-    reserved = Property(int, required=True, default_value=0)
-
-
-class ProductSize(Enum):
-    S = 1,
-    M = 2,
-    L = 3,
-    XXL = 4
-
-
-class Product(Model):
-    code = Property(str, required=True, validators=[NotEmpty])
-    name = Property(str, required=True)
-    description = Property(str)
-    size = Property(ProductSize, required=True)
-    price = Property(Money, required=True)
+    id: Annotated[str | None, Generator(create_uuid_generator('S'))] = None
+    product: Annotated[Product | None, Required()] = None
+    available: Annotated[int | None, Required(), Default(0)] = None
+    reserved: Annotated[int | None, Required(), Default(0)] = None
 
 
 class PaymentMethod(Enum):
@@ -119,18 +111,18 @@ class PaymentMethod(Enum):
 
 
 class Address(Model):
-    first_name = Property(str, required=True, validators=[NotEmpty])
-    last_name = Property(str, required=True, validators=[NotEmpty])
-    city = Property(str, required=True, validators=[NotEmpty])
-    street = Property(str, required=True, validators=[NotEmpty])
-    country = Property(str, required=True, validators=[NotEmpty])
-    postal_code = Property(str, required=True, validators=[NotEmpty])
+    first_name: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    last_name: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    city: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    street: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    country: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    postal_code: Annotated[str | None, Required(), Validators(NotEmpty)] = None
 
 
 class Payment(Model):
-    method = Property(PaymentMethod, required=True)
-    customer_id = Property(str, required=True, validators=[NotEmpty])
-    customer_secret = Property(str, required=True, validators=[NotEmpty])
+    method: Annotated[PaymentMethod | None, Required()] = None
+    customer_id: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    customer_secret: Annotated[str | None, Required(), Validators(NotEmpty)] = None
 
     def validate(self):
         if self.method in (PaymentMethod.MASTER, PaymentMethod.VISA):
@@ -143,19 +135,19 @@ class Payment(Model):
 
 
 class Order(Model):
-    id = Property(str, generator=create_uuid_generator('O'))
-    payment_method = Property(Payment, required=True)
-    products = Property(list, sub_type=Product, required=True)
-    order_date = Property(datetime, required=True, generator=date_now_generator)
-    delivery_address = Property(Address, required=True)
+    id: Annotated[str | None, Generator(create_uuid_generator('O'))] = None
+    payment_method: Annotated[Payment | None, Required()] = None
+    products: Annotated[list[Product] | None, Required()] = None
+    order_date: Annotated[datetime | None, Required(), Generator(date_now_generator)] = None
+    delivery_address: Annotated[Address | None, Required()] = None
 
 
 class Reservation(Model, MongoRepository):
-    id = Property(str, generator=create_uuid_generator('R'))
-    order_id = Property(str, required=True)
-    order_date = Property(datetime, required=True, generator=date_now_generator)
-    products = Property(list, sub_type=Product, required=True, validators=NotEmpty())
-    state = Property(ReservationState, required=True, default_value=ReservationState.RESERVED)
+    id: Annotated[str | None, Generator(create_uuid_generator('R'))] = None
+    order_id: Annotated[str | None, Required()] = None
+    order_date: Annotated[datetime | None, Required(), Generator(date_now_generator)] = None
+    products: Annotated[list[Product] | None, Required(), Validators(NotEmpty())] = None
+    state: Annotated[ReservationState | None, Required(), Default(ReservationState.RESERVED)] = None
 
 
 class PaymentService:
@@ -228,11 +220,11 @@ async def create_and_save_portfolio_with_owner():
 
 
 class ExampleClass(Model):
-    just_numbers = Property(str, required=True, validators=[Regexp('^[0-9]+$')])
-    future_field = Property(datetime, validators=[Future])
-    email = Property(str, validators=Email)
-    distance = Property(int, validators=[Min(10), Max(15)])
-    numbers = Property(list, validators=Unique)
+    just_numbers: Annotated[str | None, Required(), Validators(Regexp('^[0-9]+$'))] = None
+    future_field: Annotated[datetime | None, Validators(Future)] = None
+    email: Annotated[str | None, Validators(Email)] = None
+    distance: Annotated[int | None, Validators(Min(10), Max(15))] = None
+    numbers: Annotated[list | None, Validators(Unique)] = None
 
 
 class Priority(Enum):
@@ -242,16 +234,13 @@ class Priority(Enum):
 
 
 class Task(Model, AuditableRepository):
-    id = Property(str, required=True, generator=create_uuid_generator('U'))
-    name = Property(str, required=True, validators=[NotEmpty])
-    description = Property(str, required=True, validators=[NotEmpty])
-    completed = Property(bool, required=True, default_value=False)
-    created = Property(datetime, required=True, generator=date_now_generator)
-    closed_date = Property(datetime, validators=[Past])
-    priority = Property(Priority, required=True, default_value=Priority.MEDIUM)
-
-    def __init__(self, **kwargs):
-        Model.init_model(self, **kwargs)
+    id: Annotated[str | None, Required(), Generator(create_uuid_generator('U'))] = None
+    name: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    description: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+    completed: Annotated[bool | None, Required(), Default(False)] = None
+    created: Annotated[datetime | None, Required(), Generator(date_now_generator)] = None
+    closed_date: Annotated[datetime | None, Validators(Past)] = None
+    priority: Annotated[Priority | None, Required(), Default(Priority.MEDIUM)] = None
 
     def complete(self):
         self.completed = True
@@ -259,12 +248,9 @@ class Task(Model, AuditableRepository):
 
 
 class Project(Model, AuditableRepository):
-    name = Property(str, required=True, validators=[NotEmpty()])
-    tasks = Property(list, sub_type=Task)
-    created = Property(datetime, required=True, generator=date_now_generator)
-
-    def __init__(self, **kwargs):
-        Model.init_model(self, **kwargs)
+    name: Annotated[str | None, Required(), Validators(NotEmpty())] = None
+    tasks: list[Task] | None = None
+    created: Annotated[datetime | None, Required(), Generator(date_now_generator)] = None
 
 
 def create_simple_project():
