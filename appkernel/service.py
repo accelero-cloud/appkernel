@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import re
 import types
@@ -41,17 +42,24 @@ qp = QueryProcessor()  # pylint: disable=C0103
 
 
 def _hook(cls: type, inner_function: Callable, hook_method: str) -> Callable:
-    def wrapper(*args: Any, **kws: Any) -> Any:
+    async def wrapper(*args: Any, **kws: Any) -> Any:
         before_hook_method = f'before_{hook_method}'
         after_hook_method = f'after_{hook_method}'
         if hasattr(cls, before_hook_method):
             getattr(cls, before_hook_method)(*args, **kws)
         if not args:
-            inner_result = inner_function(**kws)
+            inner_result = await inner_function(**kws)
         else:
-            inner_result = inner_function(*args, **kws)
+            inner_result = await inner_function(*args, **kws)
         if hasattr(cls, after_hook_method):
-            getattr(cls, after_hook_method)(inner_result, *args, **kws)
+            # P5: run after-hooks as background tasks so they don't delay the response
+            after_func = getattr(cls, after_hook_method)
+            if asyncio.iscoroutinefunction(after_func):
+                asyncio.create_task(after_func(inner_result, *args, **kws))
+            else:
+                async def _run_sync_hook(fn: Callable, *a: Any, **kw: Any) -> None:
+                    fn(*a, **kw)
+                asyncio.create_task(_run_sync_hook(after_func, inner_result, *args, **kws))
         return inner_result
 
     wrapper.inner_function = inner_function
@@ -135,8 +143,8 @@ def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable,
             'path_params': path_params,
         }
 
-        # Call the sync view function with request_data and path params
-        return view_function(request_data=request_data, **path_params)
+        # Await the async view function
+        return await view_function(request_data=request_data, **path_params)
 
     # Use include_in_schema=False to avoid FastAPI trying to parse the request parameter
     config.app.add_api_route(rule, _make_handler, methods=http_methods, name=endpoint, include_in_schema=False)
@@ -265,7 +273,7 @@ resource_instances = {}
 
 def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_security: bool = False, class_items: dict | None = None) -> None:
     def create_resource_executor(function_name):
-        def resource_executor(request_data=None, **named_args):
+        async def resource_executor(request_data=None, **named_args):
             clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
             try:
                 instance = resource_instances.get(clazz.__name__)
@@ -279,12 +287,14 @@ def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_secu
                 payload = _extract_dict_from_payload(request_data)
                 if '_type' in payload:
                     mdl = Model.load_and_or_convert_object(payload)
-                    result = executable_method(mdl,
-                                               **_autobox_parameters(executable_method, request_and_posted_arguments))
+                    boxed = _autobox_parameters(executable_method, request_and_posted_arguments)
+                    result = await executable_method(mdl, **boxed) if asyncio.iscoroutinefunction(executable_method) \
+                        else executable_method(mdl, **boxed)
                 else:
                     request_and_posted_arguments.update(payload)
-                    result = executable_method(
-                        **_autobox_parameters(executable_method, request_and_posted_arguments))
+                    boxed = _autobox_parameters(executable_method, request_and_posted_arguments)
+                    result = await executable_method(**boxed) if asyncio.iscoroutinefunction(executable_method) \
+                        else executable_method(**boxed)
                 result_dic_tentative = {} if result is None else _xvert(clazz, result)
                 return JSONResponse(content=result_dic_tentative, status_code=200)
             except Exception as exc:
@@ -314,18 +324,19 @@ def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_secu
 
 def _prepare_actions(cls: type, url_base: str, enable_security: bool = False, class_items: dict | None = None) -> None:
     def create_action_executor(function_name):
-        def action_executor(request_data=None, **named_args):
+        async def action_executor(request_data=None, **named_args):
             if 'object_id' not in named_args:
                 msg = 'The object_id property is required for this action to execute'
                 return create_custom_error(400, msg, cls.__name__)
             else:
                 try:
-                    instance = cls.find_by_id(named_args['object_id'])
+                    instance = await cls.find_by_id(named_args['object_id'])
                     executable_method = getattr(instance, function_name)
                     request_and_posted_arguments = _get_request_args(request_data)
                     request_and_posted_arguments.update(_extract_dict_from_payload(request_data))
-                    result = executable_method(
-                        **_autobox_parameters(executable_method, request_and_posted_arguments))
+                    boxed = _autobox_parameters(executable_method, request_and_posted_arguments)
+                    result = await executable_method(**boxed) if asyncio.iscoroutinefunction(executable_method) \
+                        else executable_method(**boxed)
                     result_dic_tentative = {} if result is None else _xvert(cls, result)
                     return JSONResponse(content=result_dic_tentative, status_code=200)
                 except ServiceException as sexc:
@@ -406,7 +417,7 @@ def _get_request_args(request_data=None):
 
 
 def _create_simple_wrapper_executor(cls, app_engine, provisioner_method):
-    def create_executor(request_data=None, *args, **named_args):
+    async def create_executor(request_data=None, *args, **named_args):
         try:
             result = provisioner_method(*args, **named_args)
             return JSONResponse(content=result, status_code=200)
@@ -428,7 +439,7 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
                                                                         types.FunctionType) and hasattr(
         provisioner_method, 'inner_function') else provisioner_method
 
-    def create_executor(request_data=None, **named_args):
+    async def create_executor(request_data=None, **named_args):
         try:
             return_code = 200
             named_and_request_arguments = _get_merged_request_and_named_args(named_args, request_data)
@@ -454,7 +465,7 @@ def _execute(cls, app_engine: AppKernelEngine, provisioner_method: Callable, mod
                 return_code = 201
             elif method == 'PATCH':
                 named_and_request_arguments.update(document=_extract_dict_from_payload(request_data))
-            result = provisioner_method(
+            result = await provisioner_method(
                 **_autobox_parameters(executable_method, named_and_request_arguments))
             if method in ['GET', 'PUT', 'PATCH']:
                 if result is None:

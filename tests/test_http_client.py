@@ -1,11 +1,9 @@
-import os
 import uuid
 
+import httpx
 import pytest
-import requests
-import requests_mock
+import respx
 from moneyed import Money
-from requests import Request
 
 from appkernel import Model
 from appkernel.http_client import HttpClientServiceProxy, RequestHandlingException
@@ -16,36 +14,10 @@ try:
 except ImportError:
     import json
 
-client = HttpClientServiceProxy('mock://test.com/')
-adapter = None
+pytestmark = pytest.mark.anyio
 
-
-# todo: test circuit breaker
-# todo: test retry, and timing
-
-
-def custom_matcher(request: Request, context):
-    if request.path_url == '/test':
-        resp = requests.Response()
-        resp.status_code = 200
-        return resp
-    return None
-
-
-def setup_module(module):
-    current_file_path = os.path.dirname(os.path.realpath(__file__))
-    print('\nModule: >> {} at {}'.format(module, current_file_path))
-    global adapter
-    adapter = requests_mock.Adapter()
-    # adapter.add_matcher(custom_matcher)
-    client.session.mount('mock', adapter)
-    # adapter.register_uri('POST', 'mock://test.com/additional', additional_matcher=match_request_text, text='resp')
-
-
-def setup_function(function):
-    """ executed before each method call
-    """
-    print('\n\nSETUP ==> ')
+BASE_URL = 'http://test.com'
+client = HttpClientServiceProxy(f'{BASE_URL}/')
 
 
 def create_order() -> Order:
@@ -74,45 +46,50 @@ def create_not_found_result() -> dict:
     }
 
 
-def test_simple_get():
-    adapter.register_uri('GET', 'mock://test.com/test', text='data')
-    code, response = client.wrap('/test').get(payload='payload')
+@respx.mock
+async def test_simple_get():
+    respx.get(f'{BASE_URL}/test').mock(return_value=httpx.Response(200, text='data'))
+    code, response = await client.wrap('/test').get(payload='payload')
     print(f'-> {code}/{response}')
     assert code == 200
     assert response.get('result') == 'data'
 
 
-def test_simple_get_timeout():
-    adapter.register_uri('GET', 'mock://test.com/timeout', exc=requests.exceptions.ConnectTimeout)
-    with pytest.raises(RequestHandlingException) as rhe:
-        code, response = client.wrap('/timeout').get(payload='payload')
-        print(f'-> {code}/{response}')
+@respx.mock
+async def test_simple_get_timeout():
+    respx.get(f'{BASE_URL}/timeout').mock(side_effect=httpx.ConnectTimeout('timeout'))
+    with pytest.raises(RequestHandlingException):
+        await client.wrap('/timeout').get(payload='payload')
 
 
-def test_simple_post():
-    adapter.register_uri('POST', 'mock://test.com/payments/authorise', status_code=201)
-    code, response = client.wrap('/payments/authorise').post(payload='payload')
+@respx.mock
+async def test_simple_post():
+    respx.post(f'{BASE_URL}/payments/authorise').mock(return_value=httpx.Response(201))
+    code, response = await client.wrap('/payments/authorise').post(payload='payload')
     print(f'-> {code}/{response}')
     assert code == 201
 
 
-def test_simple_patch():
-    adapter.register_uri('PATCH', 'mock://test.com/payments/authorise', status_code=200)
-    code, response = client.wrap('/payments/authorise').patch(payload={'id': 'xxxyyy'})
+@respx.mock
+async def test_simple_patch():
+    respx.patch(f'{BASE_URL}/payments/authorise').mock(return_value=httpx.Response(200))
+    code, response = await client.wrap('/payments/authorise').patch(payload='{"id": "xxxyyy"}')
     print(f'-> {code}/{response}')
     assert code == 200
 
 
-def test_simple_delete():
-    adapter.register_uri('DELETE', 'mock://test.com/payments/authorise/12345', status_code=200)
-    code, response = client.wrap('/payments/authorise/12345').delete()
+@respx.mock
+async def test_simple_delete():
+    respx.delete(f'{BASE_URL}/payments/authorise/12345').mock(return_value=httpx.Response(200))
+    code, response = await client.wrap('/payments/authorise/12345').delete()
     print(f'-> {code}/{response}')
     assert code == 200
 
 
-def test_service_get():
-    adapter.register_uri('GET', 'mock://test.com/orders/12345', status_code=200, text=create_order().dumps())
-    rsp_code, rcvd_order = client.orders.get(path_extension='12345')
+@respx.mock
+async def test_service_get():
+    respx.get(f'{BASE_URL}/orders/12345').mock(return_value=httpx.Response(200, text=create_order().dumps()))
+    rsp_code, rcvd_order = await client.orders.get(path_extension='12345')
     print(f' received order {rsp_code} >>> {rcvd_order.dumps(pretty_print=True)}')
     assert hasattr(rcvd_order, 'delivery_address')
     assert hasattr(rcvd_order, 'payment_method')
@@ -120,41 +97,46 @@ def test_service_get():
     assert len(rcvd_order.products) > 0
 
 
-def test_service_post():
-    adapter.register_uri('POST', 'mock://test.com/orders/', status_code=200, json=create_operation_result())
-    rsp_code, payload = client.orders.post(create_order())
+@respx.mock
+async def test_service_post():
+    respx.post(f'{BASE_URL}/orders/').mock(return_value=httpx.Response(200, json=create_operation_result()))
+    rsp_code, payload = await client.orders.post(create_order())
     print(f' received order {rsp_code} >>> {payload}')
     assert '_type' in payload
     assert payload.get('_type') == 'OperationResult'
 
 
-def test_patch():
-    adapter.register_uri('PATCH', 'mock://test.com/orders/12345', status_code=200, text=create_order().dumps())
-    rsp_code, order = client.orders.patch(create_operation_result(), path_extension='12345')
+@respx.mock
+async def test_patch():
+    respx.patch(f'{BASE_URL}/orders/12345').mock(return_value=httpx.Response(200, text=create_order().dumps()))
+    rsp_code, order = await client.orders.patch(create_operation_result(), path_extension='12345')
     print(f' received order {rsp_code} >>> {order.dumps(pretty_print=True)}')
     assert hasattr(order, 'delivery_address')
     assert hasattr(order, 'payment_method')
     assert '_type' in Model.to_dict(order)
 
 
-def test_put():
-    adapter.register_uri('PUT', 'mock://test.com/orders/12345', status_code=200, text=create_order().dumps())
-    rsp_code, order = client.orders.put(create_operation_result(), path_extension='12345')
+@respx.mock
+async def test_put():
+    respx.put(f'{BASE_URL}/orders/12345').mock(return_value=httpx.Response(200, text=create_order().dumps()))
+    rsp_code, order = await client.orders.put(create_operation_result(), path_extension='12345')
     print(f' received order {rsp_code} >>> {order.dumps(pretty_print=True)}')
     assert hasattr(order, 'delivery_address')
     assert hasattr(order, 'payment_method')
     assert '_type' in Model.to_dict(order)
 
 
-def test_delete():
-    adapter.register_uri('DELETE', 'mock://test.com/orders/12345', status_code=200, json=create_delete_result())
-    rsp_code, payload = client.orders.delete(path_extension='12345')
+@respx.mock
+async def test_delete():
+    respx.delete(f'{BASE_URL}/orders/12345').mock(return_value=httpx.Response(200, json=create_delete_result()))
+    rsp_code, payload = await client.orders.delete(path_extension='12345')
     assert '_type' in payload
     assert payload.get('_type') == 'OperationResult'
     assert payload.get('result') == 1
 
 
-def test_delete_not_found():
-    adapter.register_uri('DELETE', 'mock://test.com/orders/12345', status_code=404, json=create_not_found_result())
+@respx.mock
+async def test_delete_not_found():
+    respx.delete(f'{BASE_URL}/orders/12345').mock(return_value=httpx.Response(404, json=create_not_found_result()))
     with pytest.raises(RequestHandlingException):
-        rsp_code, payload = client.orders.delete(path_extension='12345')
+        await client.orders.delete(path_extension='12345')

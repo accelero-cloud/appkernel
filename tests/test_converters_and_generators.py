@@ -1,21 +1,20 @@
 from datetime import datetime
 
-from pymongo import MongoClient
-
+from motor.motor_asyncio import AsyncIOMotorClient
 from appkernel.configuration import config
-from tests.utils import User, create_and_save_a_user, Task
+from tests.utils import User, create_and_save_a_user, Task, run_async
 
 
 def setup_module(module):
-    config.mongo_database = MongoClient(host='localhost')['appkernel']
+    config.mongo_database = AsyncIOMotorClient(host='localhost')['appkernel']
 
 
 def setup_function(function):
     """ executed before each method call
     """
     print('\n\nSETUP ==> ')
-    User.delete_all()
-    Task.delete_all()
+    run_async(User.delete_all())
+    run_async(Task.delete_all())
 
 
 def test_generator():
@@ -28,17 +27,17 @@ def test_generator():
 
 
 def test_converter():
-    user = create_and_save_a_user('test user', 'test password', 'test description')
+    user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
     print('\n{}'.format(user.dumps(pretty_print=True)))
     assert user.password.startswith('$2b$')
     hash1 = user.password
-    user.save()
+    run_async(user.save())
     assert user.password.startswith('$2b$')
     assert hash1 == user.password
 
 
 def test_unix_time_marshaller():
-    user = create_and_save_a_user('test user', 'test password', 'test description')
+    user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
     user.last_login = datetime.now()
     user.finalise_and_validate()
     print('\n\n')

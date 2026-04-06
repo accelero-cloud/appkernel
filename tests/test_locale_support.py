@@ -3,7 +3,7 @@ import os
 import pytest
 from starlette.testclient import TestClient
 from appkernel import extract_model_messages, AppKernelEngine
-from tests.utils import User
+from tests.utils import User, run_async
 
 try:
     import simplejson as json
@@ -30,7 +30,7 @@ def setup_function(function):
     """ executed before each method call
     """
     print('\n\nSETUP ==> ')
-    User.delete_all()
+    run_async(User.delete_all())
 
 
 def test_custom_message_xtractor():

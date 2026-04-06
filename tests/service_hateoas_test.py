@@ -1,7 +1,8 @@
 from starlette.testclient import TestClient
 from appkernel import AppKernelEngine
 import pytest
-from .utils import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max
+from .utils import User, create_and_save_some_users, create_and_save_a_user, create_and_save_john_jane_and_max, \
+    run_async
 import os
 import bcrypt
 
@@ -30,12 +31,12 @@ def setup_function(function):
     """ executed before each method call
     """
     print('\n\nSETUP ==> ')
-    User.delete_all()
+    run_async(User.delete_all())
 
 
 def test_working_action(client):
     print('\n> links >{}'.format(User.actions))
-    user = create_and_save_a_user('test user', 'test password', 'test description')
+    user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
     rsp = client.get('/users/{}'.format(user.id))
     print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.content))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
@@ -62,12 +63,12 @@ def test_working_action(client):
     assert rsp.status_code == 200, 'the status code is expected to be 200'
     result = rsp.json()
     assert 'password' not in result
-    stored_hash = User.find_by_id(result.get('id')).password
+    stored_hash = run_async(User.find_by_id(result.get('id'))).password
     assert bcrypt.checkpw(newpass.encode('utf-8'), stored_hash.encode('utf-8'))
 
 
 def test_failing_action(client):
-    user = create_and_save_a_user('test user', 'test password', 'test description')
+    user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
     rsp = client.get('/users/{}'.format(user.id))
     print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.text))
     assert rsp.status_code == 200, 'the status code is expected to be 200'
@@ -86,7 +87,7 @@ def test_failing_action(client):
 
 
 def test_getter_action(client):
-    user = create_and_save_a_user('test user', 'test password', 'test description')
+    user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
     rsp = client.get('/users/{}'.format(user.id))
     print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.text))
     assert rsp.status_code == 200, 'the status code is expected to be 200'

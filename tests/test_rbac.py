@@ -4,7 +4,7 @@ import pytest
 from starlette.testclient import TestClient
 from appkernel import AppKernelEngine, Role
 from appkernel.authorisation import check_token
-from tests.utils import User, create_and_save_a_user, PaymentService
+from tests.utils import User, create_and_save_a_user, PaymentService, run_async
 
 try:
     import simplejson as json
@@ -37,7 +37,7 @@ def setup_function(function):
     kernel = AppKernelEngine('test_app', cfg_dir='{}/../'.format(current_file_path()), development=True)
     kernel.enable_security()
     kernel.register(payment_service).require(Role('admin'), methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
-    User.delete_all()
+    run_async(User.delete_all())
 
 
 def teardown_function(function):
@@ -48,7 +48,7 @@ def teardown_function(function):
 
 
 def test_create_token():
-    user = create_and_save_a_user('test user', 'test password', 'test description')
+    user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
     print(('\n{}'.format(user.dumps(pretty_print=True))))
     token = user.auth_token
     print(('token: {}'.format(token)))
@@ -58,7 +58,7 @@ def test_create_token():
 
 def create_basic_user():
     u = User().update(name='some_user', password='some_pass')
-    u.save()
+    run_async(u.save())
     return u
 
 
@@ -161,7 +161,7 @@ def test_auth_decorated_link_good_token_correct_authority(client):
 def test_auth_decorated_link_good_token_wrong_authority(client):
     user1 = default_config()
     user2 = User(name='second user', password='second-pass', roles=['user'])
-    user2.save()
+    run_async(user2.save())
     headers = {}
     headers['Authorization'] = 'Bearer {}'.format(user2.auth_token)
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
@@ -173,7 +173,7 @@ def test_auth_decorated_link_good_token_wrong_authority(client):
 def test_auth_decorated_link_good_token_admin_role(client):
     user1 = default_config()
     user2 = User(name='second user', password='second-pass', roles=['user', 'admin'])
-    user2.save()
+    run_async(user2.save())
     headers = {}
     headers['Authorization'] = 'Bearer {}'.format(user2.auth_token)
     post_data = json.dumps({'current_password': 'some_pass', 'new_password': 'newpass'})
@@ -191,7 +191,7 @@ def test_auth_decorated_link_good_token_admin_role(client):
 def test_auth_explicit_anonymous(client):
     user = default_config()
     user.description = 'A dummy user'
-    user.save()
+    run_async(user.save())
     headers = {}
     rsp = client.get('/users/{}/get_description'.format(user.id), headers=headers)
     print('\nResponse: {} -> {}'.format(rsp.status_code, rsp.text))

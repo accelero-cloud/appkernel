@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+import json as _json
+from typing import Any
 
-import requests
+import httpx
 
 from appkernel import Model, AppKernelException
 from appkernel.core import MessageType
@@ -20,9 +21,9 @@ class RequestWrapper:
 
     # todo: timeout, retry, request timing,
     # todo: post to unknown url brings to infinite time...
-    def __init__(self, url: str, session: requests.Session | None = None) -> None:
+    def __init__(self, url: str) -> None:
         self.url = url
-        self.session = session if session else requests.Session()
+        self.client = httpx.AsyncClient()
 
     @staticmethod
     def get_headers(auth_header: str | None = None, accept_language: str | None = 'en') -> dict[str, str]:
@@ -38,14 +39,15 @@ class RequestWrapper:
         headers['Accept-Language'] = accept_language or 'en'
         return headers
 
-    def __execute(self, func: Any, **kwargs: Any) -> tuple[int, Any]:
+    async def __execute(self, method: str, **kwargs: Any) -> tuple[int, Any]:
         try:
             path_ext = kwargs.pop('path_extension')
             if path_ext:
                 endpoint_url = f'{self.url.rstrip("/")}/{path_ext.lstrip("/")}'
             else:
                 endpoint_url = self.url
-            response = func(endpoint_url, **kwargs)
+            async with httpx.AsyncClient() as client:
+                response = await client.request(method, endpoint_url, **kwargs)
             if 200 <= response.status_code <= 299:
                 try:
                     response_object = response.json()
@@ -70,64 +72,68 @@ class RequestWrapper:
             else:
                 raise RequestHandlingException(response.status_code, 'Error while calling service.')
 
-    def post(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
-        data_content = payload.dumps() if isinstance(payload, Model) else payload
-        return self.__execute(self.session.post,
-                              path_extension=path_extension,
-                              data=data_content,
-                              stream=stream,
-                              headers=self.get_headers(),
-                              timeout=timeout, allow_redirects=True)
+    @staticmethod
+    def _serialize(payload: Any) -> str | None:
+        if payload is None:
+            return None
+        if isinstance(payload, Model):
+            return payload.dumps()
+        if isinstance(payload, dict):
+            return _json.dumps(payload)
+        return payload
 
-    def get(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
-        data_content = payload.dumps() if isinstance(payload, Model) else payload
-        return self.__execute(self.session.get,
-                              path_extension=path_extension,
-                              data=data_content,
-                              stream=stream,
-                              headers=self.get_headers(),
-                              timeout=timeout, allow_redirects=True)
+    async def post(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
+        return await self.__execute('POST',
+                                    path_extension=path_extension,
+                                    content=self._serialize(payload),
+                                    headers=self.get_headers(),
+                                    timeout=timeout,
+                                    follow_redirects=True)
 
-    def put(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
-        data_content = payload.dumps() if isinstance(payload, Model) else payload
-        return self.__execute(self.session.put,
-                              path_extension=path_extension,
-                              data=data_content,
-                              stream=stream,
-                              headers=self.get_headers(),
-                              timeout=timeout, allow_redirects=True)
+    async def get(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
+        return await self.__execute('GET',
+                                    path_extension=path_extension,
+                                    content=self._serialize(payload),
+                                    headers=self.get_headers(),
+                                    timeout=timeout,
+                                    follow_redirects=True)
 
-    def patch(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
-        data_content = payload.dumps() if isinstance(payload, Model) else payload
-        return self.__execute(self.session.patch,
-                              path_extension=path_extension,
-                              data=data_content,
-                              stream=stream,
-                              headers=self.get_headers(),
-                              timeout=timeout, allow_redirects=True)
+    async def put(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
+        return await self.__execute('PUT',
+                                    path_extension=path_extension,
+                                    content=self._serialize(payload),
+                                    headers=self.get_headers(),
+                                    timeout=timeout,
+                                    follow_redirects=True)
 
-    def delete(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
-        data_content = payload.dumps() if isinstance(payload, Model) else payload
-        return self.__execute(self.session.delete,
-                              path_extension=path_extension,
-                              data=data_content,
-                              stream=stream,
-                              headers=self.get_headers(),
-                              timeout=timeout, allow_redirects=True)
+    async def patch(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
+        return await self.__execute('PATCH',
+                                    path_extension=path_extension,
+                                    content=self._serialize(payload),
+                                    headers=self.get_headers(),
+                                    timeout=timeout,
+                                    follow_redirects=True)
+
+    async def delete(self, payload: Any = None, path_extension: str | None = None, stream: bool = False, timeout: int = 3) -> tuple[int, Any]:
+        return await self.__execute('DELETE',
+                                    path_extension=path_extension,
+                                    content=self._serialize(payload),
+                                    headers=self.get_headers(),
+                                    timeout=timeout,
+                                    follow_redirects=True)
 
 
 class HttpClientServiceProxy:
 
     def __init__(self, root_url: str) -> None:
         self.root_url = root_url.rstrip('/')
-        self.session = requests.Session()
 
     def wrap(self, resource_path: str) -> RequestWrapper:
-        return RequestWrapper(f'{self.root_url}/{resource_path.lstrip("/")}', session=self.session)
+        return RequestWrapper(f'{self.root_url}/{resource_path.lstrip("/")}')
 
     def __getattr__(self, item: str) -> RequestWrapper:
         if isinstance(item, str):
-            return RequestWrapper(f'{self.root_url}/{item}/', session=self.session)
+            return RequestWrapper(f'{self.root_url}/{item}/')
 
 
 class HttpClientFactory:

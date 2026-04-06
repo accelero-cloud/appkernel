@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-import atexit
 import getopt
 import inspect
 import logging
 import os
 import re
 import sys
+from collections.abc import Callable
+from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
-from collections.abc import Callable
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from fastapi import FastAPI, Request
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .authorisation import authorize_request
@@ -43,11 +43,9 @@ def get_option_value(option_dict: tuple[str, ...], opts: list[tuple[str, str]]) 
 
 
 def get_cmdline_options() -> dict[str, Any]:
-    # working dir is also available on: self.app.root_path
     argv = sys.argv[1:]
     opts, args = getopt.getopt(argv, 'c:dw:h:', ['config-dir=', 'development', 'working-dir=', 'db-host='])
     cwd = os.path.dirname(os.path.realpath(sys.argv[0]))
-    # -- config directory
     config_dir_param = get_option_value(('-c', '--config-dir'), opts)
 
     if config_dir_param:
@@ -59,7 +57,6 @@ def get_cmdline_options() -> dict[str, Any]:
     else:
         cfg_dir = None
 
-    # -- working directory
     working_dir_param = get_option_value(('-w', '--working-dir'), opts)
     if working_dir_param:
         cwd = os.path.expanduser(f'{str(config_dir_param).rstrip("/")}/')
@@ -95,22 +92,9 @@ class AppKernelEngine:
         development: bool = False,
         enable_defaults: bool = True,
     ) -> None:
-        """
-        Initialiser of AppKernel Engine.
-        :param app: the FastAPI App
-        :type app: FastAPI
-        :param root_url: the url where the services are exposed to.
-        :type root_url: str
-        :param log_level: the level of log
-        :param cfg_dir: the directory containing the cfg.yml file. If not provided it will be taken from the command line or from current working dir;
-        :param development: the system will be initialised in development mode if True. If None, it will try to read the value as command line parameter or default to false;
-        :type log_level: logging
-        """
         assert app_id is not None, 'The app_id must be provided'
         assert re.match('[A-Za-z0-9-_]',
                         app_id), 'The app_id must be a single word, no space or special characters except - or _ .'
-        self.app: FastAPI = app or FastAPI(title=app_id)
-        assert self.app is not None, 'The FastAPI App must be provided as init parameter.'
         self.logger = logging.getLogger(app_id)
         try:
             config.service_registry = {}
@@ -124,19 +108,38 @@ class AppKernelEngine:
             self.cfg_dir = cfg_dir or self.cmd_line_options.get('cfg_dir')
             self.cfg_engine = CfgEngine(self.cfg_dir, optional=enable_defaults)
             config.cfg_engine = self.cfg_engine
-            self.__init_locale()
-            self.__init_error_handlers()
             self.development = development or self.cmd_line_options.get('development')
             cwd = self.cmd_line_options.get('cwd')
             self.init_logger(log_folder=cwd, level=log_level)
-            atexit.register(self.shutdown_hook)
-            # -- database host
+
+            # MongoDB — AsyncIOMotorClient can be created without a running event loop
             db_host = self.cmd_line_options.get('db') or self.cfg_engine.get('appkernel.mongo.host', 'localhost')
             db_name = self.cfg_engine.get('appkernel.mongo.db', 'app')
-            self.mongo_client = MongoClient(host=db_host)
+            self.mongo_client = AsyncIOMotorClient(host=db_host)
             config.mongo_database = self.mongo_client[db_name]
+
+            # Wire the FastAPI app with lifespan for clean startup/shutdown
+            engine_ref = self
+
+            @asynccontextmanager
+            async def lifespan(fastapi_app: FastAPI):
+                engine_ref.logger.info(f'===== Starting {engine_ref.app_id} =====')
+                yield
+                # Shutdown: close Motor connection gracefully
+                if config and hasattr(config, 'mongo_database') and config.mongo_database is not None:
+                    try:
+                        engine_ref.mongo_client.close()
+                        engine_ref.logger.info('MongoDB connection closed.')
+                    except Exception:
+                        pass
+
+            self.app: FastAPI = app or FastAPI(title=app_id, lifespan=lifespan)
+            assert self.app is not None, 'The FastAPI App must be provided as init parameter.'
+
             config.app = self.app
             config.app_engine = self
+            self.__init_locale()
+            self.__init_error_handlers()
         except (AppInitialisationError, AssertionError) as init_err:
             self.logger.error(str(init_err))
             sys.exit(-1)
@@ -165,13 +168,11 @@ class AppKernelEngine:
 
         class SecurityMiddleware(BaseHTTPMiddleware):
             async def dispatch(self, request: Request, call_next: Callable) -> Response:
-                # Look up the endpoint from the URL path and method
                 path = request.url.path
                 method = request.method
                 lookup_key = f'{method}:{path}'
                 endpoint = config.url_to_endpoint.get(lookup_key)
 
-                # Try pattern matching for parameterized routes
                 view_args: dict[str, str] = {}
                 if not endpoint:
                     endpoint, view_args = _resolve_endpoint(method, path)
@@ -218,7 +219,6 @@ class AppKernelEngine:
 
         the_supported_languages = supported_languages
 
-        # Load translations if translations directory exists
         translations_dir: str | None = None
         if self.cfg_dir:
             for candidate_path in [
@@ -230,7 +230,6 @@ class AppKernelEngine:
                     translations_dir = candidate_path
                     break
 
-        # Try to load default (English) translations
         if translations_dir:
             try:
                 from babel.support import Translations
@@ -246,7 +245,6 @@ class AppKernelEngine:
         class LocaleMiddleware(BaseHTTPMiddleware):
             async def dispatch(self, request: Request, call_next: Callable) -> Response:
                 accept_language = request.headers.get('accept-language', 'en')
-                # Simple best-match: parse Accept-Language and pick the first supported
                 best = 'en'
                 for lang in _parse_accept_language(accept_language):
                     if lang in the_supported_languages:
@@ -258,7 +256,6 @@ class AppKernelEngine:
                         break
                 locale = best.replace('-', '_')
                 request.state.locale = locale
-                # Update translations for this request's locale
                 if translations_dir:
                     try:
                         from babel.support import Translations
@@ -293,13 +290,6 @@ class AppKernelEngine:
             self.logger.error('uvicorn is required to run the server. Install it with: pip install uvicorn')
             sys.exit(-1)
 
-    def shutdown_hook(self) -> None:
-        if config and hasattr(config, 'mongo_database') and config.mongo_database is not None:
-            try:
-                self.mongo_client.close()
-            except Exception:
-                pass
-
     def init_logger(self, log_folder: str, level: int = logging.DEBUG) -> None:
         assert log_folder is not None, 'The log folder must be provided.'
         if self.development:
@@ -321,12 +311,6 @@ class AppKernelEngine:
         self.logger.info('Logger initialised')
 
     def generic_error_handler(self, ex: Exception | None = None, upstream_service: str | None = None) -> Response:
-        """
-        Takes a generic exception and returns a json error message which will be returned to the client.
-        :param ex: the exception which is reported by this method
-        :param upstream_service: the service name which generated this error
-        :return:
-        """
         code = getattr(ex, 'status_code', getattr(ex, 'code', 500))
         if not isinstance(code, int):
             code = 500
@@ -342,12 +326,6 @@ class AppKernelEngine:
         return create_custom_error(code, msg, upstream_service=upstream_service)
 
     def teardown(self, exception: Exception | None) -> None:
-        """
-        context teardown based deallocation
-        :param exception:
-        :type exception: Exception
-        :return:
-        """
         if exception is not None:
             self.logger.warning(exception.message if hasattr(exception, 'message') else str(exception))
 
@@ -358,14 +336,6 @@ class AppKernelEngine:
         methods: list[str] | None = None,
         enable_hateoas: bool = True,
     ) -> ResourceController:
-        """
-        :param service_class_or_instance:
-        :param url_base:
-        :param methods:
-        :param enable_hateoas:
-        :return:
-        :rtype: Service
-        """
         methods = methods or ['GET']
         if inspect.isclass(service_class_or_instance):
             assert issubclass(service_class_or_instance, (
@@ -378,7 +348,6 @@ class AppKernelEngine:
 
 
 def _parse_accept_language(header_value: str) -> list[str]:
-    """Parse Accept-Language header and return list of languages sorted by quality."""
     if not header_value:
         return ['en']
     parts: list[tuple[str, float]] = []
@@ -402,16 +371,10 @@ def _parse_accept_language(header_value: str) -> list[str]:
 
 
 def _resolve_endpoint(method: str, path: str) -> tuple[str | None, dict[str, str]]:
-    """
-    Try to match a request path against registered URL patterns to find the endpoint.
-    This handles parameterized routes like /users/{object_id}.
-    Returns (endpoint, view_args) tuple.
-    """
     for pattern_key, endpoint in config.url_to_endpoint.items():
         stored_method, stored_path = pattern_key.split(':', 1)
         if stored_method != method:
             continue
-        # Convert FastAPI path pattern to regex with named groups
         regex_pattern = re.sub(r'\{(\w+)\}', r'(?P<\1>[^/]+)', stored_path)
         regex_pattern = f'^{regex_pattern}$'
         match = re.match(regex_pattern, path)

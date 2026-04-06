@@ -28,12 +28,12 @@ class User(Model, MongoRepository, IdentityMixin):
     sequence = Property(int, index=Index)
 
     @action(rel='change_password', method='POST', require=[CurrentSubject(), Role('admin')])
-    def change_p(self, current_password, new_password):
+    async def change_p(self, current_password, new_password):
         if not bcrypt.checkpw(current_password.encode('utf-8'), self.password.encode('utf-8')):
             raise ServiceException(403, _('Current password is not correct'))
         else:
             self.password = new_password
-            self.save()
+            await self.save()
         return _('Password changed')
 
     @action(require=Anonymous())
@@ -221,9 +221,9 @@ def create_a_portfolion_with_owner():
     return portfolio
 
 
-def create_and_save_portfolio_with_owner():
+async def create_and_save_portfolio_with_owner():
     portfolio = create_a_portfolion_with_owner()
-    portfolio.save()
+    await portfolio.save()
     return portfolio
 
 
@@ -289,40 +289,40 @@ def create_five_tasks(seed='A'):
     return tasks
 
 
-def create_and_save_a_project(project_name='Default project name', tasks=None):
+async def create_and_save_a_project(project_name='Default project name', tasks=None):
     p = Project(name=project_name).append_to(tasks=tasks)
-    p.save()
+    await p.save()
     return p
 
 
-def create_and_save_some_projects():
+async def create_and_save_some_projects():
     projects = []
     for i in range(0, 50):
-        p = create_and_save_a_project('Project {}'.format(i), tasks=create_five_tasks(seed='{}'.format(i)))
-        p.save()
+        p = await create_and_save_a_project('Project {}'.format(i), tasks=create_five_tasks(seed='{}'.format(i)))
+        await p.save()
         projects.append(p)
     return projects
 
 
-def create_and_save_a_user(name, password, description=None):
+async def create_and_save_a_user(name, password, description=None):
     u = User().update(name=name).update(password=password). \
         append_to(roles=['Admin', 'User', 'Operator']).update(description=description)
-    u.save()
+    await u.save()
     return u
 
 
-def create_and_save_a_user_with_no_roles(name, password, description=None):
+async def create_and_save_a_user_with_no_roles(name, password, description=None):
     u = User(name=name, password=password, description=description)
-    u.save()
+    await u.save()
     return u
 
 
-def create_and_save_some_users(urange=51):
+async def create_and_save_some_users(urange=51):
     for i in range(1, urange):
         u = User().update(name='multi_user_{}'.format(i)).update(password='some default password'). \
             append_to(roles=['Admin', 'User', 'Operator']).update(description='some description').update(sequence=i)
-        u.save()
-    assert User.count() == urange - 1
+        await u.save()
+    assert await User.count() == urange - 1
 
 
 def create_user_batch(urange=51):
@@ -335,12 +335,17 @@ def create_user_batch(urange=51):
     return users
 
 
-def create_and_save_john_jane_and_max():
-    # type: () -> (User, User, User)
-    john = create_and_save_a_user('John', 'a password', 'John is a random guy')
-    jane = create_and_save_a_user('Jane', 'a password', 'Jane is a random girl')
-    maxx = create_and_save_a_user('Max', 'a password', 'Jane is a random girl')
+async def create_and_save_john_jane_and_max():
+    john = await create_and_save_a_user('John', 'a password', 'John is a random guy')
+    jane = await create_and_save_a_user('Jane', 'a password', 'Jane is a random girl')
+    maxx = await create_and_save_a_user('Max', 'a password', 'Jane is a random girl')
     return john, jane, maxx
+
+
+def run_async(coro):
+    """Run an async coroutine synchronously. Use in sync test contexts (setup_function, sync test bodies)."""
+    import asyncio
+    return asyncio.run(coro)
 
 
 def check_portfolio(portfolio):

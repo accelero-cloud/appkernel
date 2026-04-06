@@ -1,6 +1,6 @@
 import json
 from decimal import Decimal
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 from appkernel import PropertyRequiredException
 from appkernel.configuration import config
 from appkernel.repository import mongo_type_converter_to_dict, mongo_type_converter_from_dict
@@ -10,15 +10,15 @@ from jsonschema import validate
 
 
 def setup_module(module):
-    config.mongo_database = MongoClient(host='localhost')['appkernel']
+    config.mongo_database = AsyncIOMotorClient(host='localhost')['appkernel']
 
 
 def setup_function(function):
     """ executed before each method call
     """
     print('\n\nSETUP ==> ')
-    Project.delete_all()
-    User.delete_all()
+    run_async(Project.delete_all())
+    run_async(User.delete_all())
 
 
 def test_required_field():
@@ -93,11 +93,11 @@ def test_generator():
 
 
 def test_converter():
-    user = create_and_save_a_user('test user', 'test password', 'test description')
+    user = run_async(create_and_save_a_user('test user', 'test password', 'test description'))
     print(('\n{}'.format(user.dumps(pretty_print=True))))
     assert user.password.startswith('$2b$')
     hash1 = user.password
-    user.save()
+    run_async(user.save())
     assert user.password.startswith('$2b$')
     assert hash1 == user.password
 
