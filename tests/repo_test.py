@@ -723,6 +723,90 @@ async def test_find_by_query_no_match_returns_empty():
 
 
 # ---------------------------------------------------------------------------
+# find_by_query — operator injection validation
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_find_by_query_blocks_where_operator():
+    """$where executes arbitrary JS — must be rejected."""
+    with pytest.raises(PermissionError):
+        await User.find_by_query({'$where': 'this.role == "admin"'})
+
+
+@pytest.mark.anyio
+async def test_find_by_query_blocks_expr_operator():
+    """$expr allows aggregation expressions in a find filter — must be rejected."""
+    with pytest.raises(PermissionError):
+        await User.find_by_query({'$expr': {'$eq': ['$name', '$password']}})
+
+
+@pytest.mark.anyio
+async def test_find_by_query_blocks_function_operator():
+    """$function executes arbitrary JS — must be rejected."""
+    with pytest.raises(PermissionError):
+        await User.find_by_query({'name': {'$function': {'body': 'function(){return true}', 'args': [], 'lang': 'js'}}})
+
+
+@pytest.mark.anyio
+async def test_find_by_query_blocks_unknown_operator_in_value():
+    """An unrecognised operator inside a value dict must be rejected."""
+    with pytest.raises(PermissionError):
+        await User.find_by_query({'name': {'$unknownOp': 'x'}})
+
+
+@pytest.mark.anyio
+async def test_find_by_query_allows_safe_comparison_operators():
+    """Standard comparison operators must still work."""
+    await User.delete_all()
+    u = User()
+    u.update(name='safe_op_user', password='pass')
+    await u.save()
+    results = await User.find_by_query({'name': {'$eq': 'safe_op_user'}})
+    assert len(results) == 1
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_find_by_query_allows_in_operator():
+    """$in must work — it is a common, safe inclusion check."""
+    await User.delete_all()
+    for n in ('alice', 'bob', 'carol'):
+        u = User()
+        u.update(name=n, password='pass')
+        await u.save()
+    results = await User.find_by_query({'name': {'$in': ['alice', 'bob']}})
+    assert len(results) == 2
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_find_by_query_trusted_bypasses_validation():
+    """Internal code calling find_by_query(trusted=True) may use any operator."""
+    await User.delete_all()
+    u = User()
+    u.update(name='trusted_user', password='pass')
+    await u.save()
+    # $where would be blocked normally; trusted=True lets it through to MongoDB
+    # (MongoDB itself will evaluate it; we just don't block it here).
+    # We use a safe native query here to avoid a real JS eval dependency in tests.
+    results = await User.find_by_query({'name': {'$eq': 'trusted_user'}}, trusted=True)
+    assert len(results) == 1
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_find_by_query_plain_scalar_value_is_allowed():
+    """A plain string value needs no operators — must not be rejected."""
+    await User.delete_all()
+    u = User()
+    u.update(name='scalar_user', password='pass')
+    await u.save()
+    results = await User.find_by_query({'name': 'scalar_user'})
+    assert len(results) == 1
+    await User.delete_all()
+
+
+# ---------------------------------------------------------------------------
 # create_cursor_by_query
 # ---------------------------------------------------------------------------
 

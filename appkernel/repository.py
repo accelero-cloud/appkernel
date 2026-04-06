@@ -25,6 +25,75 @@ from .fields import (
     get_field_index,
 )
 
+# ---------------------------------------------------------------------------
+# Query validation (find_by_query operator injection defence)
+# ---------------------------------------------------------------------------
+
+# Operators permitted in value-level dicts for untrusted callers.
+# Excludes $where, $expr, $function, $accumulator and any unknown operator.
+_ALLOWED_QUERY_OPERATORS: frozenset[str] = frozenset({
+    '$eq', '$ne', '$gt', '$gte', '$lt', '$lte',
+    '$in', '$nin', '$exists', '$type',
+    '$regex', '$options',
+    '$not', '$and', '$or', '$nor',
+    '$all', '$elemMatch', '$size',
+    '$mod', '$bitsAllClear', '$bitsAllSet', '$bitsAnyClear', '$bitsAnySet',
+})
+
+# Top-level and value-level operators that are unconditionally blocked because
+# they execute server-side code or allow unintended cross-collection access.
+_ALWAYS_BLOCKED_QUERY_OPERATORS: frozenset[str] = frozenset({
+    '$where', '$expr', '$function', '$accumulator',
+})
+
+
+def validate_query(query: dict[str, Any], trusted: bool = False) -> None:
+    """Validate a find() filter dict before passing it to MongoDB.
+
+    Blocks operators that execute server-side code or expose data beyond the
+    queried collection. Safe comparison operators are allowed.
+
+    Args:
+        query: The filter dict to validate.
+        trusted: When True (internal application code), only unconditionally
+            blocked operators are rejected. When False (HTTP / untrusted
+            callers), only operators in ``_ALLOWED_QUERY_OPERATORS`` are
+            permitted.
+
+    Raises:
+        PermissionError: If a forbidden or unrecognised operator is present.
+    """
+    if not query:
+        return
+    _validate_query_node(query, trusted=trusted)
+
+
+def _validate_query_node(node: Any, trusted: bool) -> None:
+    """Recursively validate a query node (dict, list, or scalar)."""
+    if isinstance(node, list):
+        for item in node:
+            _validate_query_node(item, trusted)
+        return
+    if not isinstance(node, dict):
+        return  # scalar value — safe
+    for key, value in node.items():
+        if key.startswith('$'):
+            if key in _ALWAYS_BLOCKED_QUERY_OPERATORS:
+                raise PermissionError(
+                    f"Query operator '{key}' is not permitted."
+                )
+            if not trusted and key not in _ALLOWED_QUERY_OPERATORS:
+                raise PermissionError(
+                    f"Query operator '{key}' is not permitted. "
+                    "Use a trusted internal call for advanced queries."
+                )
+        _validate_query_node(value, trusted)
+
+
+# ---------------------------------------------------------------------------
+# Aggregation pipeline validation
+# ---------------------------------------------------------------------------
+
 # Stages permitted when aggregate() is called from HTTP (untrusted callers).
 # All cross-collection, write, and JS-execution stages are excluded.
 _HTTP_ALLOWED_STAGES: frozenset[str] = frozenset({
@@ -290,6 +359,7 @@ class Repository:
         page_size: int = 50,
         sort_by: str | None = None,
         sort_order: SortOrder = SortOrder.ASC,
+        trusted: bool = False,
         **kwargs: Any,
     ) -> list[Model]:
         raise NotImplementedError('abstract method')
@@ -528,8 +598,10 @@ class MongoRepository(Repository):
         page_size: int = 50,
         sort_by: str | None = None,
         sort_order: SortOrder = SortOrder.ASC,
+        trusted: bool = False,
         **kwargs: Any,
     ) -> list[Model]:
+        validate_query(query, trusted=trusted)
         cursor = cls.get_collection().find(query).skip((page - 1) * page_size).limit(page_size)
         if sort_by:
             py_direction = pymongo.ASCENDING if sort_order == SortOrder.ASC else pymongo.DESCENDING

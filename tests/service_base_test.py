@@ -411,6 +411,36 @@ def test_find_by_query_expression_wrong_query_format(client):
     assert rsp.json().get('_type') == "ErrorMessage"
 
 
+def test_find_by_query_where_injection_blocked_via_http(client):
+    """`$where` injected via the query param must return 403."""
+    rsp = client.get('/users/?query={"$where":"this.role==\'admin\'"}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_find_by_query_expr_injection_blocked_via_http(client):
+    """`$expr` injected via the query param must return 403."""
+    rsp = client.get('/users/?query={"$expr":{"$eq":["$name","$password"]}}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_find_by_query_unknown_operator_blocked_via_http(client):
+    """An unknown operator in a value dict must return 403."""
+    rsp = client.get('/users/?query={"name":{"$unknownOp":"x"}}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 403
+
+
+def test_find_by_query_safe_operators_still_work_via_http(client):
+    """Safe operators ($or with plain field matches) must still return 200."""
+    run_async(create_and_save_john_jane_and_max())
+    rsp = client.get('/users/?query={"$or":[{"name":"John"}, {"name":"Jane"}]}')
+    print(f'\nResponse: {rsp.status_code} -> {rsp.content}')
+    assert rsp.status_code == 200
+    assert len(rsp.json().get('_items')) == 2
+
+
 def test_run_aggregation_pipeline(client):
     run_async(create_and_save_john_jane_and_max())
     rsp = client.get('/users/aggregate/?pipe=[{"$match":{"name": "Jane"}}]')
