@@ -1,31 +1,34 @@
-How does it works?
-------------------
+How does it work?
+-----------------
 
 Base Model
 ..........
 
-AppKernel is built around the concepts of Domain Driven Design. You can start the project by laying out the model (the Entity).
+AppKernel is built around Domain-Driven Design. You start a project by laying out the domain model (the Entity).
 
 .. note::
-    All the example code below was tested in Python's interactive console so that you can follow this documentation by trying out the code snippets.
-    A pre-requisite is a working Mongodb (at least version 3.6.4 to enjoy all the features) and preferably an activated virtual-environment with the
-    appkernel and its dependencies installed;
+    All example code below can be followed in Python's interactive console.
+    Prerequisites: MongoDB 4.0+ running on localhost and AppKernel installed in a virtual environment
+    (``pip install appkernel``).
 
-The Model class represents the data in our application and stands at the heart of the architecture. As a first step we define
-the *Properties* (fields) of our new domain model object as static class variable. ::
+The :class:`Model` class represents the data in your application. Fields are declared as class-level
+type annotations. All fields default to ``None`` — validation runs later, explicitly via
+``finalise_and_validate()`` or implicitly when calling ``save()`` or ``dumps()``::
+
+    from typing import Annotated
+    from appkernel import Model
 
     class User(Model):
-        id = Property(str)
-        name = Property(str)
-        email = Property(str)
-        password = Property(str)
-        roles = Property(list, sub_type=str)
+        id: str | None = None
+        name: str | None = None
+        email: str | None = None
+        password: str | None = None
+        roles: list[str] | None = None
 
-
-By this time we've got for free a keyword argument constructor (__init__ method), a  json and dict representation of the class: ::
+You get a keyword-argument constructor, JSON serialisation, and a readable string representation for free::
 
     u = User(name='some name', email='some name')
-    u.password='some pass'
+    u.password = 'some pass'
 
     str(u)
     '<User> {"email": "some name", "name": "some name", "password": "some pass"}'
@@ -33,43 +36,41 @@ By this time we've got for free a keyword argument constructor (__init__ method)
     u.dumps()
     '{"email": "some name", "name": "some name", "password": "some pass"}'
 
-Or in case we want a pretty printed Json we can do: ::
+Or with pretty-printing::
 
     print(u.dumps(pretty_print=True))
     {
         "email": "some name",
         "name": "some name",
         "password": "some pass"
-    }'
+    }
 
+Now let's add validation rules and a default value::
 
-As a next step we can add some validation rules and a few default values, just to make life a bit easier: ::
+    from appkernel import Required, Default, Validators, Email
 
     class User(Model):
-        id = Property(str)
-        name = Property(str, required=True)
-        email = Property(str, validators=[Email])
-        password = Property(str, required=True)
-        roles = Property(list, sub_type=str, default_value=['Login'])
+        id: str | None = None
+        name: Annotated[str | None, Required()] = None
+        email: Annotated[str | None, Validators(Email)] = None
+        password: Annotated[str | None, Required()] = None
+        roles: Annotated[list[str] | None, Default(['Login'])] = None
 
-And let's try to list the properties again: ::
+Trying to serialise with an invalid e-mail::
 
-    u = User(name='some name', email='some name')
-    str(u)
-    '<User> {"email": "some name", "name": "some name"}'
+    u = User(name='some name', email='not-an-email')
     u.dumps()
-    ValidationException: REGEXP on type str - The property email cannot be validated against (?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[-!#-[]-]|\[--])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[-!-ZS-]|\[--])+)\])
+    ValidationException: REGEXP on type str - The property email cannot be validated ...
 
-Whoops... that's quite a big fat error message with a long regular expression :P ...but wait a minute, that's desired behaviour since we didn't provided a proper e-mail address.
-Let's try it again: ::
+That's expected — 'not-an-email' is not a valid address. Let's fix it::
 
-    u.email='user@acme.com'
+    u.email = 'user@acme.com'
     u.dumps()
     PropertyRequiredException: The property [password] on class [User] is required.
 
-Yeah, that's expected too, since we missed the required password. Final round: ::
+Also expected — the required password is missing. Final attempt::
 
-    u.password='some pass'
+    u.password = 'some pass'
     print(u.dumps(pretty_print=True))
     {
         "email": "user@acme.com",
@@ -80,35 +81,30 @@ Yeah, that's expected too, since we missed the required password. Final round: :
         ]
     }
 
+The ``Default(['Login'])`` marker on the ``roles`` field populated it automatically.
 
-Observe how the default value on the *roles* property is added automagically :)
-
-So far so good, but what if I just want to validate the class in my business logic,
-without generating json? Despair not my friend, there's a handy method for it as well: ::
+To validate a model without serialising it::
 
     u.finalise_and_validate()
 
-Ohh, that looks nice... but wait a minute, why it is called finalise and validate, why not just validate?
+``finalise_and_validate()`` does more than validate — it also runs *generators* and *converters*:
 
-Well, because we have thought that there are few more use-cases beyond validation and default value generation.
-We thought it makes sense to add some finalisation methods called *generators* and *value converters*, where:
+- a **generator** produces a value for a field when it is ``None`` (e.g. UUID, current timestamp);
+- a **converter** transforms an existing value (e.g. hashing a password, normalising text);
 
-- a generator will generate some value upon the finalisation of the object (eg. custom IDs or instance creation dates)
-- the converters will convert already existing values to something else (eg. passwords are hashed, date-times are converted back and forth to/from UNIX time, etc.)
+Let's add both::
 
-Let's add a bit more magic to the mix :) ::
+    from appkernel import Generator, Converter, create_uuid_generator, content_hasher
 
     class User(Model):
-        id = Property(str, generator=create_uuid_generator('U'))
-        name = Property(str, required=True)
-        email = Property(str, validators=[Email])
-        password = Property(str, required=True, converter=content_hasher())
-        roles = Property(list, sub_type=str, default_value=['Login'])
+        id: Annotated[str | None, Generator(create_uuid_generator('U'))] = None
+        name: Annotated[str | None, Required()] = None
+        email: Annotated[str | None, Validators(Email)] = None
+        password: Annotated[str | None, Required(), Converter(content_hasher())] = None
+        roles: Annotated[list[str] | None, Default(['Login'])] = None
 
     u = User(name='some name', email='user@acme.com', password='some pass')
     print(u.dumps(pretty_print=True))
-
-... generating the following output: ::
 
     {
         "email": "user@acme.com",
@@ -120,108 +116,96 @@ Let's add a bit more magic to the mix :) ::
         ]
     }
 
-whoaaa.. what happened here:
+Two things happened:
 
-- the **id** field got autogenerated and whenever we will receive a sample json we will know that describes a User model object, since the ID starts with 'U';
-- more interesting is the change happened to the **password** property: it was hashed, so it is all secured :)
+- the **id** was auto-generated and prefixed with 'U', making it immediately identifiable as a User;
+- the **password** was hashed, so it is stored securely;
 
 
 Service classes
 ...............
 
-Now that we have our beautiful data encapsulating Model classes, let's do something useful with them (such as save in the database or expose them as REST services).
+Once you have your model, you can persist it in MongoDB and expose it as a REST service by mixing in the appropriate classes.
 
 Repository
 ``````````
 
-We start by adding a pinch of augmentation with a few utility classes:
+Extend :class:`MongoRepository` to add CRUD, schema generation, indexing, and querying::
 
-* extend the Repository class (or its descendants) to add ORM functionality to the model (CRUD, Schema Generation, Indexing, etc.);
-* extend the Service class (or its descendants) to expose the model as a REST services (create new instances with POST, retrieve existing ones with GET or DELETE them);
+    from appkernel import Model, MongoRepository, AppKernelEngine
+    from appkernel import Required, Generator, Converter, Validators, Email
+    from appkernel import create_uuid_generator, content_hasher
+    from typing import Annotated
 
-Let's *restart our interactive python console ** and add a short configuration and an import section to explore the features of a Repository.
-According to the Domain Driven Design specification: "the Repository contains methods for retrieving domain objects such that alternative storage implementations may be easily interchanged. ::
-
-    from appkernel import Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email
-    from appkernel.configuration import config
-    from pymongo import MongoClient
-
-    config.mongo_database=MongoClient(host='localhost')['tutorial']
+    kernel = AppKernelEngine('tutorial', enable_defaults=True)
 
     class User(Model, MongoRepository):
-        id = Property(str, generator=create_uuid_generator('U'))
-        name = Property(str, required=True)
-        email = Property(str, validators=[Email])
-        password = Property(str, required=True, converter=content_hasher())
-        roles = Property(list, sub_type=str, default_value=['Login'])
+        id: Annotated[str | None, Generator(create_uuid_generator('U'))] = None
+        name: Annotated[str | None, Required()] = None
+        email: Annotated[str | None, Validators(Email)] = None
+        password: Annotated[str | None, Required(), Converter(content_hasher())] = None
+        roles: Annotated[list[str] | None, Default(['Login'])] = None
 
     u = User(name='some name', email='user@acme.com', password='some pass')
     u.save()
-    u'U7ebc9ae7-d33c-458e-af56-d08283dcabb7'
+    # Returns the saved document's ID
+    'U7ebc9ae7-d33c-458e-af56-d08283dcabb7'
 
-It returns the ID of the saved Model object. Now let's try to return it from the repository: ::
+Retrieve it by ID::
 
     loaded_user = User.find_by_id(u.id)
     print(loaded_user)
-    <User> {"email": "user@acme.com", "id": "Ua727d463-26c8-4a47-9402-5683430d1bd0", "name": "some name", "password": "$pbkdf2-sha256$20000$KaW0lnKuNSakdG4NQcjZOw$9Nk4RWeszS.PWkNoW4slQdg7K376tsg610prUfjK3n8", "roles": ["Login"]}
+    <User> {"email": "user@acme.com", "id": "Ua727d463-...", "name": "some name", "roles": ["Login"]}
 
-Ok, let's try a more advanced query: ::
+Or with a query expression::
 
-    user_at_acme = User.where(User.email=='user@acme.com').find_one()
+    user_at_acme = User.where(User.email == 'user@acme.com').find_one()
     print(user_at_acme.dumps(pretty_print=True))
-
-Giving the following output: ::
 
     {
         "email": "user@acme.com",
         "id": "Ueeb4139a-1e35-43cd-ab69-7bc3b9104ae4",
         "name": "some name",
-        "password": "$pbkdf2-sha256$20000$lrJ2jpEyhpCSUmpNaY1RSg$n13u6quqZA9FBVV.oDVD6GzjcKshac.3gDDm1lQfFE0",
-        "roles": [
-            "Login"
-        ]
+        "roles": ["Login"]
     }
 
-Getting rid of this user instance would be as simple as *user_at_acme.delete()*, however we won't do it yet, since I want to show a few more tricks.
+More details are in the Repository section.
 
-More you can find in the Repository section of this guide;
-
-Rest Service
+REST Service
 ````````````
-Let's **restart again our python console** so we can expose the User model over REST permitting the creation and deletion from client applications.
-Doing so is super simple: the User class needs to extend the :class:`Service` and we are all set. ::
 
-    from appkernel import Model, MongoRepository, Property, content_hasher, create_uuid_generator, Email, Service
-    from pymongo import MongoClient
-    from flask import Flask
-    from appkernel import AppKernelEngine
+Registering a model with the AppKernel engine exposes it as a REST API.
+No separate `Service` class is needed — just register the model::
 
-    app = Flask('demo app')
-    kernel = AppKernelEngine('demo app', app=app, enable_defaults=True)
+    from appkernel import AppKernelEngine, Model, MongoRepository
+    from appkernel import Required, Generator, Converter, Validators, Email
+    from appkernel import create_uuid_generator, content_hasher, Default
+    from typing import Annotated
 
-    class User(Model, MongoRepository, Service):
-        id = Property(str, generator=create_uuid_generator('U'))
-        name = Property(str, required=True)
-        email = Property(str, validators=[Email])
-        password = Property(str, required=True, converter=content_hasher())
-        roles = Property(list, sub_type=str, default_value=['Login'])
+    kernel = AppKernelEngine('demo app')
 
-    u = User(name='some name', email='user@acme.com', password='some pass')
-    u.save()
+    class User(Model, MongoRepository):
+        id: Annotated[str | None, Generator(create_uuid_generator('U'))] = None
+        name: Annotated[str | None, Required()] = None
+        email: Annotated[str | None, Validators(Email)] = None
+        password: Annotated[str | None, Required(), Converter(content_hasher())] = None
+        roles: Annotated[list[str] | None, Default(['Login'])] = None
 
-    kernel.register(User)
-    kernel.run()
+    kernel.register(User, methods=['GET', 'POST', 'PUT', 'DELETE'])
 
-Expected output: ::
+    if __name__ == '__main__':
+        kernel.run()
 
-     * Running on http://127.0.0.1:5000/ (Press CTRL+C to quit)
+Expected output::
 
-At this moment we have a running REST service exposed on the http://127.0.0.1:5000/.
-Let's try out the main functions in a sjel terminal console with **curl**: ::
+    INFO:     Started server process
+    INFO:     Uvicorn running on http://0.0.0.0:5000 (Press CTRL+C to quit)
+
+The User model is now available at ``http://localhost:5000/users/``.
+
+List all users::
 
     curl -X GET http://127.0.0.1:5000/users/
-
-Provides you the following output: ::
 
     {
       "_items": [
@@ -230,104 +214,27 @@ Provides you the following output: ::
           "email": "user@acme.com",
           "id": "U9c6785f5-b8b1-4801-a09c-a45109af1222",
           "name": "some name",
-          "password": "$pbkdf2-sha256$20000$6z2nVMq5N8b4P8eYs1aK0Q$011JYdBICbRUr4YjI7QXJOkPm9X8PHLccVknwqQoQoA",
-          "roles": [
-            "Login"
-          ]
+          "roles": ["Login"]
         }
       ],
       "_links": {
-        "self": {
-          "href": "/users/"
-        }
+        "self": {"href": "/users/"}
       }
     }
 
-Or one could search the database for users where the name contains the word 'some' ::
+Search by a field value (the ``~`` prefix means "contains")::
 
     curl -X GET "http://127.0.0.1:5000/users/?name=~some"
 
-
-Or check the Model's Json schema (which can be used for validation or user-interface generation): ::
+Retrieve the JSON schema::
 
     curl -X GET http://127.0.0.1:5000/users/schema
-    {
-      "$schema": "http://json-schema.org/draft-04/schema#",
-      "additionalProperties": true,
-      "properties": {
-        "email": {
-          "format": "email",
-          "type": "string"
-        },
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "password": {
-          "type": "string"
-        },
-        "roles": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "password",
-        "name"
-      ],
-      "title": "User",
-      "type": "object"
-    }
 
-
-There's an alternative proprietary meta-data format further optimised for being used with Single Page Applications, which describes the Model in a way that is
-easy to be consumed by a frontend rendering logic: ::
+Retrieve the UI metadata::
 
     curl -X GET http://127.0.0.1:5000/users/meta
-    {
-      "email": {
-        "label": "User.email",
-        "required": false,
-        "type": "str",
-        "validators": [
-          {
-            "type": "Email"
-          }
-        ]
-      },
-      "id": {
-        "label": "User.id",
-        "required": false,
-        "type": "str"
-      },
-      "name": {
-        "label": "User.name",
-        "required": true,
-        "type": "str"
-      },
-      "password": {
-        "label": "User.password",
-        "required": true,
-        "type": "str"
-      },
-      "roles": {
-        "default_value": [
-          "Login"
-        ],
-        "label": "User.roles",
-        "required": false,
-        "sub_type": "str",
-        "type": "list"
-      }
-    }
 
-How beautiful is that? There's way more to it (such as field translation, detailed support for validation rules), described in the **Service Section**.
-
-Let's try to delete the previously sored User object (**please note:**  the ID at the end of the URL will be different in your case, you need to copy paste from the previous request.) ::
+Try to delete without enabling the DELETE method (the default only enables GET)::
 
     curl -X DELETE "http://127.0.0.1:5000/users/U9c6785f5-b8b1-4801-a09c-a45109af1222"
     {
@@ -336,12 +243,11 @@ Let's try to delete the previously sored User object (**please note:**  the ID a
       "message": "MethodNotAllowed/The method is not allowed for the requested URL."
     }
 
-Hmmm, why is that happening? the reason is that we didn't explicitly defined the HTTP methods supported when we have registered the User Model and the default behaviour
-is to allow only 'GET' methods by default. In order to support DELETE and other methods we would need to register the model class with the series of desired methods.  ::
+Register with the full set of methods to enable all operations::
 
     kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
 
-Now we are ready to retry the deletion of the object. ::
+Now delete works::
 
     curl -X DELETE "http://127.0.0.1:5000/users/U9c6785f5-b8b1-4801-a09c-a45109af1222"
     {
@@ -349,30 +255,31 @@ Now we are ready to retry the deletion of the object. ::
       "result": 1
     }
 
-The OperationResult 1 shows that the deletion was successful.
-
 Service Hooks
 =============
 
-Once a Model is exposed as a REST service, CRUD operations ::
+Register lifecycle hooks by implementing ``before_<method>`` or ``after_<method>`` class methods::
 
-    class Order(Model, MongoRepository, Service):
-        id = Property(str, generator=create_uuid_generator('O'))
-        products = Property(list, sub_type=Product, required=True)
-        order_date = Property(datetime, required=True, generator=date_now_generator)
+    from appkernel import Model, MongoRepository, AppKernelEngine, action
+    from appkernel.http_client import HttpClientServiceProxy
+
+    class Order(Model, MongoRepository):
+        id: Annotated[str | None, Generator(create_uuid_generator('O'))] = None
+        products: Annotated[list | None, Required()] = None
+        order_date: Annotated[datetime | None, Required(), Generator(date_now_generator)] = None
 
         @classmethod
         def before_post(cls, *args, **kwargs):
             order = kwargs['model']
             client = HttpClientServiceProxy('http://127.0.0.1:5000/')
-            status_code, rsp_dict = client.reservation.post(Reservation(order_id=order.id, products=order.products))
+            status_code, rsp_dict = client.reservation.post(
+                Reservation(order_id=order.id, products=order.products))
             order.update(reservation_id=rsp_dict.get('result'))
 
     if __name__ == '__main__':
-        app_id = f"{Order.__name__} Service"
-        kernel = AppKernelEngine(app_id, app=Flask(app_id), development=True)
+        kernel = AppKernelEngine('Order Service', development=True)
         kernel.register(Order, methods=['GET', 'POST', 'DELETE'])
         kernel.run()
 
 
-Now that you got the taste of **Appkernel** feel free to dig deeper an deeper using this documentation.
+Now that you have a taste of **AppKernel**, explore the full feature set in the rest of this documentation.

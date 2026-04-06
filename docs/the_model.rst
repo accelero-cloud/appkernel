@@ -1,13 +1,12 @@
 The Model Class
 ---------------
 
-A child class extending the :class:`Model` becomes a data-holder object with some out-of the box features (json schema, validation, factory methods).
-A Model corresponds to the *Entity* from the domain driven design concept. A Model is persisted in the database and/or sent through the wire between two or more services.
-A Model is also similar to the Python Data Class (will appear in 3.6) but way more powerful.
+A class extending :class:`Model` becomes a domain object with built-in serialization, validation, schema generation, and factory methods.
+A Model corresponds to the *Entity* concept from Domain-Driven Design — it is persisted in the database and exchanged between services.
+Unlike Python's standard dataclass, a Model supports deferred validation, query DSL integration, automatic field generation, and MongoDB persistence.
 
 .. warning::
-    This section discusses the Model and its features in great detail. For a quick overview on the most notable features visit the :ref:`How does it works?` section if you
-    didn't read that yet.
+    This section covers the Model and its features in depth. For a quick overview, visit the :ref:`How does it works?` section first.
 
 Features of a Model
 '''''''''''''''''''
@@ -22,33 +21,38 @@ Features of a Model
 * :ref:`Meta-data generator`
 
 Introduction to the Model Class
-'''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''
 
 .. note::
-    All the examples below were tested with Python's interactive console using the set of imports from below;
+    All examples below can be followed in Python's interactive console using the imports shown here::
 
-    ::
+        from datetime import datetime
+        from typing import Annotated
+        from pydantic import Field
+        from appkernel import (
+            Model, MongoRepository,
+            Required, Generator, Converter, Default, Validators, Marshal,
+            MongoUniqueIndex, Email, NotEmpty, Past,
+            create_uuid_generator, date_now_generator, content_hasher,
+        )
+        from appkernel.generators import TimestampMarshaller
 
-    from datetime import datetime
-    from appkernel import Model, MongoRepository, Property, Email, UniqueIndex, NotEmpty, Past, create_uuid_generator, date_now_generator, content_hasher
-
-The following example showcases the most notable features of a **Model** class: ::
+The following example showcases the most notable features of a **Model** class::
 
     class User(Model, MongoRepository):
-        id = Property(str, required=True, generator=create_uuid_generator('U'))
-        name = Property(str, required=True, index=UniqueIndex)
-        email = Property(str, validators=[Email], index=UniqueIndex)
-        password = Property(str, validators=[NotEmpty],
-                             converter=content_hasher(), omit=True)
-        roles = Property(list, sub_type=str, default_value=['Login'])
-        registration = Property(datetime, validators=[Past], generator=date_now_generator)
+        id: Annotated[str | None, Required(), Generator(create_uuid_generator('U'))] = None
+        name: Annotated[str | None, Required(), MongoUniqueIndex()] = None
+        email: Annotated[str | None, Validators(Email), MongoUniqueIndex()] = None
+        password: Annotated[str | None, Validators(NotEmpty), Converter(content_hasher()), Field(exclude=True)] = None
+        roles: Annotated[list[str] | None, Default(['Login'])] = None
+        registration: Annotated[datetime | None, Validators(Past), Generator(date_now_generator)] = None
 
 
     user = User(name='some user', email='some@acme.com', password='some pass')
     user.save()
     print(user.dumps(pretty_print=True))
 
-It will generate the following output: ::
+This produces the following output::
 
     {
         "email": "some@acme.com",
@@ -60,20 +64,19 @@ It will generate the following output: ::
         ]
     }
 
-Let's have a look on what just have happened. The defined user class can be persisted in MongoDB with the following properties:
+Here is what happened:
 
-- **database ID**: gets auto-generated upon saving the instance (the UUID generator support random value prefixing, so later will be simple to identify Model classes by their IDs);
-- **name**: which is validated upon saving (*required=True*) and a unique index will be added to the Users collection (duplicate names won't be allowed);
-- **email**: also a unique value, additionally will be validated against a regular expression pattern which makes sure that the value follows the format of an e-mail address (must contain '@' and '.' characters);
-- **password**: will be converted to a hashed value upon saving, so we maintain proper security practices; Observe the *omit=True* parameter which will cause
-  the exclusion of this property from the JSON (and other wire-format) representation of the Model;
-- **role**: will have a default value *['Login']* upon save (or by calling the builtin method `finalise_and_validate()`) even though we have omitted to specify any role upon instance creation;
-- **registration**: will take the value of the date time of the moment of persistence;
+- **id**: auto-generated on save. The UUID prefix ('U') makes it immediately clear which collection the document belongs to, which simplifies debugging;
+- **name**: required and indexed with a unique constraint — duplicate names will be rejected;
+- **email**: validated against a regular expression (must contain '@' and '.') and also unique in the collection;
+- **password**: converted to a hashed value on save. ``Field(exclude=True)`` excludes it from all JSON and wire-format output;
+- **roles**: assigned the default value ``['Login']`` automatically on validation if not provided;
+- **registration**: set to the current date and time on save;
 
 .. note::
-    Observe that the User class has now a keyword based constructor even-though we didn't defined one before.
+    Models use a *deferred validation* pattern: all fields default to ``None`` and validation runs explicitly when ``finalise_and_validate()`` is called, or implicitly when ``save()`` or ``dumps()`` is invoked.
 
-Adding more roles to the User is also pretty straightforward: ::
+Appending items to a list field is straightforward::
 
     user.append_to(roles=['Admin', 'Support'])
     print(user.dumps(pretty_print=True))
@@ -90,18 +93,18 @@ Adding more roles to the User is also pretty straightforward: ::
         ]
     }
 
-Or let's say we've changed our mind and we would like to remove one element from the role list: ::
+Removing an item from a list is equally simple::
 
     user.remove_from(roles='Admin')
 
-You also got a nice representation function for free: ::
+And the built-in string representation gives you a compact view::
 
     print(user)
-    <User> {"email": "some@acme.com", "enabled": true, "id": "U943a5699-fa7c-4431-949d-3763ce92b847", "name": "some user", "registration": "2018-06-03T13:32:51.636770", "roles": ["Login", "Support"]}
+    <User> {"email": "some@acme.com", "id": "U943a5699-fa7c-4431-949d-3763ce92b847", "name": "some user", "registration": "2018-06-03T13:32:51.636770", "roles": ["Login", "Support"]}
 
-New properties can also be added to the class (as expected in python): ::
+Extra attributes can also be set dynamically::
 
-    user.enabled=True
+    user.enabled = True
     print(user.dumps(pretty_print=True))
     {
         "email": "some@acme.com",
@@ -111,201 +114,181 @@ New properties can also be added to the class (as expected in python): ::
         "registration": "2018-06-03T13:32:51.636770",
         "roles": [
             "Login",
-            "Admin",
             "Support"
         ]
     }
 
 
-But what if we would create a User object which is not valid? ::
+What happens when we create an invalid User?::
 
     incomplete_user = User()
     incomplete_user.finalise_and_validate()
 
-Of course, it will raise the following Exception: ::
+This raises::
 
     PropertyRequiredException: The property [name] on class [User] is required.
 
-Do we have your attention? let's explore the details :)
 
 Extensible Data Validation
 ``````````````````````````
-We tried to make the boring task of validation a simple and fun experience. Therefore all properties have a builtin
-**required** field which - if set to True - will check the existence of a property.
-But in some cases this is far from enough.
 
-For example you might want to make sure that a property value is a valid e-mail address (by using the Email validator),
-or make sure that the value is lower than 10 (using the Max validator). You can use none, one or more validators for one single property,
-or you can add your very own custom validator by extending the :class:`Validator` base class;
+Validation is controlled by markers placed in the ``Annotated[]`` metadata of each field. The ``Required()`` marker checks that a field is not ``None`` at validation time. The ``Validators()`` marker accepts one or more validator instances or classes.
 
 Built-in validators
 ...................
 
-:class:`NotEmpty` - checks that the property value is defined and not empty; ::
+:class:`NotEmpty` — checks that the value is defined and non-empty::
 
-    name = Property(str, validators=[NotEmpty]
+    name: Annotated[str | None, Validators(NotEmpty)] = None
 
-:class:`Regexp` - checks if the property value matches a regular expression; ::
+:class:`Regexp` — checks that the value matches a regular expression::
 
-    just_numbers = Property(str, required=True, validators=[Regexp('^[0-9]+$')])
+    code: Annotated[str | None, Required(), Validators(Regexp('^[0-9]+$'))] = None
 
-:class:`Email` - a specialisation of the Regexp validator, providing a basic e-mail regexp pattern; ::
+:class:`Email` — a Regexp specialisation with a built-in e-mail pattern::
 
-    email = Property(str, validators=[Email])
+    email: Annotated[str | None, Validators(Email)] = None
 
-:class:`Min` and :class:`Max` - the field should be numeric one and the value should be between the specified Min and Max values; ::
+:class:`Min` and :class:`Max` — numeric range validation::
 
-    sequence = Property(int, validators=[Min(1), Max(100)])
+    sequence: Annotated[int | None, Validators(Min(1), Max(100))] = None
 
-:class:`Past` and :class:`Future` - the field should be a temporal one and the value should be in the past or in the future; ::
+:class:`Past` and :class:`Future` — temporal validation::
 
-    updated = Property(datetime, validators=[Past])
+    updated: Annotated[datetime | None, Validators(Past)] = None
 
-:class:`Unique` - the field value should be unique in the collection of this Model object (it will install a unique
-index in the Mongo database and will cause cause a special unique property in the Json schema;
+:class:`Unique` — adds a unique constraint and marks the field in the JSON schema::
 
-One of specific validator
-..........................
+    username: Annotated[str | None, Validators(Unique)] = None
 
-Sometimes your Model requires a very special conditional validator, specific to the model, where's no need for building a generic one.
-In such cases it is enough to implement a method called `validate()`.
-Take the example of a Payment class, where the method (credit card or alternative payment method) defines the validation conditions: ::
+Model-level validation
+......................
+
+For validation logic that spans multiple fields, implement a ``validate()`` method::
 
     class Payment(Model):
-        method = Property(PaymentMethod, required=True)
-        customer_id = Property(str, required=True, validators=[NotEmpty])
-        customer_secret = Property(str, required=True, validators=[NotEmpty])
+        method: Annotated[PaymentMethod | None, Required()] = None
+        customer_id: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+        customer_secret: Annotated[str | None, Required(), Validators(NotEmpty)] = None
 
         def validate(self):
             if self.method in (PaymentMethod.MASTER, PaymentMethod.VISA):
                 if len(self.customer_id) < 16 or len(self.customer_secret) < 3:
-                    raise ValidationException('The card number must be 16 character long and the CVC 3.')
+                    raise ValidationException('Card number must be 16 characters and CVC 3.')
             elif self.method in (PaymentMethod.PAYPAL, PaymentMethod.DIRECT_DEBIT):
                 if len(self.customer_id) < 22:
-                    raise ValidationException('The IBAN must be at least 22 character long.')
+                    raise ValidationException('IBAN must be at least 22 characters.')
 
+.. note::
+    The ``validate()`` method should not return a value — it raises :class:`ValidationException` when conditions are not met.
 
-Write your own custom validator
-...............................
+.. note::
+    Use the ``_()`` function from Babel for translatable validation error messages.
 
-In case you would like to create a new type of validator, you just need to extend the :class:`Validator` base class and implement the **validate** method: ::
+Writing a custom validator
+..........................
+
+Extend :class:`Validator` and implement the ``validate`` method::
 
     class CustomValidator(Validator):
         def __init__(self, value):
-            # initialise the extended class
-            super(CustomValidator, self).__init__('CustomValidator', value)
+            super().__init__('CustomValidator', value)
 
         def validate(self, param_name, param_value):
-            # implement your custom validation logic
-            # below there's a simple equality logic as an example
             if self.value != param_value:
-                raise ValidationException(self.type, param_value,
-                                              _('The Property %(pname)s cannot be validated against %(value)s', pname=param_name,
-                                                                                                         value=self.value))
+                raise ValidationException(
+                    self.type, param_value,
+                    _('Property %(pname)s cannot be validated against %(value)s',
+                      pname=param_name, value=self.value))
 
-.. note::
-    The validate function should not return any value but raise a :class:`ValidationException` when the value is does not met the predefined conditions.
-
-.. note::
-    In the example above we used the **_()** function from *Babel* in order to provide translation support for to the validation error message;
-
-An alternative way could be the implementation of the `validate_objects` which receives all the fields of the object. This is useful to build conditional
-validators: ::
+For validators that need access to the whole object, implement ``validate_objects``::
 
     class CreditCardValidator(Validator):
-    def __init__(self):
-        super().__init__('CreditCardValidators')
+        def __init__(self):
+            super().__init__('CreditCardValidator')
 
-    def validate_objects(self, parameter_name: str, instance_parameters: list):
-        card_number = instance_parameters.get(parameter_name)
-        if instance_parameters.get('payment_method') == 'VISA':
-            self.__visa_luhn_check(card_number)
-        else:
-            self.__mastercard_luhn_check(card_number)
-
-    def __visa_luhn_check(self, card_number):
-        ...
-
-    def __mastercard_luhn_check(self, card_number):
-        ...
+        def validate_objects(self, parameter_name: str, instance_parameters: dict):
+            card_number = instance_parameters.get(parameter_name)
+            if instance_parameters.get('payment_method') == 'VISA':
+                self.__visa_luhn_check(card_number)
+            else:
+                self.__mastercard_luhn_check(card_number)
 
 
 Default Values and Generators
 `````````````````````````````
-Sometimes field values can be automatically generated upon persisting the model object (eg. a database ID or date values related to the creation or current used id
-in case of need for auditing function) or sensible defaults can be provided in design time (eg. the role 'Login' might be safely added to all users);
-Take the following example: ::
 
-    id = Property(str, required=True, generator=create_uuid_generator('U'))
+Fields can be automatically populated at validation time using the ``Generator()`` marker, or assigned a static default using the ``Default()`` marker.
 
-In this case the id property will take a generated value upon saving (or running the `finalise_and_validate()` method on the model) if another value is not provided already;
-Writing custom generators is easy: any global function with a return value would suffice.
-In case the generator requires an input argument (like the create_uuid_generator in our case), one would create a method which returns
-another method: ::
+The ``Generator()`` marker wraps any callable that returns the desired value::
+
+    id: Annotated[str | None, Required(), Generator(create_uuid_generator('U'))] = None
+
+The field will receive a generated value when ``finalise_and_validate()`` or ``save()`` is called — but only if the field is currently ``None``. Providing a value explicitly always takes precedence.
+
+Writing a custom generator is straightforward — any zero-argument callable works::
 
     def uuid_generator(prefix=None):
         def generate_id():
-            return '{}{}'.format(prefix, str(uuid.uuid4()))
+            return f'{prefix}{uuid.uuid4()}'
+        return generate_id
 
-    return generate_id
-
-This type of ID generator enables you to prefix the IDs of your different Models, making easier the job of the support teams:
-one will know immediately know in which collection to sarch for even if he only has an ID (given that the User model ID is prefixed
-with 'U' and the Customer Model ID is prefixed with 'CT';
+Prefixed IDs make it easy to identify the owning collection from the ID alone (e.g. 'U' for User, 'CT' for Customer).
 
 Built-in generators
 ...................
 
-*UUID Generator*: generates a globally unique id. In case a prefix parameter is provided it will be added in-front of the result ::
+*UUID Generator* — generates a globally unique ID, optionally prefixed::
 
-    id = Property(str, generator=create_uuid_generator('U'))
+    id: Annotated[str | None, Generator(create_uuid_generator('U'))] = None
 
+*Date generator* — captures the date-time at the moment of finalisation::
 
-*Date generator*: generate the date-time value of the finalisation moment: ::
+    registration: Annotated[datetime | None, Generator(date_now_generator)] = None
 
-    registration = Property(datetime, generator=date_now_generator)
+*Current user generator* — records the authenticated user, useful for auditing::
 
-*Current user generator*: used to add the authenticated user, useful to automatically register ownership on data object or audit activities. ::
-
-    owner = Property(datetime, generator=current_user_generator)
+    owner: Annotated[str | None, Generator(current_user_generator)] = None
 
 Converters
 ``````````
-It is also needed to change already existing field values in way or another. Think about the following use-cases:
 
-- passwords need to be hashed before saving it into the database;
-- dates could be converted to and from UNIX time before saving or sending it over the wire so one needs to deal less with the data format;
-- some sensitive data fragments (such as GDPR controlled private data) might be encrypted/hashed upon saving as well;
+Converters transform an existing field value at validation time. Common use-cases include:
 
-Therefore any function which returns a function with the property value as input parameter can be used as a converter.
-In case the converter works only in one direction (like the password hasher), None can be returned as the second method.
-Here's the code of a hasher which an be used to secure passwords: ::
+- hashing passwords before saving;
+- encrypting sensitive data;
+- normalising text (e.g. lower-casing an e-mail address);
+
+Use the ``Converter()`` marker with any function that accepts the current value and returns the transformed value.
+For one-way converters (like password hashing), the function simply returns the hashed value and the original is discarded::
+
+    password: Annotated[str | None, Required(), Validators(NotEmpty), Converter(content_hasher()), Field(exclude=True)] = None
+
+The built-in hasher::
 
     def content_hasher(rounds=20000, salt_size=16):
         def hash_content(content):
-            # type: (str) -> str
             if content.startswith('$pbkdf2-sha256'):
                 return content
-            else:
-                return pbkdf2_sha256.encrypt(content, rounds=rounds, salt_size=salt_size)
-
-    return hash_content
+            return pbkdf2_sha256.encrypt(content, rounds=rounds, salt_size=salt_size)
+        return hash_content
 
 
 Dict and Json Converters
 ''''''''''''''''''''''''
 
-All Models can be easily converted back and forth to and from dict or JSON representation (a.k.a wireformat).
-Writing JSON is as simple as: ::
+All Models can be serialised to and from dict or JSON (the wire format).
+
+Writing JSON::
 
     user.dumps()
 
-The dumps method takes 2 optional parameter:
+The ``dumps()`` method accepts two optional parameters:
 
-- *validate* is set to True by default (it will check the class parameters against the validators and the required parameter;
-- *pretty_print* is set to False by default (one would need to set it explicitly to True one nice indented JSON output is favoured;
+- *validate* (default ``True``): runs field validation and generators before serialising;
+- *pretty_print* (default ``False``): produces indented output;
 
-Let's try it out: ::
+Example::
 
     print(user.dumps(pretty_print=True))
     {
@@ -318,127 +301,99 @@ Let's try it out: ::
         ]
     }
 
-Observe that the password property is missing from the JSON output however the the instance contains a hashed password.
-That is happening due to the fact that we set the password field to *omit=True*, which means that it will be excluded from all string representations. ::
+The password field is absent because ``Field(exclude=True)`` excludes it from all serialised representations.
 
-    password = Property(str, converter=content_hasher(), omit=True)
-
-What if we want to use a *dict* or any different format as output. In such cases comes handy the static method: ::
-
-    def to_dict(instance, convert_id=False, validate=True, skip_omitted_fields=False)
-
-And can be used in the following way: ::
+To serialise to a Python dict::
 
     User.to_dict(user)
 
-In case one wants to prepare some low level MongoDB persistence and we want to convert any property name **id** to **_id** as Mongo expects it. Im such cases
-the *convert_id=True* parameter come handy.
+Pass ``convert_id=True`` to rename the ``id`` field to ``_id`` for low-level MongoDB persistence.
 
-Of course the opposite would work by using: ::
+To deserialise from a dict::
 
     User.from_dict(some_dict_object)
 
-One can use the **set_unmanaged_parameters=False** if values from the dict which do not belong to the Model should be ignored.
 
 Marshallers
 ```````````
-Sometimes it is required to maintain different format on the instance and on the wire. An example is when the datetime instance is converted in unix timestampt in order
-to avoid possible complications due to date format conversions.
-Marshaller comes handy in such cases.
+
+A marshaller translates a field between its in-memory representation and its wire format. This is useful when you want to store or transmit a value in a different format than what your code works with.
 
 Timestamp marshaller
 ....................
-In the example below the `last_login` property of :class:`datetime` is converted to unix timestamp of type :class:`float` when
-generating JSON or upon saving it in the database. When converting JSON back (or loading from the repository) the timestamp will be converted back to :class:`datetime`. ::
+
+The ``TimestampMarshaller`` converts a :class:`datetime` to a Unix timestamp (float) on write, and back to :class:`datetime` on read::
 
     class User(Model, MongoRepository):
-        last_login = Property(datetime, marshaller=TimestampMarshaller)
+        last_login: Annotated[datetime | None, Marshal(TimestampMarshaller)] = None
 
-Date to datetime marshaller
+Date-to-datetime marshaller
 ...........................
-Mongo will throw an exception while trying to save documents (Model instances) wu=ith properties of type date, while this is not supported by Mongo's internal BSON type. In such
-cases you have two options: either refrain from the use of :class:`date` or use the built-in :class:`MongoDateTimeMarshaller`, which will automatically convert the date to datetime
-before saving in the database and convert it back to date upon loading: ::
+
+MongoDB does not support the bare :class:`date` type — only :class:`datetime`. Use ``MongoDateTimeMarshaller`` to convert automatically::
 
     class Application(Model, MongoRepository):
-        id = Property(str, required=True, generator=create_uuid_generator())
-        application_date = Property(date, required=True, marshaller=MongoDateTimeMarshaller)
+        id: Annotated[str | None, Required(), Generator(create_uuid_generator())] = None
+        application_date: Annotated[date | None, Required(), Marshal(MongoDateTimeMarshaller)] = None
 
-Writing your own mashaller
-..........................
+Writing a custom marshaller
+...........................
 
-Writing your own marshaller is as simple as extending the builtin :class:`Marshaller` class and implement it's two method to convert to and from wire-format. ::
+Extend :class:`Marshaller` and implement both conversion directions::
 
-    class MongoDateTimeMarshaller(Marshaller):
+    class MyMarshaller(Marshaller):
         def to_wireformat(self, instance_value):
-            # the instance value is provided and the method should return the one to be sent over the wire (JSON or BSON)
+            # Return the value to store/transmit
             ...
 
         def from_wire_format(self, wire_value):
-            # the value received from the wire and to be converted to the format expected by the Model instance
+            # Return the in-memory value
             ...
 
 
 JSON Schema
 '''''''''''
 
-So now we would want to validate objects when they are received on the wire or we would like to use it for validation in Mongo. Simple as that: ::
+Generate a JSON Schema for validation or UI purposes::
 
     User.get_json_schema()
 
-In case you would like not to allow more properties on the wire than the ones already defined on the class you can set the **additional_properties=False**
-which will remove the **'additionalProperties':True,** from the schema, does not allow any json document which contains more properties than the saved ones
-
-In case you would like to use the schema as source of document validation in MongoDB, you would need to use **mongo_compatibility=True**, because the way
-Mongo handles dates and several other objects on the scope.
+Pass ``additional_properties=False`` to disallow any properties not declared on the class.
+Pass ``mongo_compatibility=True`` when using the schema as a MongoDB document validator, since Mongo handles dates and some other types differently.
 
 Meta-data generator
 '''''''''''''''''''
-The JSON schema is a great standard format, however sometimes is harder to parse and it is fairly limited in features when it comes to generate user interfaces
-from the schema definition on the fly. Therefore we've built a proprietary format which is thought to be easy to be parsed by Javascript. ::
+
+In addition to standard JSON Schema, AppKernel provides a proprietary metadata format optimised for frontend UI generation::
 
     print(json.dumps(User.get_parameter_spec(), indent=4))
     {
-            "name": {
+        "name": {
             "required": true,
             "type": "str",
             "label": "User.name"
         },
         "roles": {
-            "default_value": [
-                "Login"
-            ],
+            "default_value": ["Login"],
             "required": false,
             "type": "list",
             "sub_type": "str",
             "label": "User.roles"
         },
         "email": {
-            "validators": [
-                {
-                    "type": "Email"
-                }
-            ],
+            "validators": [{"type": "Email"}],
             "required": false,
             "type": "str",
             "label": "User.email"
         },
         "registration": {
-            "validators": [
-                {
-                    "type": "Past"
-                }
-            ],
+            "validators": [{"type": "Past"}],
             "required": false,
             "type": "datetime",
             "label": "User.registration"
         },
         "password": {
-            "validators": [
-                {
-                    "type": "NotEmpty"
-                }
-            ],
+            "validators": [{"type": "NotEmpty"}],
             "required": false,
             "type": "str",
             "label": "User.password"
@@ -449,4 +404,3 @@ from the schema definition on the fly. Therefore we've built a proprietary forma
             "label": "User.id"
         }
     }
-

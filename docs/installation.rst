@@ -1,11 +1,9 @@
 Installation
 ============
 
-.. warning::
-    Work in progress section of documentation.
-
 The short story
 ...............
+
 ::
 
     pip install appkernel
@@ -13,133 +11,106 @@ The short story
 The long story
 ..............
 
-Create  your project folder: ::
+Create your project folder::
 
     mkdir my_project && cd my_project
 
-Install virtual environment (a dedicated workspace where you will install your dependency libraries and these won't enter in conflict with other projects): ::
+Set up a virtual environment::
 
-    pip install --user pipenv
-    virtualenv -p python3 venv
+    python3 -m venv venv
     source venv/bin/activate
 
 .. note::
-    depending on your development environment, you might need to use the command pip3 instead of pip;
+    AppKernel requires Python 3.12 or later.
 
-Check the python version: ::
+Verify your Python version::
 
     python --version
-    Python 3.7.0
+    Python 3.12.x
 
-If all went good you should have a Python 3.X version (please note: the software is tested with Pyhton 3.6 and 3.7).
-
-Now we are ready to install Appernel and all of its dependencies: ::
+Install AppKernel and all its dependencies::
 
     pip install appkernel
 
 Creating a microservice
 =======================
 
-Take the following sample as a minimalist microservice (offering CRUD operations for an Order Model). Save it into the orderservice.py file ::
+The following is a minimal microservice that exposes CRUD operations for an Order model.
+Save it as ``orderservice.py``::
 
     from datetime import datetime
-    from flask import Flask
-    from appkernel import AppKernelEngine, Model, MongoRepository, Property, create_uuid_generator, date_now_generator
+    from typing import Annotated
+    from appkernel import AppKernelEngine, Model, MongoRepository, Required, Generator
+    from appkernel import create_uuid_generator, date_now_generator
 
 
     class Order(Model, MongoRepository):
-        id = Property(str, generator=create_uuid_generator('O'))
-        products = Property(list, required=True)
-        order_date = Property(datetime, required=True, generator=date_now_generator)
+        id: Annotated[str | None, Generator(create_uuid_generator('O'))] = None
+        products: Annotated[list | None, Required()] = None
+        order_date: Annotated[datetime | None, Required(), Generator(date_now_generator)] = None
 
 
     if __name__ == '__main__':
-        app_id = f'{Order.__name__} Service'
-        kernel = AppKernelEngine(app_id)
+        kernel = AppKernelEngine('Order Service')
         kernel.register(Order, methods=['GET', 'POST', 'DELETE'])
         kernel.run()
 
+Start the service::
 
+    python orderservice.py
+    INFO:     Uvicorn running on http://0.0.0.0:5000 (Press CTRL+C to quit)
 
-Create a minimalistic configuration file
-........................................
-
-
-
-Create docker file
+Configuration file
 ..................
 
-   Dump the following content in a file named: order_service_docker_file. ::
+Create a ``cfg.yml`` file next to your service script to override defaults::
 
-    FROM python:3.7-alpine
+    appkernel:
+      logging:
+        file_name: myapp.log      # log file name
+        max_size: 5048            # maximum log file size in bytes
+        backup_count: 5           # number of archived log files to keep
+      server:
+        address: 0.0.0.0          # bind address
+        port: 8080                # listening port
+        shutdown_timeout: 10      # seconds to allow in-flight requests to finish on shutdown
+      mongo:
+        host: localhost           # MongoDB host (accepts full mongodb:// URI)
+        db: appkernel             # database name
+      i18n:
+        languages: ['en-US', 'de-DE']   # supported translation languages
 
-    RUN apk update && apk upgrade
-    RUN apk add --update \
-        python \
-        python-dev \
-        py-pip \
-        build-base \
-      && pip install virtualenv \
-      && rm -rf /var/cache/apk/*
-    RUN apk --no-cache add libxml2-dev libxslt-dev libffi-dev openssl-dev python3-dev
-    RUN apk --no-cache add --virtual build-dependencies
-    RUN pip install appkernel gevent
+Docker deployment
+.................
+
+Create a ``Dockerfile``::
+
+    FROM python:3.12-slim
+
     WORKDIR /app
     COPY . /app
+
+    RUN pip install appkernel
 
     EXPOSE 5000
     CMD ["python", "orderservice.py"]
 
-The third parameter in the command section is the address of the Mongo docker image. One can check the address of his own
-installation with the following command: ::
+Build the image::
 
-    docker inspect bridge |grep -A 5 mongo
+    docker build -t order_service_image .
 
-Build the image
-...............
+Find your local MongoDB container's IP if needed::
 
-Let's build the docker image in the current service directory: ::
+    docker inspect bridge | grep -A 5 mongo
 
-    docker build -t order_service_image -f order_service_docker_file .
-
-Run the image
-.............
-
-And as a last stap we start the service ::
+Run the container::
 
     docker run --name orderservice -d -p 5000:5000 order_service_image
 
-You can list the log file: ::
+Stream logs::
 
-    docker exec -it orderservice tail -fn 300 /order_service.log
+    docker logs -f orderservice
 
-Alternative status output  check could be done with the following command
-(note: by default this won't show you anything, since appkernel is not writing to the standard output if it is set to production mode): ::
-
-    docker logs orderservice
-
-Alternatively you can run the image in interactive mode ::
+Run in interactive mode::
 
     docker run -it --rm --name order-service order_service_image sh
-
-Optionally you can create a config file
-........................................
-
-Just create a file under the name cfg.yml and place it next to your service initiator script: ::
-
-    appkernel:
-      logging:
-        file_name: myapp.log # the name of the log file
-        max_size: 5048 # the maximum size of a log file
-        backup_count: 5 # the max. number of log files
-      server:
-        address: 0.0.0.0 # the bind address
-        port: 8080 # the port to expose the services
-        shutdown_timeout: 10 # the time left to finish current jobs upon shutdown
-        backlog: 100 # the number of connection accepted after the current threads are busy
-      mongo:
-        host: localhost # the address of the mongo service
-        db: appkernel # the name of the database in the mongo instance
-      i18n:
-        #languages: ['en','en-US' ,'de', 'de-DE']
-        languages: ['en-US','de-DE'] # the supported translatio nlanguages
