@@ -13,16 +13,11 @@ from .core import AppKernelException
 from .validators import Validator, NotEmpty, Unique, Max, Min, Regexp, Email
 from .util import default_json_serializer, OBJ_PREFIX
 
-# Re-export DSL primitives from dsl.py for backward compatibility
-from .dsl import (  # noqa: F401
-    AttrDict, Opex, OPS, DslBase, BackReference, Expression, CustomProperty,
-    Marshaller, SortOrder, Index, TextIndex, UniqueIndex,
-    get_argument_spec, create_tagging_decorator, action, resource, tag_class_items,
-)
+from .dsl import CustomProperty
 
 # Import field metadata types and metaclass
 from .fields import (
-    AppKernelMeta, FieldProxy,
+    AppKernelMeta,
     get_field_validators_meta, get_field_marshaller,
     is_field_required, is_field_omitted, get_field_generator, get_field_converter,
     get_field_default, extract_base_type,
@@ -686,10 +681,3 @@ class Model(BaseModel, metaclass=AppKernelMeta):
 
     def dump_spec(self) -> None:
         print(f"params: {list(self.__class__.model_fields.keys())}")
-
-
-# Backward compatibility: Property and Parameter as no-op sentinel
-# Code that imported Property for isinstance checks needs updating
-# to use model_fields instead. This alias exists only to prevent ImportError.
-Property = FieldProxy
-Parameter = FieldProxy

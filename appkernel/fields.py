@@ -131,7 +131,7 @@ def get_field_marshaller(field_info):
 
 
 def is_field_required(field_info):
-    """Check if a field has the Req() marker."""
+    """Check if a field has the Required() marker."""
     return get_field_meta(field_info, Required) is not None
 
 

@@ -6,15 +6,16 @@ from moneyed import Money
 import bcrypt
 from pydantic import Field
 
-from appkernel import AuditableRepository, MongoRepository, AppKernelException, ValidationException, Email, Unique
-from appkernel import IdentityMixin, Role, CurrentSubject, Anonymous, TextIndex, Index
-from appkernel import Max, Min
-from appkernel import Model, UniqueIndex
-from appkernel import NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher
-from appkernel import ServiceException
+from appkernel import (
+    AuditableRepository, MongoRepository, AppKernelException, ValidationException,
+    Email, Unique, IdentityMixin, Role, CurrentSubject, Anonymous,
+    Max, Min, Model,
+    NotEmpty, Regexp, Past, Future, create_uuid_generator, date_now_generator, content_hasher,
+    ServiceException, action, resource,
+    Required, Generator, Converter, Default, Validators, Marshal,
+    MongoIndex, MongoUniqueIndex, MongoTextIndex,
+)
 from appkernel.generators import TimestampMarshaller, MongoDateTimeMarshaller
-from appkernel.dsl import action, resource
-from appkernel.fields import Required, Generator, Converter, Default, Validators, Marshal, MongoIndex, MongoUniqueIndex, MongoTextIndex
 
 _ = lambda x: x
 

@@ -4,7 +4,7 @@ from pymongo.errors import WriteError
 import time
 from motor.motor_asyncio import AsyncIOMotorClient
 from appkernel.configuration import config
-from appkernel.model import CustomProperty
+from appkernel import CustomProperty
 from .utils import *
 import pytest
 from datetime import timedelta, date

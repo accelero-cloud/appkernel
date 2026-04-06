@@ -6,7 +6,7 @@ import types
 from typing import Any
 from collections.abc import Callable
 import appkernel.service
-from .model import get_argument_spec
+from .dsl import get_argument_spec
 
 
 class QueryProcessor:

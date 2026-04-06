@@ -17,8 +17,8 @@ from pymongo.errors import CollectionInvalid
 
 from appkernel.configuration import config
 from appkernel.util import OBJ_PREFIX
-from .model import Model, Expression, AppKernelException
-from .dsl import SortOrder, CustomProperty, DslBase
+from .model import Model, AppKernelException
+from .dsl import SortOrder, Expression, CustomProperty, DslBase
 from .fields import (
     FieldProxy, MongoIndex, MongoTextIndex, MongoUniqueIndex,
     get_field_index,
