@@ -118,3 +118,28 @@ def test_validate_method():
         payment.finalise_and_validate()
     payment.customer_id = '1234567890123456'
     payment.finalise_and_validate()
+
+
+# ---------------------------------------------------------------------------
+# Direct validator class tests — covers remaining uncovered lines
+# ---------------------------------------------------------------------------
+
+def test_i18n_passthrough_with_kwargs():
+    """Covers the `return message % kwargs` branch in validators._()."""
+    from appkernel.validators import _
+    result = _('Value %(value)s is invalid', value='42')
+    assert '42' in result
+
+
+def test_validator_base_validate_is_noop():
+    """Covers Validator.validate() body — it's a no-op in the base class."""
+    from appkernel.validators import Validator, ValidatorType
+    v = Validator(ValidatorType.NOT_EMPTY)
+    v.validate('field', 'any value')  # should not raise
+
+
+def test_past_none_value_returns_early():
+    """Covers Past.validate() when value is None — the explicit `return` on line 150."""
+    from appkernel.validators import Past
+    v = Past()
+    v.validate('created_at', None)  # must not raise

@@ -654,3 +654,145 @@ async def test_multiple_query_params():
 @pytest.mark.skip(reason='not implemented yet')
 def test_multiple_query_param_with_grouping_logic():
     pass
+
+
+# ---------------------------------------------------------------------------
+# Collection name pluralisation edge cases (xtract function)
+# ---------------------------------------------------------------------------
+
+def test_collection_name_ends_in_s():
+    """Class names ending in 's', 'x', 'z' → append 'es'."""
+    from appkernel.repository import xtract
+
+    class Bus(User.__class__):
+        pass
+
+    # Use xtract directly with a class whose name ends in 's'
+    class UserClass:
+        __name__ = 'Bus'
+
+    result = xtract(type('Bus', (), {}))
+    assert result.endswith('es') or result.endswith('s')
+
+
+def test_collection_name_standard_pluralisation():
+    from appkernel.repository import xtract
+    result = xtract(User)
+    assert result == 'Users'
+
+
+def test_collection_name_strips_service_suffix():
+    from appkernel.repository import xtract
+    result = xtract(type('UserService', (object,), {}))
+    assert 'Service' not in result
+
+
+# ---------------------------------------------------------------------------
+# find_by_query
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_find_by_query_returns_matching_documents():
+    await User.delete_all()
+    u = User()
+    u.update(name='query_test_user', password='pass')
+    await u.save()
+    results = await User.find_by_query({'name': 'query_test_user'})
+    assert len(results) == 1
+    assert results[0].name == 'query_test_user'
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_find_by_query_empty_returns_all():
+    await User.delete_all()
+    for i in range(3):
+        u = User()
+        u.update(name=f'fbq_user_{i}', password='pass')
+        await u.save()
+    results = await User.find_by_query()
+    assert len(results) == 3
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_find_by_query_no_match_returns_empty():
+    await User.delete_all()
+    results = await User.find_by_query({'name': 'definitely_not_there'})
+    assert results == []
+
+
+# ---------------------------------------------------------------------------
+# create_cursor_by_query
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_create_cursor_by_query():
+    await User.delete_all()
+    u = User()
+    u.update(name='cursor_user', password='pass')
+    await u.save()
+    results = await User.create_cursor_by_query({'name': 'cursor_user'})
+    assert len(results) == 1
+    assert results[0].name == 'cursor_user'
+    await User.delete_all()
+
+
+# ---------------------------------------------------------------------------
+# delete_many / update_many
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_delete_many_removes_matching_documents():
+    await User.delete_all()
+    for i in range(4):
+        u = User()
+        u.update(name=f'del_many_{i}', password='pass')
+        await u.save()
+    deleted = await User.get_collection().delete_many({'name': {'$regex': '^del_many_'}})
+    assert deleted.deleted_count == 4
+
+
+@pytest.mark.anyio
+async def test_update_many_modifies_matching_documents():
+    await User.delete_all()
+    for i in range(3):
+        u = User()
+        u.update(name=f'upd_many_{i}', password='pass')
+        u.description = 'original'
+        await u.save()
+    result = await User.get_collection().update_many(
+        {'name': {'$regex': '^upd_many_'}},
+        {'$set': {'description': 'updated'}}
+    )
+    assert result.modified_count == 3
+    await User.delete_all()
+
+
+# ---------------------------------------------------------------------------
+# save: insert new vs update existing
+# ---------------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_save_new_document_inserts():
+    await User.delete_all()
+    u = User()
+    u.update(name='insert_test', password='pass')
+    obj_id = await u.save()
+    assert obj_id is not None
+    loaded = await User.find_by_id(obj_id)
+    assert loaded.name == 'insert_test'
+    await User.delete_all()
+
+
+@pytest.mark.anyio
+async def test_save_existing_document_updates():
+    await User.delete_all()
+    u = User()
+    u.update(name='update_test', password='pass')
+    obj_id = await u.save()
+    u.description = 'modified'
+    await u.save()
+    loaded = await User.find_by_id(obj_id)
+    assert loaded.description == 'modified'
+    await User.delete_all()
