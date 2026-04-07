@@ -1,17 +1,43 @@
 from __future__ import annotations
 
 import json as _json
+import mimetypes
+import os
+import re
 import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Coroutine
+from typing import Any, AsyncIterator, Coroutine
 
 import httpx
 
 from appkernel import Model, AppKernelException
 from appkernel.core import MessageType
 from appkernel.model import _get_custom_class
+
+
+# Matches both  filename="foo.pdf"  and  filename*=UTF-8''foo.pdf
+_CD_FILENAME_RE = re.compile(
+    r"filename\*?=(?:UTF-8'')?[\"']?([^\"';\r\n]+)",
+    re.IGNORECASE,
+)
+
+
+def _filename_from_headers(headers: Any, fallback_url: str) -> str:
+    """Extract a filename from a Content-Disposition header.
+
+    Falls back to the last non-empty path segment of *fallback_url* when the
+    header is absent or carries no ``filename=`` parameter.
+    """
+    cd = headers.get('content-disposition', '')
+    if cd:
+        m = _CD_FILENAME_RE.search(cd)
+        if m:
+            return m.group(1).strip().strip('"\'')
+    # Derive from URL last segment
+    segment = fallback_url.rstrip('/').rsplit('/', 1)[-1]
+    return segment or 'download'
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +374,251 @@ class RequestWrapper:
                                     headers=self.get_headers(),
                                     timeout=timeout,
                                     follow_redirects=True)
+
+    # ------------------------------------------------------------------
+    # File upload / download helpers
+    # ------------------------------------------------------------------
+
+    def _build_url(self, path_extension: str | None) -> str:
+        if path_extension:
+            return f'{self.url.rstrip("/")}/{path_extension.lstrip("/")}'
+        return self.url
+
+    async def __do_binary_request(self, path_extension: str | None, **kwargs: Any) -> tuple[int, bytes]:
+        try:
+            response = await _get_client().request('GET', self._build_url(path_extension), **kwargs)
+            if 200 <= response.status_code <= 299:
+                return response.status_code, response.content
+        except Exception as exc:
+            raise RequestHandlingException(500, str(exc))
+        else:
+            try:
+                content = response.json()
+            except Exception:
+                content = {}
+            if '_type' in content and content.get('_type') == MessageType.ErrorMessage.name:
+                msg = content.get('message')
+                upstream = content.get('upstream_service', self.url.rstrip('/').split('/').pop())
+                err = RequestHandlingException(response.status_code, msg)
+                err.upstream_service = upstream
+                raise err
+            raise RequestHandlingException(response.status_code, 'Error while downloading from service.')
+
+    async def __execute_binary(self, path_extension: str | None, **kwargs: Any) -> tuple[int, bytes]:
+        coro = self.__do_binary_request(path_extension, **kwargs)
+        if self._circuit:
+            return await self._circuit.call(coro)
+        return await coro
+
+    async def upload(
+        self,
+        file: Any,
+        filename: str | None = None,
+        content_type: str = 'application/octet-stream',
+        path_extension: str | None = None,
+        timeout: int = 60,
+    ) -> tuple[int, Any]:
+        """Upload a file to the upstream service as ``multipart/form-data``.
+
+        :param file: File content — ``bytes``, a file-like object opened in
+            binary mode, or a path string.
+        :param filename: Original filename sent in the multipart part header.
+            Defaults to ``'upload'`` when omitted.
+        :param content_type: MIME type of the file part.  Defaults to
+            ``'application/octet-stream'``.
+        :param path_extension: Optional sub-path appended to the wrapper URL.
+        :param timeout: Per-request timeout in seconds.  Uploads can be large,
+            so the default (60 s) is higher than for regular requests.
+        :returns: ``(status_code, body)`` — same semantics as :meth:`post`.
+        :raises RequestHandlingException: On non-2xx responses or network errors.
+        """
+        files = {'file': (filename or 'upload', file, content_type)}
+        return await self.__execute('POST',
+                                    path_extension=path_extension,
+                                    files=files,
+                                    headers=self.get_headers(),
+                                    timeout=timeout,
+                                    follow_redirects=True)
+
+    async def download(
+        self,
+        path_extension: str | None = None,
+        timeout: int = 30,
+    ) -> tuple[int, bytes]:
+        """Download a file from the upstream service and return its raw bytes.
+
+        The entire response body is buffered in memory.  For large files use
+        :meth:`stream_download` instead to avoid high memory usage.
+
+        :param path_extension: Optional sub-path appended to the wrapper URL.
+        :param timeout: Per-request timeout in seconds.
+        :returns: ``(status_code, bytes)`` tuple.
+        :raises RequestHandlingException: On non-2xx responses or network errors.
+        """
+        return await self.__execute_binary(
+            path_extension,
+            headers=self.get_headers(),
+            timeout=timeout,
+            follow_redirects=True,
+        )
+
+    async def stream_download(
+        self,
+        path_extension: str | None = None,
+        chunk_size: int = 65536,
+        timeout: int = 30,
+    ) -> AsyncIterator[bytes]:
+        """Stream a file download from the upstream service chunk by chunk.
+
+        Unlike :meth:`download`, no full-file buffer is held in memory — bytes
+        are yielded as they arrive from the network.  Suitable for large files
+        or when the caller writes chunks directly to disk or a streaming
+        response.
+
+        :param path_extension: Optional sub-path appended to the wrapper URL.
+        :param chunk_size: Read buffer size in bytes (default 64 KiB).
+        :param timeout: Per-request timeout in seconds.
+        :returns: Async generator of ``bytes`` chunks.
+        :raises CircuitOpenError: If the circuit breaker is OPEN before the
+            request is sent.
+        :raises RequestHandlingException: On non-2xx responses or network errors.
+        """
+        endpoint_url = self._build_url(path_extension)
+
+        if self._circuit and not self._circuit._should_allow():
+            raise CircuitOpenError(self._circuit._name)
+
+        try:
+            async with _get_client().stream(
+                'GET',
+                endpoint_url,
+                headers=self.get_headers(),
+                timeout=timeout,
+                follow_redirects=True,
+            ) as response:
+                if not (200 <= response.status_code <= 299):
+                    if self._circuit and response.status_code >= 500:
+                        self._circuit.record_failure()
+                    raise RequestHandlingException(
+                        response.status_code,
+                        f'Upstream returned {response.status_code}',
+                    )
+                if self._circuit:
+                    self._circuit.record_success()
+                async for chunk in response.aiter_bytes(chunk_size):
+                    yield chunk
+        except RequestHandlingException:
+            raise
+        except Exception as exc:
+            if self._circuit:
+                self._circuit.record_failure()
+            raise RequestHandlingException(500, str(exc))
+
+    async def download_to(
+        self,
+        dest: str,
+        path_extension: str | None = None,
+        chunk_size: int = 65536,
+        timeout: int = 30,
+    ) -> str:
+        """Stream a file download and save it to the local filesystem.
+
+        The save path is resolved as follows:
+
+        * If *dest* is an existing directory (or ends with ``os.sep``), the
+          filename is taken from the ``Content-Disposition`` response header.
+          When the header is absent, the last path segment of the upstream URL
+          is used instead.
+        * Otherwise *dest* is treated as the full target file path.
+
+        :param dest: Destination file path or an existing directory.
+        :param path_extension: Optional sub-path appended to the wrapper URL.
+        :param chunk_size: Read buffer size in bytes (default 64 KiB).
+        :param timeout: Per-request timeout in seconds.
+        :returns: Absolute path of the saved file.
+        :raises CircuitOpenError: If the circuit breaker is OPEN.
+        :raises RequestHandlingException: On non-2xx responses or network errors.
+        """
+        endpoint_url = self._build_url(path_extension)
+
+        if self._circuit and not self._circuit._should_allow():
+            raise CircuitOpenError(self._circuit._name)
+
+        try:
+            async with _get_client().stream(
+                'GET',
+                endpoint_url,
+                headers=self.get_headers(),
+                timeout=timeout,
+                follow_redirects=True,
+            ) as response:
+                if not (200 <= response.status_code <= 299):
+                    if self._circuit and response.status_code >= 500:
+                        self._circuit.record_failure()
+                    raise RequestHandlingException(
+                        response.status_code,
+                        f'Upstream returned {response.status_code}',
+                    )
+                if self._circuit:
+                    self._circuit.record_success()
+
+                if os.path.isdir(dest) or dest.endswith(os.sep):
+                    filename = _filename_from_headers(response.headers, endpoint_url)
+                    save_path = os.path.join(dest, filename)
+                else:
+                    save_path = dest
+
+                with open(save_path, 'wb') as fh:
+                    async for chunk in response.aiter_bytes(chunk_size):
+                        fh.write(chunk)
+
+                return os.path.abspath(save_path)
+        except RequestHandlingException:
+            raise
+        except Exception as exc:
+            if self._circuit:
+                self._circuit.record_failure()
+            raise RequestHandlingException(500, str(exc))
+
+    async def upload_from(
+        self,
+        local_path: str,
+        filename: str | None = None,
+        content_type: str | None = None,
+        path_extension: str | None = None,
+        timeout: int = 60,
+    ) -> tuple[int, Any]:
+        """Upload a local file to the upstream service.
+
+        The filename and MIME type are inferred from *local_path* when not
+        supplied explicitly:
+
+        * ``filename`` defaults to ``os.path.basename(local_path)``.
+        * ``content_type`` is guessed via :func:`mimetypes.guess_type`;
+          falls back to ``'application/octet-stream'`` for unknown extensions.
+
+        :param local_path: Path to the file to upload.
+        :param filename: Override the filename sent in the multipart header.
+        :param content_type: Override the MIME type sent in the multipart
+            header.
+        :param path_extension: Optional sub-path appended to the wrapper URL.
+        :param timeout: Per-request timeout in seconds.
+        :returns: ``(status_code, body)`` — same semantics as :meth:`upload`.
+        :raises RequestHandlingException: On non-2xx responses or network errors.
+        :raises OSError: If *local_path* cannot be opened.
+        """
+        resolved_filename = filename or os.path.basename(local_path)
+        if content_type is None:
+            guessed, _ = mimetypes.guess_type(local_path)
+            content_type = guessed or 'application/octet-stream'
+        with open(local_path, 'rb') as fh:
+            return await self.upload(
+                fh,
+                filename=resolved_filename,
+                content_type=content_type,
+                path_extension=path_extension,
+                timeout=timeout,
+            )
 
 
 class HttpClientServiceProxy:

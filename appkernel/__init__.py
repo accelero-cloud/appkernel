@@ -45,3 +45,12 @@ from .rate_limit import RateLimitConfig  # noqa: F401
 # Configuration
 from .configuration import config  # noqa: F401
 from .infrastructure import CfgEngine  # noqa: F401
+
+# File storage
+from .file_storage import (  # noqa: F401
+    StorageBackend, FilesystemBackend, GridFSBackend,
+    FileValidator, SizeValidator, MimeTypeValidator, ExtensionValidator,
+    MagicByteValidator, VirusScanValidator,
+    ValidationContext, FileStorageException,
+    FileRef, FileService,
+)

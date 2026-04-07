@@ -509,6 +509,62 @@ class AppKernelEngine:
                        enable_hateoas=enable_hateoas, tags=tags)
         return ResourceController(service_class_or_instance)
 
+    def enable_file_storage(
+        self,
+        backend: Any = None,
+        validation_chain: Any = None,
+        url_base: str = '/files',
+        tags: list[str] | None = None,
+    ) -> AppKernelEngine:
+        """Register streaming file upload, download, and delete endpoints.
+
+        Instantiates a :class:`~appkernel.file_storage.FileService` and mounts
+        it at *url_base*.  Four routes are added:
+
+        * ``POST   {url_base}/``                  — upload (multipart/form-data)
+        * ``GET    {url_base}/{file_id}``          — metadata JSON
+        * ``GET    {url_base}/{file_id}/content``  — binary download (streaming)
+        * ``DELETE {url_base}/{file_id}``          — delete file + metadata
+
+        Args:
+            backend:          A :class:`~appkernel.file_storage.StorageBackend`
+                              instance.  Defaults to
+                              :class:`~appkernel.file_storage.FilesystemBackend`
+                              writing to a ``./uploads`` directory.
+            validation_chain: Head of a
+                              :class:`~appkernel.file_storage.FileValidator`
+                              chain, or ``None`` to skip validation.
+            url_base:         URL prefix for the four routes.  Defaults to
+                              ``'/files'``.
+            tags:             OpenAPI tags applied to all file routes.
+
+        Returns:
+            ``self`` for fluent chaining.
+
+        Example::
+
+            from appkernel import AppKernelEngine
+            from appkernel.file_storage import (
+                FilesystemBackend, SizeValidator, MimeTypeValidator,
+            )
+
+            kernel = AppKernelEngine('my-app', cfg_dir='./config')
+
+            chain = SizeValidator(max_bytes=10 * 1024 * 1024)
+            chain.set_next(MimeTypeValidator(['image/jpeg', 'image/png']))
+
+            kernel.enable_file_storage(
+                backend=FilesystemBackend('/var/uploads'),
+                validation_chain=chain,
+                url_base='/files',
+            )
+        """
+        from .file_storage import FilesystemBackend, FileService
+        _backend = backend or FilesystemBackend('./uploads')
+        service = FileService(_backend, validation_chain)
+        service.register(self.app, url_base=url_base, tags=tags)
+        return self
+
     def enable_openapi(
         self,
         title: str | None = None,

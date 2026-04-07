@@ -11,6 +11,7 @@
    translations
    authentication
    rate_limiting
+   file_storage
    openapi
    versioning
    motivation_vision
