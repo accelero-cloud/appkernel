@@ -38,6 +38,7 @@ from .iam import IdentityMixin, Role, Anonymous, Denied, CurrentSubject, Authori
 
 # Engine
 from .engine import AppKernelEngine, ResourceController, CorsConfig  # noqa: F401
+from .openapi import OpenAPISchemaGenerator  # noqa: F401
 from .http_client import HttpClientConfig, CircuitBreakerConfig, CircuitOpenError  # noqa: F401
 from .rate_limit import RateLimitConfig  # noqa: F401
 

@@ -135,6 +135,7 @@ class AppKernelEngine:
             config.service_registry = {}
             config.url_rules = {}
             config.url_to_endpoint = {}
+            config.openapi_endpoints = {}
             self.before_request_functions: list[Callable] = []
             self.after_request_functions: list[Callable] = []
             self.app_id = app_id
@@ -172,7 +173,15 @@ class AppKernelEngine:
                     except Exception:
                         pass
 
-            self.app: FastAPI = app or FastAPI(title=app_id, lifespan=lifespan)
+            # Disable FastAPI's auto-generated openapi/docs routes so that
+            # enable_openapi() has full control over /openapi.json, /docs, /redoc.
+            self.app: FastAPI = app or FastAPI(
+                title=app_id,
+                lifespan=lifespan,
+                openapi_url=None,
+                docs_url=None,
+                redoc_url=None,
+            )
             assert self.app is not None, 'The FastAPI App must be provided as init parameter.'
 
             config.app = self.app
@@ -465,7 +474,31 @@ class AppKernelEngine:
         url_base: str | None = None,
         methods: list[str] | None = None,
         enable_hateoas: bool = True,
+        tags: list[str] | None = None,
     ) -> ResourceController:
+        """Register a Model class or service instance as a set of REST endpoints.
+
+        Args:
+            service_class_or_instance: A :class:`~appkernel.Model` subclass for
+                automatic CRUD, or a plain service instance decorated with
+                ``@resource`` / ``@action`` methods.
+            url_base: URL prefix for all generated routes (e.g. ``'/v1/'``).
+                Defaults to the engine's ``root_url``.
+            methods: HTTP methods to expose for CRUD models
+                (e.g. ``['GET', 'POST', 'PUT', 'PATCH', 'DELETE']``).
+                Defaults to ``['GET']``.
+            enable_hateoas: Include ``_links`` in responses. Defaults to ``True``.
+            tags: OpenAPI tag strings applied to every endpoint registered for
+                this service.  Merged with per-decorator ``tags`` (registration
+                tags come first, decorator tags appended).  Useful for grouping
+                all endpoints of a version together::
+
+                    kernel.register(UserV1Service(), url_base='/v1/', tags=['v1'])
+                    kernel.register(UserV2Service(), url_base='/v2/', tags=['v2'])
+
+        Returns:
+            :class:`~appkernel.ResourceController` for fluent RBAC chaining.
+        """
         methods = methods or ['GET']
         if inspect.isclass(service_class_or_instance):
             assert issubclass(service_class_or_instance, (
@@ -473,8 +506,71 @@ class AppKernelEngine:
 
         from appkernel.service import expose_service
         expose_service(service_class_or_instance, self, url_base or self.root_url, methods=methods,
-                       enable_hateoas=enable_hateoas)
+                       enable_hateoas=enable_hateoas, tags=tags)
         return ResourceController(service_class_or_instance)
+
+    def enable_openapi(
+        self,
+        title: str | None = None,
+        version: str = '1.0.0',
+        description: str = '',
+        include_docs: bool = True,
+    ) -> AppKernelEngine:
+        """Register ``/openapi.json`` and optionally ``/docs`` and ``/redoc`` endpoints.
+
+        Must be called **after** all services have been registered so the
+        service registry is fully populated when the spec is first requested.
+
+        Args:
+            title:        API title shown in the spec and UI. Defaults to ``app_id``.
+            version:      Semantic version string for ``info.version``.
+            description:  Optional API-level description shown in the UI.
+            include_docs: When ``True`` (default), also register Swagger UI at
+                          ``/docs`` and ReDoc at ``/redoc``.
+
+        Returns:
+            ``self`` for fluent chaining.
+
+        Example::
+
+            kernel = AppKernelEngine('my-app', cfg_dir='./config')
+            kernel.register(User, methods=['GET', 'POST', 'PUT', 'DELETE'])
+            kernel.enable_openapi(title='My API', version='2.0.0')
+        """
+        from .openapi import OpenAPISchemaGenerator
+        from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+        from fastapi.responses import HTMLResponse
+        from .util import AppJSONResponse
+
+        api_title = title or self.app_id
+        api_version = version
+        api_description = description
+
+        @self.app.get('/openapi.json', include_in_schema=False)
+        async def openapi_json():
+            generator = OpenAPISchemaGenerator(
+                title=api_title,
+                version=api_version,
+                description=api_description,
+            )
+            return AppJSONResponse(content=generator.generate())
+
+        if include_docs:
+            @self.app.get('/docs', include_in_schema=False)
+            async def swagger_ui() -> HTMLResponse:
+                return get_swagger_ui_html(
+                    openapi_url='/openapi.json',
+                    title=f'{api_title} — Swagger UI',
+                )
+
+            @self.app.get('/redoc', include_in_schema=False)
+            async def redoc_ui() -> HTMLResponse:
+                return get_redoc_html(
+                    openapi_url='/openapi.json',
+                    title=f'{api_title} — ReDoc',
+                )
+
+        return self
 
 
 def _parse_accept_language(header_value: str) -> list[str]:

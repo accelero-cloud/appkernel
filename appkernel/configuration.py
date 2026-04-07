@@ -3,7 +3,7 @@ from __future__ import annotations
 
 class Config:
     """Dynamic namespace for runtime configuration values."""
-    pass
+    openapi_endpoints: dict = {}
 
 
 config = Config()

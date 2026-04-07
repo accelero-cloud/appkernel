@@ -81,7 +81,15 @@ def url_for_endpoint(endpoint: str, **kwargs: Any) -> str:
     return url
 
 
-def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable, path_param: str = '', **options):
+def _add_app_rule(
+    cls,
+    url_base: str,
+    method_name: str,
+    view_function: Callable,
+    path_param: str = '',
+    openapi_meta: dict | None = None,
+    **options,
+):
     """
     Registers the service in the service registry and adds a route to FastAPI.
     """
@@ -150,6 +158,31 @@ def _add_app_rule(cls, url_base: str, method_name: str, view_function: Callable,
     # Use include_in_schema=False to avoid FastAPI trying to parse the request parameter
     config.app.add_api_route(rule, _make_handler, methods=http_methods, name=endpoint, include_in_schema=False)
 
+    # Store OpenAPI metadata for schema generation
+    _store_openapi_meta(endpoint, rule, http_methods, openapi_meta or {})
+
+
+def _store_openapi_meta(endpoint: str, rule: str, http_methods: list[str], meta: dict) -> None:
+    """Write per-endpoint OpenAPI metadata into config.openapi_endpoints."""
+    if not hasattr(config, 'openapi_endpoints'):
+        config.openapi_endpoints = {}
+    path_params = re.findall(r'\{(\w+)\}', rule)
+    config.openapi_endpoints[endpoint] = {
+        'path': rule,
+        'methods': http_methods,
+        'model_class': meta.get('model_class'),
+        'path_params': path_params,
+        'query_params': meta.get('query_params', []),
+        'crud_operation': meta.get('crud_operation'),
+        'summary': meta.get('summary'),
+        'tags': meta.get('tags'),
+        'request_model': meta.get('request_model'),
+        'response_model': meta.get('response_model'),
+        'handler_func': meta.get('handler_func'),
+        'internal': meta.get('internal', False),
+        'deprecated': meta.get('deprecated', False),
+    }
+
 
 model_endpoints = {
     'find_by_query': [
@@ -200,7 +233,7 @@ model_endpoints = {
 
 
 def expose_service(clazz_or_instance: type | Any, app_engine: AppKernelEngine, url_base: str, methods: list[str],
-                   enable_hateoas: bool = True) -> None:
+                   enable_hateoas: bool = True, tags: list | None = None) -> None:
     """
     :param clazz_or_instance: the class name of the service which is going to be exposed
     :param enable_hateoas: if enabled (default) it will expose the service descriptors
@@ -209,6 +242,8 @@ def expose_service(clazz_or_instance: type | Any, app_engine: AppKernelEngine, u
     :type url_base: basestring
     :param app_engine: the app kernel engine
     :type app_engine: AppKernelEngine
+    :param tags: OpenAPI tags applied to every endpoint registered for this service;
+        merged with any per-decorator ``tags`` kwargs (registration tags come first).
     :return:
     """
     clazz = clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__
@@ -230,11 +265,13 @@ def expose_service(clazz_or_instance: type | Any, app_engine: AppKernelEngine, u
             _add_app_rule(clazz_or_instance, url_base, 'schema',
                           _create_simple_wrapper_executor(clazz_or_instance, app_engine,
                                                           clazz_or_instance.get_json_schema),
-                          path_param='schema', methods=['GET'])
+                          path_param='schema', methods=['GET'],
+                          openapi_meta={'internal': True})
             _add_app_rule(clazz_or_instance, url_base, 'meta',
                           _create_simple_wrapper_executor(clazz_or_instance, app_engine,
                                                           clazz_or_instance.get_parameter_spec),
-                          path_param='meta', methods=['GET'])
+                          path_param='meta', methods=['GET'],
+                          openapi_meta={'internal': True})
 
         if issubclass(clazz_or_instance, (Model, Repository)):
             for method in class_methods:
@@ -245,14 +282,19 @@ def expose_service(clazz_or_instance: type | Any, app_engine: AppKernelEngine, u
                         path_param = mdef.get('param', '')
                         _add_app_rule(clazz_or_instance, url_base, method, func(clazz_or_instance, app_engine),
                                       path_param=path_param,
-                                      methods=[mdef.get('method')])
+                                      methods=[mdef.get('method')],
+                                      openapi_meta={
+                                          'model_class': clazz_or_instance,
+                                          'crud_operation': method,
+                                          'tags': tags or None,
+                                      })
 
     setup_security = hasattr(config, 'security_enabled') and config.security_enabled
     cls_items = clazz_or_instance.__dict__ if inspect.isclass(
         clazz_or_instance) else clazz_or_instance.__class__.__dict__
     _prepare_actions(clazz_or_instance if inspect.isclass(clazz_or_instance) else clazz_or_instance.__class__, url_base,
-                     enable_security=setup_security, class_items=cls_items)
-    _prepare_resources(clazz_or_instance, url_base, enable_security=setup_security, class_items=cls_items)
+                     enable_security=setup_security, class_items=cls_items, registration_tags=tags)
+    _prepare_resources(clazz_or_instance, url_base, enable_security=setup_security, class_items=cls_items, registration_tags=tags)
 
 
 def __get_http_methods(tagged_item):
@@ -269,7 +311,7 @@ def __get_http_methods(tagged_item):
     return http_methods
 
 
-def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_security: bool = False, class_items: dict | None = None) -> None:
+def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_security: bool = False, class_items: dict | None = None, registration_tags: list | None = None) -> None:
     # Construct the singleton instance eagerly at registration time so there is
     # no read-check-write race when concurrent requests hit an unregistered controller.
     instance = clazz_or_instance() if inspect.isclass(clazz_or_instance) else clazz_or_instance
@@ -311,8 +353,20 @@ def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_secu
             func_name = resource.get('function_name')
             methods = __get_http_methods(resource)
             path_segment = resource.get('decorator_kwargs').get('path', f'./{func_name.lower()}')
+            dkw = resource.get('decorator_kwargs')
+            decorator_tags = dkw.get('tags') or []
+            merged_tags = list(dict.fromkeys((registration_tags or []) + decorator_tags)) or None
             _add_app_rule(clazz_or_instance, url_base, func_name, create_resource_executor(func_name),
-                          path_param=path_segment, methods=methods)
+                          path_param=path_segment, methods=methods,
+                          openapi_meta={
+                              'query_params': dkw.get('query_params', []),
+                              'summary': dkw.get('summary'),
+                              'tags': merged_tags,
+                              'request_model': dkw.get('request_model'),
+                              'response_model': dkw.get('response_model'),
+                              'handler_func': getattr(instance, func_name, None),
+                              'deprecated': dkw.get('deprecated', False),
+                          })
 
         if enable_security:
             required_permissions = resource.get('decorator_kwargs').get('require', Denied())
@@ -320,7 +374,7 @@ def _prepare_resources(clazz_or_instance: type | Any, url_base: str, enable_secu
                                endpoint=f'{xtract(clazz_or_instance).lower()}_{func_name}_{methods[0].lower()}')
 
 
-def _prepare_actions(cls: type, url_base: str, enable_security: bool = False, class_items: dict | None = None) -> None:
+def _prepare_actions(cls: type, url_base: str, enable_security: bool = False, class_items: dict | None = None, registration_tags: list | None = None) -> None:
     def create_action_executor(function_name):
         async def action_executor(request_data=None, **named_args):
             if 'object_id' not in named_args:
@@ -351,8 +405,20 @@ def _prepare_actions(cls: type, url_base: str, enable_security: bool = False, cl
             func_name = this_link.get('function_name')
             relation = this_link.get('decorator_kwargs').get('rel', func_name)
             methods = __get_http_methods(this_link)
+            dkw = this_link.get('decorator_kwargs')
+            decorator_tags = dkw.get('tags') or []
+            merged_tags = list(dict.fromkeys((registration_tags or []) + decorator_tags)) or None
             _add_app_rule(cls, url_base, relation, create_action_executor(func_name),
-                          path_param=f'{{object_id}}/{relation}', methods=methods)
+                          path_param=f'{{object_id}}/{relation}', methods=methods,
+                          openapi_meta={
+                              'query_params': dkw.get('query_params', []),
+                              'summary': dkw.get('summary'),
+                              'tags': merged_tags,
+                              'request_model': dkw.get('request_model'),
+                              'response_model': dkw.get('response_model'),
+                              'handler_func': getattr(cls, func_name, None),
+                              'deprecated': dkw.get('deprecated', False),
+                          })
             if enable_security:
                 required_permissions = this_link.get('decorator_kwargs').get('require', Denied())
                 RbacMixin.set_list(cls=cls, methods=methods, permissions=required_permissions,

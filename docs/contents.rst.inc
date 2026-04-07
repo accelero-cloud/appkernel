@@ -11,6 +11,8 @@
    translations
    authentication
    rate_limiting
+   openapi
+   versioning
    motivation_vision
    api
    contributors
