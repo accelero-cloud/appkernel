@@ -42,6 +42,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "recommonmark>=0.7",
+]
 dev = [
     "autopep8",
     "codecov",
