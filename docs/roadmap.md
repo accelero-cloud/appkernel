@@ -1,69 +1,74 @@
 # Features & Roadmap
 
-The framework is supposed to cover the requirements of the Microservice Patterns documented by [Chris Richardson](http://microservices.io/patterns/index.html).
+The framework aims to cover the requirements of the Microservice Patterns documented by [Chris Richardson](http://microservices.io/patterns/index.html).
 
 ## Model features
-A `Model` is a central data object, representing the domain of our business logic (eg. User, Project, Task, etc.).
-- [x] validation on the data model using multiple custom validators
-- [x] json serialisation support
-- [x] json schema generator
-- [x] value generators
-- [x] value converters
-- [x] wire-format marshaller
-- [x] omitted fields
+
+A `Model` is a central domain object (e.g. User, Project, Task) that serves as the single source of truth for persistence, validation, serialisation, and REST exposure.
+
+- [x] validation using multiple built-in and custom validators
+- [x] JSON serialisation and deserialisation
+- [x] JSON Schema generation (Draft-04)
+- [x] value generators (UUID, timestamp, current user)
+- [x] value converters (password hashing, normalisation)
+- [x] wire-format marshallers (timestamp, date↔datetime)
+- [x] fields excluded from wire format (`Field(exclude=True)`)
 
 ## ORM features
-Appkernel features a thin and beautiful Object Relational Mapping (ORM/a.k.a database access layer / repository) implementation, making access to your data a super-simple task.
-- [x] basic CRUD (create/update/delete) operations
-- [x] easy to use active record style queries
-- [x] automatically generated prefixed database ID
-- [x] index management (unique index, text index, etc.) on the database
-- [x] database schema validation and schema management
-- [x] builtin converters for serialising or deserialising the model to and from various other formats
-- [x] audited fields (eg. automatically added created, updated, updated_by fields)
-- [x] document versioning
-- [x] Bulk Inserts
-- [x] Atomic updates
-- [ ] Optimistic locking
-- [ ] Concurrency and transaction control
-- [ ] Predefined Database Filters
-- [ ] Projections
-- [ ] Internal Resources
+
+A thin and expressive Object–Document Mapping layer on top of MongoDB.
+
+- [x] basic CRUD (create, update, delete) operations
+- [x] active-record style query DSL
+- [x] automatically generated and prefixed document IDs
+- [x] index management (standard, unique, text)
+- [x] MongoDB document schema validation
+- [x] built-in serialisation converters
+- [x] auditable fields (inserted, updated, version)
+- [x] document versioning with optimistic locking (HTTP 409 on conflict)
+- [x] bulk inserts
+- [x] atomic field updates
+- [ ] predefined database filters
+- [ ] field projections
+- [ ] transactions (multi-document)
 
 ## REST Service Endpoints
-- [x] REST services (GET, PUT, POST, PATCH, DELETE)
-- [x] HATEOAS actions on model
-- [x] model metadata and json schema
-- [x] URL query interface
-- [x] Read-only by default
-- [x] role based account management (RBAC)
-- [x] basic authentication and JWT token support
-- [x] customised, machine readable error messages
-- [ ] OpenApi support
-- [ ] File Storage
-- [ ] JSONP
-- [ ] graphql support
-- [ ] Conditional Requests
-- [ ] OAUTH
-- [ ] rate limiting and circuit breaker
-- [ ] API Versioning
-- [ ] GeoJSON
 
+- [x] REST services (GET, PUT, POST, PATCH, DELETE)
+- [x] HATEOAS links on model responses
+- [x] model metadata and JSON schema endpoints
+- [x] URL query interface (filter, sort, paginate, aggregate)
+- [x] read-only by default; write methods opt-in
+- [x] role-based access control (RBAC)
+- [x] JWT authentication (RS256)
+- [x] machine-readable error messages
+- [x] OpenAPI 3.0 / Swagger UI support
+- [x] file storage (filesystem and GridFS backends, validation chain)
+- [x] rate limiting (fixed-window, per-endpoint overrides, 429 + Retry-After)
+- [x] circuit breaker (CLOSED / OPEN / HALF_OPEN, per-upstream)
+- [x] CORS support
+- [x] API versioning (URL prefixes, view models, deprecation signals)
+- [ ] JSONP
+- [ ] GraphQL support
+- [ ] conditional requests (ETags, If-None-Match)
+- [ ] OAuth2 support
+- [ ] GeoJSON field type
 
 ## Performance controls
-- [ ] Data Integrity and Concurrency Control
-- [ ] Resource-level Cache Control
 
-## Microservice Infrastructure
-- [x] externalized configuration
+- [ ] resource-level cache control
+- [ ] data integrity and concurrency control beyond optimistic locking
+
+## Microservice infrastructure
+
+- [x] externalised configuration (cfg.yml, env vars, CLI flags)
+- [x] inter-service HTTP client with connection pooling and circuit breaker
 - [ ] scheduler and background task executor
-- [ ] health checks
-- [ ] simplified logging
-- [ ] enhanced logging for ops teams
-- [ ] circuit breakers
-- [ ] CQRS
-- [ ] Event sourcing
-- [ ] SAGA Pattern
-- [ ] metrics
+- [ ] health check endpoints
+- [ ] metrics collection (Prometheus / OpenTelemetry)
 - [ ] service registration and discovery
-- [ ] webflow a web state machine
+- [ ] CQRS
+- [ ] event sourcing
+- [ ] SAGA pattern
+- [ ] Redis-backed rate limiter for multi-instance deployments
+- [ ] S3 / Azure Blob / GCS storage backends

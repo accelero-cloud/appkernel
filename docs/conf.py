@@ -5,7 +5,6 @@
 # This file does only contain a selection of the most common options. For a
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
-from recommonmark.parser import CommonMarkParser
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -36,10 +35,6 @@ html_context = {
     "conf_py_path": "/source/",  # Path in the checkout to the docs root
 }
 # -- General configuration ---------------------------------------------------
-source_parsers = {
-    '.md': CommonMarkParser,
-}
-
 # If your documentation needs a minimal Sphinx version, state it here.
 #
 # needs_sphinx = '1.0'
@@ -48,6 +43,7 @@ source_parsers = {
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'myst_parser',
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
     'sphinx.ext.coverage',

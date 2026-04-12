@@ -287,7 +287,7 @@ To disable HATEOAS for a specific resource::
 .. _HATEOAS: https://en.wikipedia.org/wiki/HATEOAS
 
 HTTP Method Hooks
-``````````````````
+`````````````````
 
 Implement ``before_<method>`` or ``after_<method>`` class methods to hook into the request lifecycle.
 The hook receives the deserialised model instance via ``kwargs['model']``::
@@ -298,7 +298,7 @@ The hook receives the deserialised model instance via ``kwargs['model']``::
         # Perform pre-save business logic here
 
 Schema and metadata
-``````````````````
+```````````````````
 
 All models expose a JSON schema endpoint and a proprietary metadata endpoint.
 

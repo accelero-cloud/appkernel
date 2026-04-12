@@ -6,7 +6,7 @@ A Model corresponds to the *Entity* concept from Domain-Driven Design — it is 
 Unlike Python's standard dataclass, a Model supports deferred validation, query DSL integration, automatic field generation, and MongoDB persistence.
 
 .. warning::
-    This section covers the Model and its features in depth. For a quick overview, visit the :ref:`How does it works?` section first.
+    This section covers the Model and its features in depth. For a quick overview, visit the :ref:`How does it work?` section first.
 
 Features of a Model
 '''''''''''''''''''
@@ -183,7 +183,31 @@ For validation logic that spans multiple fields, implement a ``validate()`` meth
     The ``validate()`` method should not return a value — it raises :class:`ValidationException` when conditions are not met.
 
 .. note::
-    Use the ``_()`` function from Babel for translatable validation error messages.
+    Use the ``_()`` function for translatable validation error messages.
+    Import it at the top of your module and wrap every user-facing string::
+
+        from gettext import gettext as _
+
+        class Payment(Model):
+            method: Annotated[PaymentMethod | None, Required()] = None
+            customer_id: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+            customer_secret: Annotated[str | None, Required(), Validators(NotEmpty)] = None
+
+            def validate(self):
+                if self.method in (PaymentMethod.MASTER, PaymentMethod.VISA):
+                    if len(self.customer_id) < 16 or len(self.customer_secret) < 3:
+                        raise ValidationException(
+                            _('Card number must be 16 characters and CVC 3.')
+                        )
+                elif self.method in (PaymentMethod.PAYPAL, PaymentMethod.DIRECT_DEBIT):
+                    if len(self.customer_id) < 22:
+                        raise ValidationException(
+                            _('IBAN must be at least 22 characters.')
+                        )
+
+    AppKernel's ``LocaleMiddleware`` sets the active locale from the ``Accept-Language`` request
+    header before validation runs, so the translated string is automatically chosen for each caller.
+    See :ref:`Translations` for the full ``pybabel extract`` / ``init`` / ``compile`` workflow.
 
 Writing a custom validator
 ..........................

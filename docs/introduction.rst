@@ -1,5 +1,6 @@
 How does it work?
 -----------------
+.. _`How does it work?`:
 
 Base Model
 ..........
@@ -118,8 +119,8 @@ Let's add both::
 
 Two things happened:
 
-- the **id** was auto-generated and prefixed with 'U', making it immediately identifiable as a User;
-- the **password** was hashed, so it is stored securely;
+- The **id** was auto-generated and prefixed with ``'U'``, making it immediately identifiable as a User record just from the ID alone.
+- The **password** was hashed before storage, so the plain-text value never touches the database.
 
 
 Service classes
@@ -282,4 +283,4 @@ Register lifecycle hooks by implementing ``before_<method>`` or ``after_<method>
         kernel.run()
 
 
-Now that you have a taste of **AppKernel**, explore the full feature set in the rest of this documentation.
+Now that you have a taste of **AppKernel**, explore the full feature set in the rest of this documentation — or just start building something.

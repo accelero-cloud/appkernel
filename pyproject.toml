@@ -45,7 +45,7 @@ dependencies = [
 docs = [
     "sphinx>=7.0",
     "sphinx-rtd-theme>=2.0",
-    "recommonmark>=0.7",
+    "myst-parser>=3.0",
 ]
 dev = [
     "autopep8",

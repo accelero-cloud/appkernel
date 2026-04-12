@@ -1,17 +1,17 @@
 
+The following snippet bootstraps AppKernel in development mode so you can
+follow along with the examples in this documentation from Python's interactive
+interpreter::
 
-The following code-snippet prepares your python-cli to execute the examples from this documentation: ::
+    from appkernel import (
+        AppKernelEngine, Model, MongoRepository,
+        Required, Generator, Validators, Converter, Default,
+        Email, NotEmpty, create_uuid_generator, content_hasher,
+        MongoUniqueIndex,
+    )
+    from typing import Annotated
 
-    import threading
-    from flask import Flask
-    from passlib.handlers.pbkdf2 import pbkdf2_sha256
-    from flask_babel import _
-    from appkernel import Property, Model, MongoRepository, Service, UniqueIndex, Email, NotEmpty, content_hasher, \
-        AppKernelEngine, Regexp, CurrentSubject, ServiceException, Anonymous, Role
-    from appkernel.service import link
+    kernel = AppKernelEngine('demo', enable_defaults=True)
 
-    app = Flask('demo')
-    kernel = AppKernelEngine('demo', app=app, enable_defaults=True)
-    thread = threading.Thread(target=kernel.run, args=())
-    thread.daemon = True
-    thread.start()
+``enable_defaults=True`` connects to MongoDB on ``localhost:27017`` and uses
+a database named ``app`` — no ``cfg.yml`` required for quick experiments.

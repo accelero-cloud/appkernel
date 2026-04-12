@@ -7,7 +7,7 @@ A custom repository implementation for SQL or any other database is possible by 
 
 .. _peewee: http://docs.peewee-orm.com/
 
-* :ref:`Basic CRUD (Created, Update, Delete) operations`
+* :ref:`Basic CRUD (Create, Update, Delete) operations`
 * :ref:`Query expressions`
 * :ref:`Advanced Functionality`
 * :ref:`Optimistic Locking`
@@ -16,8 +16,8 @@ A custom repository implementation for SQL or any other database is possible by 
 * :ref:`Schema Installation`
 * :ref:`Aggregation Pipeline`
 
-Basic CRUD (Created, Update, Delete) operations
-------------------------------------------------
+Basic CRUD (Create, Update, Delete) operations
+-----------------------------------------------
 
 .. note::
     You can follow all examples in Python's interactive interpreter using the imports below.

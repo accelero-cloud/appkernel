@@ -1,17 +1,19 @@
-Why did we built this?
+Why did we build this?
 ----------------------
-* We had the need to build a myriad of small services in our daily business, ranging from data-aggregation pipelines, to housekeeping services and other process automation services. These do share similar requirements and the underlying infrastructure needed to be rebuilt and tested over and over again. The question arose: what if we avoid spending valuable time on the boilerplate and focus only on the fun part?
 
-* Often time takes a substantial effort to make a valuable internal hack or proof of concept presentable to customers, until it reaches the maturity in terms reliability, fault tolerance and security. What if all these non-functional requirements would be taken care by an underlying platform?
+* We needed to build a large number of small services in our daily work — data-aggregation pipelines, housekeeping services, process automation, and the like. They all share the same infrastructure requirements, and rebuilding that infrastructure from scratch every time is neither fun nor a good use of anyone's afternoon.
 
-* There are several initiatives out there (Flask Admin, Flask Rest Extension and so), which do target parts of the problem, but they either need substantial effort to make them play nice together, either they feel complicated and uneasy to use. We wanted something simple and beautiful, which we love working with.
+* Turning a valuable internal prototype into something presentable to customers takes a disproportionate amount of effort. Reliability, fault tolerance, and security are non-negotiable, but they shouldn't require weeks of work before you can demo anything. What if all those non-functional requirements were handled by the platform itself?
 
-* These were the major driving question, which lead to the development of App Kernel.
+* Plenty of libraries address *parts* of this problem, but wiring them together tends to be fiddly and the result often feels more like archaeology than engineering. We wanted something simple and coherent that we'd actually enjoy using.
 
-How does it helps you?
+* Those questions led to AppKernel.
+
+How does it help you?
 ----------------------
-**We did the heavy lifting so you can focus on the things that matter :)**
 
-We believe you wish to focus entirely on delivering business value on day one and being the rockstar of your project.
-Therefore we took care of the boilerplate: analysed the stack, made the hard choices in terms of Database/ORM/Security/Rate Limiting and so on,
-so you don't have to: **just lay back, fasten your seatbelts and enjoy the ride! ;)**
+**We did the heavy lifting so you can focus on the things that matter.**
+
+We believe you want to be delivering business value from day one — not configuring middleware. So we made the hard choices on your behalf: database access, serialisation, validation, security, rate limiting, and inter-service communication are all covered. Your job is to describe your domain and let AppKernel handle the rest.
+
+**Lay back, fasten your seatbelts, and enjoy the ride.**

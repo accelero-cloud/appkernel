@@ -1,80 +1,136 @@
+.. _Translations:
+
 I18n (Internationalisation)
 ===========================
 
-.. warning::
-    Work in progress section of documentation
+AppKernel's translation support is built on `Babel`_.  Strings that need to be
+internationalised are marked with a ``_()`` function, which Babel extracts into
+``.pot`` / ``.po`` files for translators.
 
-The translation support of **appkernel** is built on `babel`_ and `flask-babel`_.
+.. _Babel: https://babel.pocoo.org/
 
-.. _babel: http://babel.pocoo.org/en/latest/
-.. _flask-babel: https://pythonhosted.org/Flask-Babel/
+How it works
+------------
 
-Strings which need to be internationalized should be marked with the babel specific '_' (underscore) marker function (eg. _('username')). ::
+``AppKernelEngine`` sets up a ``LocaleMiddleware`` at startup.  On every
+request it reads the ``Accept-Language`` header, selects the best match from
+the languages configured in ``cfg.yml``, and swaps in the corresponding Babel
+``Translations`` catalog for the duration of that request.  Any translatable
+string evaluated during request handling — validation error messages, field
+labels, service exceptions — is looked up in that catalog automatically.
 
-    from flask_babel import _
+There is nothing extra to wire up per-route.  The middleware handles it.
 
-    def some_function():
-        raise ServiceException(403, _('Current password is not correct'))
-
-This method will work within the request context of flask, however when in need to work outside the request context we might need to use the ``lazy_gettext`` function: ::
-
-    from flask_babel import lazy_gettext as _l
-
-    class LoginForm(FlaskForm):
-        username = StringField(_l('Username'), validators=[DataRequired()])
-
-One can also add notes to the messages, which will be extracted into the translation files, helping the translator with context information. ::
-
-    # NOTE: This is a comment about `Foo Bar`
-    _('Foo Bar')
-
-Preparation
------------
-You need to add a small configuration file, called *babel.cfg* to the root folder of your project: ::
-
-    [model_messages: **.py]
-    extract_messages = _l
-
-    ;[python: **.py]
-    ;extract_messages = _l
-
-    [jinja2: app/templates/**.html]
-    extensions=jinja2.ext.autoescape,jinja2.ext.with_\
-
-The first two lines define the filename patterns for Python. We won't use the built-in python extractor because that is not reading the ``Parameter`` classes.
-
-The third section defines two extensions provided by the Jinja2 template engine that help Flask-Babel properly parse template files.
-**Mind the path definition in the configuration file for the python and jinja file.**
-
-Generating the translation files
+Marking strings for translation
 --------------------------------
-To extract all the texts to the .pot file, you can use the following command (make sure that your're switched to your virtual environment): ::
 
-    (venv) $ pybabel extract -F babel.cfg -k _l -o messages.pot .
-    (venv) $ pybabel init -i messages.pot -d ./translations -l en
-    (venv) $ pybabel init -i messages.pot -d ./translations -l de
-    (venv) $ pybabel compile -d ./translations
-The first command will create a list of key-strings in the local directory and write it into a messages.pot file. In our case it will search for strings
-marked with the babel specific _() function.
-The second and third command will copy the keys from the messages.pot into a folder called `en` and `de` inside of the folder translations. This is where
-the actual actual translation should take place. Once you're ready with the localisation, you are good to execute the *compile* command.
+AppKernel exposes its internal translation function as ``_translate``.  Import
+it and alias it to ``_`` in modules that raise user-facing messages::
 
-We need one more step, namely to add the supported languages to our configuration: ::
+    from appkernel.model import _translate as _
+
+    def validate(self):
+        if len(self.customer_id) < 16:
+            raise ValidationException(_('Card number must be at least 16 characters.'))
+
+For strings that must be evaluated lazily — class-level attributes, module-level
+constants, or anything resolved before a request starts — use ``lazy_gettext``
+instead::
+
+    from appkernel.model import lazy_gettext
+
+    class Payment(Model):
+        HINT = lazy_gettext('Enter your 16-digit card number.')
+
+``lazy_gettext`` wraps the string in a ``babel.support.LazyProxy`` so it is
+only translated when it is actually rendered, at which point the correct locale
+is already active.
+
+You can add translator notes as inline comments directly above the marked
+string — Babel will include them in the ``.pot`` file alongside the string::
+
+    # NOTE: Shown when card validation fails.
+    raise ValidationException(_('Card number must be at least 16 characters.'))
+
+Configuration
+-------------
+
+Languages
+.........
+
+List the languages your service supports in ``cfg.yml``::
 
     appkernel:
-        i18n:
-        languages: ['en-US','de-DE']
+      i18n:
+        languages: ['en-US', 'de-DE']
 
-Updating the translation files
-------------------------------
-Once you add new text to your source-files, you can re-generate the translation source files with the following commands ::
+AppKernel automatically expands ``en-US`` to also accept bare ``en``, so you
+don't need to list both.  The first entry is not treated as a special fallback —
+matching falls through to the next language in the list if no catalog is found.
 
-    (venv) $ pybabel extract -F babel.cfg -k _l -o messages.pot .
-    (venv) $ pybabel update -i messages.pot -d ./translations
-    (venv) $ pybabel compile -d ./translations
+Translations directory
+......................
 
-One can also use the ::
+At startup, AppKernel searches for a ``translations/`` directory in three
+locations (in order) relative to ``cfg_dir``::
 
-    python ./setup.py compile_catalog --help
+    <cfg_dir>/translations/
+    <cfg_dir>/tests/translations/
+    <parent of cfg_dir>/translations/
 
+The first existing directory wins.  If none is found, translation is silently
+disabled and all ``_()`` calls return the original string unchanged.
 
+babel.cfg
+.........
+
+Create a ``babel.cfg`` file at the root of your project to tell Babel which
+files to scan::
+
+    [model_messages: **.py]
+    extract_messages = _
+
+    [python: **.py]
+    encoding = utf-8
+
+The ``model_messages`` section uses AppKernel's custom extractor (registered
+via the ``babel.extractors`` entry point in ``pyproject.toml``).  It scans
+``Model`` subclasses and emits a translatable label for every declared field
+(e.g. ``User.name``, ``User.email``).  These labels are used by the ``/meta``
+endpoint for frontend UI rendering.  The ``python`` section covers ordinary
+``_()`` calls everywhere else.
+
+.. note::
+    The custom extractor targets the legacy ``Parameter()`` declaration style.
+    Fields declared with the modern ``Annotated[]`` syntax have their labels
+    auto-generated by ``lazy_gettext`` inside ``AppKernelMeta`` and will appear
+    in the catalog only if you run ``pybabel extract`` after the app has been
+    imported (so the metaclass has processed the annotations).
+
+Generating translation files
+-----------------------------
+
+With ``babel.cfg`` in place, run the following commands from your project root::
+
+    pybabel extract -F babel.cfg -k _ -o messages.pot .
+    pybabel init -i messages.pot -d ./translations -l en
+    pybabel init -i messages.pot -d ./translations -l de
+    pybabel compile -d ./translations
+
+``extract`` writes every marked string into ``messages.pot``.
+``init`` creates per-language ``.po`` files under ``translations/``.
+Edit those files to provide the actual translations, then ``compile``
+produces the binary ``.mo`` files that Babel loads at runtime.
+
+Updating translation files
+---------------------------
+
+When you add new translatable strings, re-extract and merge without losing
+existing translations::
+
+    pybabel extract -F babel.cfg -k _ -o messages.pot .
+    pybabel update -i messages.pot -d ./translations
+    pybabel compile -d ./translations
+
+``update`` merges new strings into the existing ``.po`` files and marks
+removed strings as obsolete, so nothing is lost.

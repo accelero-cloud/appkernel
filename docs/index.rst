@@ -1,13 +1,15 @@
-Welcome to Appkernel- API development made easy!
-==============================================
+Welcome to AppKernel — API development made easy!
+==================================================
 
-What is Appkernel?
+What is AppKernel?
 ------------------
-A super-easy to use API framework, enabling API creation from zero to production within minutes (no kidding: literally within minutes).
 
-**It provides data serialisation, transformation, validation, security, ORM, RPC and service mash functions out of the box** ([check out the roadmap for more details](docs/roadmap.md)).
+A super-easy-to-use API framework that takes you from zero to a production-ready REST service in minutes. No, really — minutes.
 
-The codebase is thoroughly tested under Python 3.7 (Python 2.7 support was dropped somewhere on the road).
+**It provides data serialisation, transformation, validation, security, ORM, RPC, and service mesh functions out of the box**
+(`check out the roadmap for more details <roadmap>`_).
+
+The codebase requires Python 3.12+ and is thoroughly tested on every push.
 
 
 Read the docs :)
@@ -18,40 +20,46 @@ Read the docs :)
 
 Crash Course (TL;DR)
 --------------------
-Let's build a mini identity service: ::
+
+Let's build a minimal identity service::
+
+    from typing import Annotated
+    from appkernel import (
+        AppKernelEngine, Model, MongoRepository,
+        Required, Generator, Validators, Converter, Default,
+        Email, NotEmpty, create_uuid_generator, content_hasher,
+    )
+    from appkernel import MongoUniqueIndex
 
     class User(Model, MongoRepository):
-        id = Property(str)
-        name = Property(str, required=True, index=UniqueIndex)
-        email = Property(str, validators=[Email], index=UniqueIndex)
-        password = Property(str, validators=[NotEmpty],
-                             converter=content_hasher(), omit=True)
-        roles = Property(list, sub_type=str, default_value=['Login'])
+        id:       Annotated[str | None, Generator(create_uuid_generator('U'))] = None
+        name:     Annotated[str | None, Required(), MongoUniqueIndex()] = None
+        email:    Annotated[str | None, Validators(Email), MongoUniqueIndex()] = None
+        password: Annotated[str | None, Validators(NotEmpty), Converter(content_hasher())] = None
+        roles:    Annotated[list[str] | None, Default(['Login'])] = None
 
     kernel = AppKernelEngine('demo app')
 
     if __name__ == '__main__':
+        kernel.register(User, methods=['GET', 'POST'])
 
-        kernel.register(User)
-
-        # let's create a sample user
-        user = User(name='Test User', email='test@accelero.cloud', password='some pass')
+        user = User(name='Test User', email='test@example.com', password='some pass')
         user.save()
 
         kernel.run()
 
-Now we can test it by using curl: ::
+Test it with curl::
 
    curl -i -X GET 'http://127.0.0.1:5000/users/'
 
-**And check out the result** ::
+And check out the result::
 
    {
      "_items": [
        {
-         "_type": "User",
-         "email": "test@appkernel.cloud",
-         "id": "0590e790-46cf-42a0-bdca-07b0694d08e2",
+         "_type": "appkernel.User",
+         "email": "test@example.com",
+         "id": "U0590e790-46cf-42a0-bdca-07b0694d08e2",
          "name": "Test User",
          "roles": [
            "Login"
@@ -65,70 +73,83 @@ Now we can test it by using curl: ::
      }
    }
 
-That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json
-schema for validation, or metadata to generate an SPA (Single Page Application). Of course validation and some more goodies are built-in as well :)
+That's it — the user is saved, retrievable by ID, and the service automatically exposes JSON schema and UI metadata endpoints. Validation, indexing, and password hashing are all wired in.
 
-Quick overview of some notable features
-=======================================
-Built-in ORM function
-----------------------
+Quick overview of notable features
+===================================
 
-Find one user matching the query parameter: ::
+Built-in query DSL
+-------------------
 
-   user = User.where(name=='Some username').find_one()
+Find one user matching a field value::
 
-Return the first 5 users which have the role "Admin": ::
+   user = User.where(User.name == 'Some Username').find_one()
 
-   user_generator = User.where(User.roles % 'Admin').find(page=0, page_size=5)
+Return the first five users with the 'Admin' role::
 
-Or use native Mongo Query: ::
+   users = User.where(User.roles % 'Admin').find(page=0, page_size=5)
 
-   user_generator = Project.find_by_query({'name': 'user name'})
+Or use a native MongoDB query when the DSL isn't enough::
 
-Some more extras baked into the Model
--------------------------------------
-Generate the ID value automatically using a uuid generator and a prefix 'U': ::
+   users = User.find_by_query({'name': 'user name'})
 
-   id = Property(..., generator=uuid_generator('U-'))
+Useful things baked into the Model
+------------------------------------
 
-It will generate an ID which gives a hint about the object type (eg. *U-0590e790-46cf-42a0-bdca-07b0694d08e2*)
+Auto-generate a prefixed UUID::
 
-Add a Unique index to the User's name property: ::
+   id: Annotated[str | None, Generator(create_uuid_generator('U'))] = None
+   # → U-0590e790-46cf-42a0-bdca-07b0694d08e2
 
-   name = Property(..., index=UniqueIndex)
+Add a unique index to a field::
 
-Validate the e-mail property, using the NotEmpty and Email validators ::
+   name: Annotated[str | None, Required(), MongoUniqueIndex()] = None
 
-   email = Property(..., validators=[Email, NotEmpty])
+Validate an email address::
 
-Add schema validation to the database: ::
+   email: Annotated[str | None, Validators(Email)] = None
+
+Validate at the database level too::
 
    User.add_schema_validation(validation_action='error')
 
-Hash the password and omit this attribute from the json representation: ::
+Hash a password and hide it from JSON output::
 
-   password = Property(..., converter=content_hasher(rounds=10), omit=True)
+   password: Annotated[str | None, Converter(content_hasher(rounds=10)), Field(exclude=True)] = None
 
-Run the generators on the attributes and validate the resulting object (usually not needed, since it is implicitly called by save and dumps methods): ::
+Run all generators and validators explicitly (usually not needed — ``save()`` and ``dumps()`` do this automatically)::
 
    user.finalise_and_validate()
 
 
-Setup role based access control
--------------------------------
+Role-based access control
+--------------------------
 
-Right after exposing the service as a REST endpoint, security rules can be added to it: ::
+Attach security rules immediately after registering a service::
 
     user_service = kernel.register(User, methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
-    user_service.deny_all().require(Role('user'), methods='GET').
-    require(Role('admin'), methods=['PUT', 'POST', 'PATCH', 'DELETE'])
-The configuration above will allow to GET `user` related endpoints by all users who has the **user** role. PUT, POST, PATCH and DELETE method are allowed
-to be called by users with the **admin** role.
+    user_service.deny_all() \
+        .require(Role('user'), methods='GET') \
+        .require(Role('admin'), methods=['PUT', 'POST', 'PATCH', 'DELETE'])
 
-JWT Token
-.........
+GET is open to any authenticated user with the ``user`` role; write operations require ``admin``.
 
-Once the Model object extends the :class:`IdentityMixin`, it will feature a property called **auth_token** which will contain a valid JWT token.
-All **roles** from the model are added to the token. Accessing the jqt token is simple: ::
+JWT tokens
+..........
 
-    token = user.auth_token
+To issue tokens, mix :class:`IdentityMixin` into any model that has an ``id``
+and a ``roles`` field.  The ``auth_token`` property generates a signed JWT
+(RS256) on demand — no extra controller needed::
+
+    class User(Model, MongoRepository, IdentityMixin):
+        id:    Annotated[str | None, Generator(create_uuid_generator('U'))] = None
+        roles: list[str] | None = None
+
+    user = User.where(User.name == 'Alice').find_one()
+    token = user.auth_token   # ready to send in an Authorization: Bearer header
+
+All roles from the model are embedded in the token payload.  Tokens are
+audience-scoped to the ``app_id`` passed to ``AppKernelEngine``, so a token
+issued by one service is rejected by all others.
+
+See :ref:`Role Based Access Management` for key setup, RBAC configuration, CORS, and CSRF guidance.
