@@ -57,7 +57,7 @@ if __name__ == '__main__':
 That's all folks, our user service is ready to roll, the entity is saved, we can re-load the object from the database, or we can request its json schema for validation, or metadata to generate an SPA (Single Page Application).
 Of course validation and some more goodies are built-in as well :)
 
-### Retrieving our our User, using HTTP requests
+### Retrieving our User, using HTTP requests
 
 **GET request**:
 ```bash
